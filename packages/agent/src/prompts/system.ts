@@ -1,15 +1,13 @@
-import { MemoryUnit } from '@memohome/memory'
-import { block, quote } from './utils'
+import { quote } from './utils'
 
 export interface SystemParams {
   date: Date
   locale?: Intl.LocalesArgument
   language: string
   maxContextLoadTime: number
-  memory: MemoryUnit[]
 }
 
-export const system = ({ date, locale, language, maxContextLoadTime, memory }: SystemParams) => {
+export const system = ({ date, locale, language, maxContextLoadTime }: SystemParams) => {
   return `
   ---
   date: ${date.toLocaleDateString(locale)}
@@ -26,9 +24,5 @@ export const system = ({ date, locale, language, maxContextLoadTime, memory }: S
   **Memory**
   - Your context has been loaded from the last ${maxContextLoadTime} minutes.
   - You can use ${quote('search-memory')} to search for past memories with natural language.
-  - The search result is performed as chat history, load into your system prompt as a context.
-
-  **Past Memory Loaded**
-  ${block(memory.map(m => m.raw).join('\n\n'), 'memory')}
   `.trim()
 }

@@ -2,22 +2,17 @@ import { streamText, ModelMessage, stepCountIs } from 'ai'
 import { AgentParams } from './types'
 import { system } from './prompts'
 import { getMemoryTools } from './tools'
-import { MemoryUnit } from '@memohome/memory'
-import { createGateway } from './gateway'
+import { createChatGateway } from '@memohome/ai-gateway'
 
 export const createAgent = (params: AgentParams) => {
   const messages: ModelMessage[] = []
-  const memory: MemoryUnit[] = []
 
-  const gateway = createGateway(params.model)
+  const gateway = createChatGateway(params.model)
 
   const getTools = async () => {
     return {
       ...getMemoryTools({
-        searchMemory: params.onSearchMemory ?? (() => Promise.resolve([])),
-        onLoadMemory: async (memory) => {
-          memory.push(...memory)
-        },
+        searchMemory: params.onSearchMemory ?? (() => Promise.resolve([]))
       }),
     }
   }
@@ -36,12 +31,11 @@ export const createAgent = (params: AgentParams) => {
       language: params.language ?? 'Same as user input',
       locale: params.locale,
       maxContextLoadTime: params.maxContextLoadTime,
-      memory,
     })
   }
 
   async function* ask(input: string) {
-    await loadContext()
+    // await loadContext()
     const user = {
       role: 'user',
       content: input,

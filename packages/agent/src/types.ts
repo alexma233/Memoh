@@ -1,9 +1,9 @@
 import type { MemoryUnit } from '@memohome/memory'
-import { BaseModel } from '@memohome/shared'
+import { ChatModel } from '@memohome/shared'
 import { ModelMessage } from 'ai'
 
 export interface AgentParams {
-  model: BaseModel
+  model: ChatModel
 
   /**
    * Unit: minutes
@@ -20,7 +20,7 @@ export interface AgentParams {
 
   onReadMemory?: (from: Date, to: Date) => Promise<MemoryUnit[]>
 
-  onSearchMemory?: (query: string) => Promise<MemoryUnit[]>
+  onSearchMemory?: (query: string) => Promise<object[]>
 
   onFinish?: (messages: ModelMessage[]) => Promise<void>
 

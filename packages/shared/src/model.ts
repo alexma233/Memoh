@@ -4,6 +4,11 @@ export enum ModelClientType {
   GOOGLE = 'google',
 }
 
+export enum ModelType {
+  CHAT = 'chat',
+  EMBEDDING = 'embedding',
+}
+
 export interface BaseModel {
   /**
    * @description The unique identifier for the model
@@ -34,4 +39,27 @@ export interface BaseModel {
    * @example 'GPT 4o'
    */
   name?: string
+
+  /**
+   * @description The model type
+   * @enum {ModelType}
+   * @default {ModelType.CHAT}
+   */
+  type?: ModelType
 }
+
+export interface EmbeddingModel extends BaseModel {
+  type?: ModelType.EMBEDDING
+
+  /**
+   * @description The dimensions of the embedding
+   * @example 1536
+   */
+  dimensions: number
+}
+
+export interface ChatModel extends BaseModel {
+  type?: ModelType.CHAT
+}
+
+export type Model = EmbeddingModel | ChatModel

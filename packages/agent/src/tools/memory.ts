@@ -1,13 +1,11 @@
-import { MemoryUnit } from '@memohome/memory'
 import { tool } from 'ai'
 import { z } from 'zod'
 
 export interface GetMemoryToolParams {
-  searchMemory: (query: string) => Promise<MemoryUnit[]>
-  onLoadMemory: (memory: MemoryUnit[]) => Promise<void>
+  searchMemory: (query: string) => Promise<object[]>
 }
 
-export const getMemoryTools = ({ searchMemory, onLoadMemory }: GetMemoryToolParams) => {
+export const getMemoryTools = ({ searchMemory }: GetMemoryToolParams) => {
   const searchMemoryTool = tool({
     description: 'Search chat history in the memory',
     inputSchema: z.object({
@@ -15,10 +13,10 @@ export const getMemoryTools = ({ searchMemory, onLoadMemory }: GetMemoryToolPara
     }),
     execute: async ({ query }) => {
       const memory = await searchMemory(query)
-      onLoadMemory(memory)
+      console.log(memory)
       return {
         success: true,
-        message: `${memory.length} memories has load into your context`,
+        memories: memory,
       }
     },
   })

@@ -15,9 +15,12 @@
   "packageManager": "pnpm@10.27.0",
   "dependencies": {
     "@ai-sdk/openai": "^3.0.7",
+    "@memohome/ai-gateway": "workspace:*",
     "@memohome/db": "workspace:*",
+    "@memohome/shared": "workspace:*",
     "ai": "^6.0.25",
     "drizzle-orm": "^0.45.1",
+    "mem0ai": "^2.2.0",
     "xsai": "^0.4.1"
   }
 }
