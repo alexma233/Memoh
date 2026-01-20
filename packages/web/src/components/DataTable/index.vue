@@ -5,7 +5,6 @@ import {
   getCoreRowModel,
   useVueTable,
 } from '@tanstack/vue-table'
-
 import {
   Table,
   TableBody,
@@ -25,7 +24,6 @@ const table = useVueTable({
   get columns() { return props.columns },
   getCoreRowModel: getCoreRowModel(),
 })
-console.log(table.getHeaderGroups())
 </script>
 
 <template>

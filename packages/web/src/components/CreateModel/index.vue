@@ -3,7 +3,7 @@
     <Dialog v-model:open="open">
       <DialogTrigger as-child>
         <Button variant="default">
-          Open Dialog
+          添加Model
         </Button>
       </DialogTrigger>
       <DialogContent class="sm:max-w-106.25">
@@ -132,7 +132,7 @@
             </FormField>
             <FormField
               v-slot="{ componentField }"
-              name="role"
+              name="type"
             >
               <FormItem>
                 <FormLabel class="mb-2">
@@ -145,14 +145,10 @@
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem
-                          value="chat"
-                        >
+                        <SelectItem value="chat">
                           Chat
                         </SelectItem>
-                        <SelectItem
-                          value="embedding"
-                        >
+                        <SelectItem value="embedding">
                           embedding
                         </SelectItem>
                       </SelectGroup>
@@ -206,40 +202,65 @@ import {
   FormMessage
 } from '@memoh/ui'
 import { useForm } from 'vee-validate'
-import { ref } from 'vue'
+import { inject, watch, type Ref,ref } from 'vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import z from 'zod'
 import request from '@/utils/request'
-import { useMutation,useQueryCache } from '@pinia/colada'
+import { useMutation, useQueryCache } from '@pinia/colada'
 
 
 const formSchema = toTypedSchema(z.object({
+  modelId:z.string().min(1),
   baseUrl: z.string().min(1),
   apiKey: z.string().min(1),
   clientType: z.string().min(1),
   name: z.string().min(1),
-  role: z.string().min(1),
+  type: z.string().min(1),
 }))
 
 const form = useForm({
   validationSchema: formSchema
 })
 
-const queryCache=useQueryCache()
+const queryCache = useQueryCache()
+type ModelInfoType= Parameters<(Parameters<typeof form.handleSubmit>)[0]>[0]
 const { mutate: createModel } = useMutation({
-  mutation: (modelInfo: Parameters<(Parameters<typeof form.handleSubmit>)[0]>[0]) => request({
+  mutation: (modelInfo:ModelInfoType ) => request({
     url: '/model',
     data: {
-      ...modelInfo,
-      modelId:'fwoi0fjwfiwefwjfiowefoi'
+      ...modelInfo,      
     },
-    method:'post'
+    method: 'post'
   }),
-  onSettled: () => queryCache.invalidateQueries({ key: ['models'], exact: true })
-})
-const addModel = form.handleSubmit(async (modelInfo) => {
-  createModel(modelInfo)
+  onSettled: () => { open.value = false; queryCache.invalidateQueries({ key: ['models'], exact: true })}
 })
 
-const open = ref(false)
+const { mutate: updateModel } = useMutation({
+  mutation: (modelInfo: ModelInfoType) => request({
+    url: `/model/${editInfo.value?.id}`,
+    data: {
+      ...modelInfo,
+    },
+    method: 'PUT'
+  }),
+  onSettled: () => { open.value = false; queryCache.invalidateQueries({ key: ['models'], exact: true }) }
+})
+const addModel = form.handleSubmit(async (modelInfo) => {
+  if (editInfo.value?.id) {
+    updateModel(modelInfo)
+  } else {
+    createModel(modelInfo)   
+  }
+ 
+})
+
+const open = inject<Ref<boolean>>('open',ref(false))
+const editInfo = inject('editModelInfo',ref<null|(ModelInfoType&{id:string})>(null))
+watch(open, () => {  
+  if (open.value && editInfo?.value) {
+    form.setValues(editInfo.value) 
+  }
+}, {
+  immediate:true
+})
 </script>

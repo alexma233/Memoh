@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-
 const routes = [
   {
     path: '/',
@@ -72,6 +71,7 @@ const router = createRouter({
 })
 router.beforeEach((to) => {
   const token = localStorage.getItem('token')
+  
   if (to.fullPath !== '/login') {
     return token ? true : { name: 'Login' }
   } else {

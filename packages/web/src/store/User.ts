@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
-import { reactive } from 'vue'
+import { reactive,watch } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
+import { useRouter } from 'vue-router'
 
 
 type user={
@@ -8,6 +10,8 @@ type user={
   'role': string,
   'displayName': string
 }
+
+
 export const useUserStore = defineStore('user', () => {
   const userInfo = reactive<user>({
     'id': '',
@@ -16,20 +20,32 @@ export const useUserStore = defineStore('user', () => {
     'displayName': ''
   })
 
+  const localToken=useLocalStorage('token','')
+  
 
   const login = (userData: user,token:string) => {
-    localStorage.setItem('token',token)
+    localToken.value=token
     for (const key of Object.keys(userData) as (keyof user)[]) {
       userInfo[key] = userData[key]
     }
   }
 
   const exitLogin = () => {
-    localStorage.removeItem('token')
+    localToken.value=''
     for (const key of Object.keys(userInfo) as (keyof user)[]) {
       userInfo[key]=''
     }
   }
+  const router=useRouter()
+  watch(localToken, () => {
+   
+    if (!localToken.value) {
+      exitLogin()
+      router.replace({name:'Login'})
+    }
+  }, {
+    immediate: true
+  })
   return {
     userInfo,
     login,
