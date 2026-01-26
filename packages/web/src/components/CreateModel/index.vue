@@ -3,13 +3,13 @@
     <Dialog v-model:open="open">
       <DialogTrigger as-child>
         <Button variant="default">
-          添加Model
+          {{ $t("button.add",{msg:"Model"}) }}
         </Button>
       </DialogTrigger>
       <DialogContent class="sm:max-w-106.25">
         <form @submit="addModel">
           <DialogHeader>
-            <DialogTitle>添加Model</DialogTitle>
+            <DialogTitle> {{ $t("button.add", { msg: "Model" }) }}</DialogTitle>
             <DialogDescription class="mb-4">
               使用不用厂商的大模型
             </DialogDescription>
@@ -26,7 +26,7 @@
                 <FormControl>
                   <Input
                     type="text"
-                    placeholder="请输入Model Name"
+                    :placeholder="$t('prompt.enter',{msg:'Model Name'})"
                     v-bind="componentField"
                     autocomplete="modelId"
                   />
@@ -46,8 +46,8 @@
                 </FormLabel>
                 <FormControl>
                   <Input
-                    type="text"
-                    placeholder="请输入Base Url"
+                    type="text"                
+                    :placeholder="$t('prompt.enter', { msg: 'Base Url' })"
                     v-bind="componentField"
                     autocomplete="baseurl"
                   />
@@ -67,7 +67,7 @@
                 </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="请输入Api Key"
+                    :placeholder="$t('prompt.enter', { msg: 'Api Key' })"
                     autocomplete="apiKey"
                     v-bind="componentField"
                   />
@@ -88,7 +88,7 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择Client Type" />
+                      <SelectValue :placeholder="$t('prompt.select',{msg:'Client Type'})" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -120,7 +120,7 @@
                 </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="请输入Api Key"
+                    :placeholder="$t('prompt.enter', { msg: 'Display Name' })"
                     autocomplete="name"
                     v-bind="componentField"
                   />
@@ -141,7 +141,7 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择Role" />
+                      <SelectValue :placeholder="$t('prompt.select', { msg: 'Role' })" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -168,7 +168,7 @@
               </Button>
             </DialogClose>
             <Button type="submit">
-              添加Model
+              {{ $t("button.add", { msg: "Model" }) }}
             </Button>
           </DialogFooter>
         </form>

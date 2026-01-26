@@ -12,10 +12,10 @@
         <Breadcrumb>
           <BreadcrumbList>
             <template
-              v-for="(breadcrumbItem,index) in curBreadcrumb"
+              v-for="(breadcrumbItem, index) in curBreadcrumb"
               :key="breadcrumbItem"
             >
-              <template v-if="(index+1)!==curBreadcrumb.length">
+              <template v-if="(index + 1) !== curBreadcrumb.length">
                 <BreadcrumbItem class="hidden md:block">
                   <BreadcrumbLink :href="breadcrumbItem.path">
                     {{ breadcrumbItem.breadcrumb }}
@@ -23,7 +23,7 @@
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
               </template>
-             
+
               <BreadcrumbItem v-else>
                 <BreadcrumbPage>
                   {{ breadcrumbItem.breadcrumb }}
@@ -52,17 +52,24 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-  Separator
+  Separator,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@memoh/ui'
-import {useRoute} from 'vue-router'
+import { useRoute } from 'vue-router'
 import { computed } from 'vue'
+import SvgIcon from '@jamescoyle/vue-icon'
+import { mdiTranslate } from '@mdi/js'
+
 const route = useRoute()
 
-const curBreadcrumb = computed(() => { 
+const curBreadcrumb = computed(() => {
   return route.matched.map(routeItem => ({
     path: routeItem.path,
     breadcrumb: routeItem.meta['breadcrumb']
-  })) 
+  }))
 })
 
 </script>

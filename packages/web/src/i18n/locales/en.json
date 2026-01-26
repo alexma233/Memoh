@@ -1,0 +1,39 @@
+{
+  "login": {
+    "username": "Username",
+    "password": "Password",
+    "login": "Login",
+    "register": "Register",
+    "forget": "Forgot your password?",
+    "exit": "Sign Out"
+  },
+  "prompt": {
+    "enter": "Please enter {msg}",
+    "select": "Please select {msg}"
+  },
+  "slidebar": {
+    "setting": "Settings",
+    "platform": "Platform",
+    "chat": "Create Chat",
+    "model_setting": "Model Settings",
+    "home": "Home"
+  },
+  "desc": {
+    "question": "your question"
+  },
+  "chat": {
+    "send": "Send",
+    "chat": "Chat"
+  },
+  "breadcrumb": {
+    "main": "Main"
+  },
+  "button": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add {msg}"
+  },
+  "state":{
+    "open":"Open"
+  }
+}

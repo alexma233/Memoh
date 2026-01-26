@@ -1,0 +1,39 @@
+{
+  "login": {
+    "username": "用户名",
+    "password": "密码",
+    "login": "登录",
+    "register": "注册",
+    "forget": "忘记密码?",
+    "exit": "退出登录"
+  },
+  "desc": {
+    "question": "您的问题"
+  },
+  "prompt": {
+    "enter": "请输入{msg}",
+    "select": "请选择{msg}"
+  },
+  "slidebar": {
+    "setting": "设置",
+    "platform": "平台",
+    "chat": "创建对话",
+    "model_setting": "模型配置",
+    "home": "主页"
+  },
+  "chat": {
+    "send": "发送",
+    "chat": "对话"
+  },
+  "breadcrumb": {
+    "main": "主菜单"
+  },
+  "button": {
+    "edit": "编辑",
+    "delete": "删除",
+    "add": "添加{msg}"
+  },
+  "state": {
+    "open": "Open"
+  }
+}

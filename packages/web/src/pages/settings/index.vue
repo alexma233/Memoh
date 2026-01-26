@@ -23,7 +23,7 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择Client Type" />
+                      <SelectValue :placeholder="$t('prompt.select',{msg:'Client Type'})" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -54,7 +54,7 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择Embedding Type" />
+                      <SelectValue :placeholder="$t('prompt.select',{msg:'Embedding Type'})" />
                     </SelectTrigger>
                     <SelectContent v-if="modelType.embedding.length > 0">
                       <SelectGroup>
@@ -88,7 +88,7 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择Summary Type" />
+                      <SelectValue :placeholder="$t('prompt.select', { msg: 'Summary Type' })" />
                     </SelectTrigger>
                     <SelectContent v-if="modelType.embedding.length > 0">
                       <SelectGroup>
@@ -119,7 +119,9 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择Language" />
+                      <SelectValue                    
+                        :placeholder="$t('prompt.select', { msg: 'Language' })"
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -149,7 +151,7 @@
                 </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="请输入超时时间"
+                    :placeholder="$t('prompt.enter',{msg:'Timeout'})"
                     v-bind="componentField"
                   />
                 </FormControl>

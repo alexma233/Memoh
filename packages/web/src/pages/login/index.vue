@@ -24,12 +24,12 @@
             >
               <FormItem>
                 <FormLabel class="mb-2">
-                  Username
+                  {{ $t("login.username") }}
                 </FormLabel>
                 <FormControl>
                   <Input
                     type="text"
-                    placeholder="请输入用户名"
+                    :placeholder="$t('prompt.enter', { msg: $t(`login.username`).toLocaleLowerCase() })"
                     v-bind="componentField"
                     autocomplete="username"
                   />
@@ -45,12 +45,12 @@
             >
               <FormItem>
                 <FormLabel class="mb-2">
-                  Password
+                  {{ $t('login.password') }}
                 </FormLabel>
                 <FormControl>
                   <Input
                     type="password"
-                    placeholder="请输入密码"
+                    :placeholder="$t('prompt.enter',{msg:$t(`login.password`).toLocaleLowerCase()})"
                     autocomplete="password"
                     v-bind="componentField"
                   />
@@ -65,7 +65,7 @@
                 href="#"
                 class="ml-auto inline-block text-sm underline mt-2"
               >
-                Forgot your password?
+                {{ $t('login.forget') }}
               </a>
             </div>
           </CardContent>
@@ -75,13 +75,13 @@
               type="submit"
               @click="login"
             >
-              登录
+              {{ $t("login.login") }}
             </Button>
             <Button
               variant="outline"
               class="w-full"
             >
-              注册
+              {{ $t("login.register") }}
             </Button>
           </CardFooter>
         </Card>
@@ -153,8 +153,6 @@ const login = form.handleSubmit(async (values) => {
   } finally {
     loading.value=false
   }
-
-  
 })
 
 

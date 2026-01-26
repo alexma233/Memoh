@@ -6,13 +6,13 @@
           variant="default"
           class="ml-auto my-4"
         >
-          添加MCP
+          {{ $t("button.add",{msg:"MCP"}) }}
         </Button>
       </DialogTrigger>
       <DialogContent class="sm:max-w-106.25">
         <form @submit="createMCP">
           <DialogHeader>
-            <DialogTitle>添加MCP</DialogTitle>
+            <DialogTitle>  {{ $t("button.add", { msg: "MCP" }) }}</DialogTitle>
             <DialogDescription class="mb-4">
               添加MCP完成操作
             </DialogDescription>
@@ -29,7 +29,7 @@
                 <FormControl>
                   <Input
                     type="text"
-                    placeholder="请输入Name"
+                    :placeholder="$t('prompt.enter', { msg: 'Name' })"       
                     v-bind="componentField"
                     autocomplete="name"
                   />
@@ -50,7 +50,9 @@
                 <FormControl>
                   <Select v-bind="componentField">
                     <SelectTrigger class="w-full">
-                      <SelectValue placeholder="请选择 Type" />
+                      <SelectValue                       
+                        :placeholder="$t('prompt.select', { msg: 'Type' })"
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -77,7 +79,7 @@
                 <FormControl>
                   <Input
                     type="text"
-                    placeholder="请输入cwd"
+                    :placeholder="$t('prompt.enter', { msg: 'cwd' })"                   
                     v-bind="componentField"
                     autocomplete="cwd"
                   />
@@ -97,7 +99,7 @@
                 </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="请输入Command"
+                    :placeholder="$t('prompt.enter', { msg: 'Command' })"
                     v-bind="componentField"
                   />
                 </FormControl>
@@ -129,8 +131,8 @@
                       <TagsInputItemText />
                       <TagsInputItemDelete />
                     </TagsInputItem>
-                    <TagsInputInput
-                      placeholder="请输入Arguments"
+                    <TagsInputInput                      
+                      :placeholder="$t('prompt.enter', { msg: 'Arguments' })"
                       class="w-full py-1"
                     />
                   </TagsInput>
@@ -179,7 +181,7 @@
                       <TagsInputItemDelete />
                     </TagsInputItem>
                     <TagsInputInput
-                      placeholder="请输入Env"
+                      :placeholder="$t('prompt.enter', { msg: 'Env' })"
                       class="w-full py-1"
                     />
                   </TagsInput>
@@ -196,7 +198,7 @@
               <FormItem>
                 <FormControl>
                   <section class="flex gap-4">
-                    <Label for="airplane-mode">开启</Label>
+                    <Label for="airplane-mode">{{ $t('state.open') }}</Label>
                     <Switch
                       id="airplane-mode"
                       :model-value="componentField.modelValue"
@@ -217,7 +219,7 @@
               </Button>
             </DialogClose>
             <Button type="submit">
-              添加MCP
+              {{ $t("button.add", { msg: "MCP" }) }}
             </Button>
           </DialogFooter>
         </form>

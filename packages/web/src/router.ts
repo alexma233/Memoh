@@ -1,4 +1,7 @@
+import { computed } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
+import i18n from './i18n'
+import { i18nRef } from './i18n'
 
 const routes = [
   {
@@ -15,14 +18,14 @@ const routes = [
     path: '/main',
     redirect: '/main/chat',
     meta: {
-      breadcrumb: '主菜单'
+      breadcrumb: i18nRef('breadcrumb.main')
     },
     children: [{
       name: 'chat',
       path: 'chat',
       component: () => import('@/pages/chat/index.vue'),
       meta: {
-        breadcrumb: '对话'
+        breadcrumb: i18nRef('chat.chat')
       }
     }, {
       name: 'home',
@@ -36,14 +39,14 @@ const routes = [
       path: 'models',
       component: () => import('@/pages/models/index.vue'),
       meta: {
-        breadcrumb: '模型管理'
+        breadcrumb: i18nRef('slidebar.model_setting')
       }
     }, {
       name: 'settings',
       path: 'settings',
       component: () => import('@/pages/settings/index.vue'),
       meta: {
-        breadcrumb: '设置'
+        breadcrumb: i18nRef('slidebar.setting')
       }
     }, {
       name: 'mcp',
@@ -57,7 +60,7 @@ const routes = [
       path: 'platform',
       component: () => import('@/pages/platform/index.vue'),
       meta: {
-        breadcrumb: '平台'
+        breadcrumb: i18nRef('slidebar.platform')
       }
     }]
   }

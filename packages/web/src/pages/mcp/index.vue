@@ -19,7 +19,8 @@ import {
   Badge,
   Button
 } from '@memoh/ui'
-import { type MCPListItem as  MCPType } from '@memoh/shared'
+import { type MCPListItem as MCPType } from '@memoh/shared'
+import { i18nRef } from '@/i18n'
 
 
 const open = ref(false)
@@ -94,7 +95,7 @@ const columns:ColumnDef<MCPType>[] = [
           }       
           open.value=true
         }
-      }, ()=>'编辑'),
+      }, ()=>i18nRef('button.edit').value),
       h(Button, {
         variant: 'destructive',
         async onClick() {        
@@ -104,7 +105,7 @@ const columns:ColumnDef<MCPType>[] = [
             return
           }
         }
-      },()=>'删除')
+      },()=>i18nRef('button.delete').value)
     ])
   }
 ]

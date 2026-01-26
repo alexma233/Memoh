@@ -5,19 +5,19 @@ import CreateModel from '@/components/CreateModel/index.vue'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import {
   Button,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
+  // Pagination,
+  // PaginationContent,
+  // PaginationEllipsis,
+  // PaginationItem,
+  // PaginationNext,
+  // PaginationPrevious,
   Checkbox
 } from '@memoh/ui'
 import DataTable from '@/components/DataTable/index.vue'
 import request from '@/utils/request'
 import { type ColumnDef } from '@tanstack/vue-table'
 import {type  ModelTable  as ModelType} from '@memoh/shared'
-
+import { i18nRef } from '@/i18n'
 
 const openDialogModel = ref(false)
 const editModelInfo = ref<ModelType & { id: string } | null>(null)
@@ -131,11 +131,11 @@ const columns: ComputedRef<ColumnDef<ModelType>[]> = computed(() => [
         editModelInfo.value = row.original
         openDialogModel.value = true
       }
-    }, () => '编辑'), h(Button, {
+    }, () => i18nRef('button.edit').value), h(Button, {
       variant: 'destructive', onClick() {
         deleteModel(row.original.id)
       }
-    }, () => '删除')])
+    }, () => i18nRef('button.delete').value)])
   }
 ])
 

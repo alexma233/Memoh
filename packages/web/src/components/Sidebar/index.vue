@@ -56,7 +56,7 @@
               class="flex-[0.7] mb-10"
               @click="exit"
             >
-              退出登录
+              {{ $t("login.exit") }}
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -81,45 +81,50 @@ import {
   Collapsible,
   Button
 } from '@memoh/ui'
-import { reactive } from 'vue'
+import { computed } from 'vue'
 import SvgIcon from '@jamescoyle/vue-icon'
 import { mdiRobot, mdiChatOutline, mdiCogBox, mdiListBox, mdiHome, mdiBookArrowDown } from '@mdi/js'
 import { useRouter } from 'vue-router'
-import {useUserStore} from '@/store/User.ts'
+import { useUserStore } from '@/store/User.ts'
+import i18n from '@/i18n'
 
+const router=useRouter()
 
-const router = useRouter()
+const { t } = i18n.global
 
-const sidebarInfo = reactive([{
-  title: '创建对话',
-  name: 'chat',
-  icon: mdiChatOutline
-}, {
-  title: '主页',
-  name: 'home',
-  icon: mdiHome
-},
-{
-  title: '模型配置',
-  name: 'models',
-  icon: mdiRobot
-}, {
-  title: '设置',
-  name: 'settings',
-  icon: mdiCogBox
-}, {
-  title: 'MCP',
-  name: 'mcp',
-  icon: mdiListBox
-}, {
-  title: '平台',
-  name: 'platform',
-  icon: mdiBookArrowDown
-  }])
+const sidebarInfo = computed(() => [
+  {
+    title: t('slidebar.chat'),
+    name: 'chat',
+    icon: mdiChatOutline
+  },
+  {
+    title: t('slidebar.home'),
+    name: 'home',
+    icon: mdiHome
+  },
+  {
+    title: t('slidebar.model_setting'),
+    name: 'models',
+    icon: mdiRobot
+  }, {
+    title: t('slidebar.setting'),
+    name: 'settings',
+    icon: mdiCogBox
+  }, {
+    title: 'MCP',
+    name: 'mcp',
+    icon: mdiListBox
+  }, {
+    title: t('slidebar.platform'),
+    name: 'platform',
+    icon: mdiBookArrowDown
+  }
+])
 
-  const {exitLogin}=useUserStore()
+const { exitLogin } = useUserStore()
 const exit = () => {
   exitLogin()
-  router.replace({name:'Login'})
+  router.replace({ name: 'Login' })
 }
 </script>

@@ -23,7 +23,7 @@
     <section class="flex-none relative">
       <Textarea
         class="pb-16 pt-4"
-        placeholder="请输入想要获取的内容"
+        :placeholder="$t('prompt.enter',{msg:$t('desc.question')})"
       />
       <section
         class="absolute bottom-0 h-14 px-2 inset-x-0 flex items-center"
@@ -32,7 +32,7 @@
           variant="default"
           class="ml-auto"
         >
-          发送
+          {{ $t('chat.send') }}
           <svg-icon
             type="mdi"
             :path="mdiSendOutline"

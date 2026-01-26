@@ -12,7 +12,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "typeRoots": ["./node_modules/@types", "./type.d.ts"],
-    "baseUrl": ".",   
+    "rootDir": ".",   
     "paths": {
       "@/*": ["./src/*"]
     }
