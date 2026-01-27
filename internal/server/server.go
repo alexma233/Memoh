@@ -15,7 +15,7 @@ type Server struct {
 	addr string
 }
 
-func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler, authHandler *handlers.AuthHandler, memoryHandler *handlers.MemoryHandler, embeddingsHandler *handlers.EmbeddingsHandler, fsHandler *handlers.FSHandler, swaggerHandler *handlers.SwaggerHandler, chatHandler *handlers.ChatHandler, providersHandler *handlers.ProvidersHandler, modelsHandler *handlers.ModelsHandler) *Server {
+func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler, authHandler *handlers.AuthHandler, memoryHandler *handlers.MemoryHandler, embeddingsHandler *handlers.EmbeddingsHandler, swaggerHandler *handlers.SwaggerHandler, chatHandler *handlers.ChatHandler, providersHandler *handlers.ProvidersHandler, modelsHandler *handlers.ModelsHandler, containerdHandler *handlers.ContainerdHandler) *Server {
 	if addr == "" {
 		addr = ":8080"
 	}
@@ -27,6 +27,9 @@ func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler,
 	e.Use(auth.JWTMiddleware(jwtSecret, func(c echo.Context) bool {
 		path := c.Request().URL.Path
 		if path == "/ping" || path == "/api/swagger.json" || path == "/auth/login" {
+			return true
+		}
+		if strings.HasPrefix(path, "/mcp/") {
 			return true
 		}
 		if strings.HasPrefix(path, "/api/docs") {
@@ -47,9 +50,6 @@ func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler,
 	if embeddingsHandler != nil {
 		embeddingsHandler.Register(e)
 	}
-	if fsHandler != nil {
-		fsHandler.Register(e)
-	}
 	if swaggerHandler != nil {
 		swaggerHandler.Register(e)
 	}
@@ -61,6 +61,9 @@ func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler,
 	}
 	if modelsHandler != nil {
 		modelsHandler.Register(e)
+	}
+	if containerdHandler != nil {
+		containerdHandler.Register(e)
 	}
 
 	return &Server{

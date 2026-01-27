@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"syscall"
+	"strings"
 	"time"
 
 	tasksv1 "github.com/containerd/containerd/api/services/tasks/v1"
@@ -16,6 +17,7 @@ import (
 	"github.com/containerd/containerd/v2/defaults"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
+	"github.com/containerd/errdefs"
 	"github.com/containerd/containerd/v2/pkg/oci"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -179,13 +181,21 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 	}
 
 	ctx = s.withNamespace(ctx)
-	pullOpts := &PullImageOptions{
-		Unpack:      true,
-		Snapshotter: req.Snapshotter,
-	}
-	image, err := s.PullImage(ctx, req.ImageRef, pullOpts)
+	image, err := s.getImageWithFallback(ctx, req.ImageRef)
 	if err != nil {
-		return nil, err
+		pullOpts := &PullImageOptions{
+			Unpack:      true,
+			Snapshotter: req.Snapshotter,
+		}
+		image, err = s.PullImage(ctx, req.ImageRef, pullOpts)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if req.Snapshotter != "" {
+		if err := image.Unpack(ctx, req.Snapshotter); err != nil && !errdefs.IsAlreadyExists(err) {
+			return nil, err
+		}
 	}
 
 	snapshotID := req.SnapshotID
@@ -222,6 +232,36 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 	}
 
 	return s.client.NewContainer(ctx, req.ID, containerOpts...)
+}
+
+func (s *DefaultService) getImageWithFallback(ctx context.Context, ref string) (containerd.Image, error) {
+	image, err := s.GetImage(ctx, ref)
+	if err == nil {
+		return image, nil
+	}
+	if strings.HasPrefix(ref, "docker.io/library/") {
+		alt := strings.TrimPrefix(ref, "docker.io/library/")
+		image, altErr := s.GetImage(ctx, alt)
+		if altErr == nil {
+			return image, nil
+		}
+	}
+	images, listErr := s.ListImages(ctx)
+	if listErr == nil {
+		for _, img := range images {
+			name := img.Name()
+			if name == ref || strings.HasSuffix(ref, "/"+name) || strings.HasSuffix(name, "/"+ref) {
+				return img, nil
+			}
+			if strings.HasPrefix(ref, "docker.io/library/") {
+				alt := strings.TrimPrefix(ref, "docker.io/library/")
+				if name == alt || strings.HasSuffix(name, "/"+alt) {
+					return img, nil
+				}
+			}
+		}
+	}
+	return nil, err
 }
 
 func (s *DefaultService) GetContainer(ctx context.Context, id string) (containerd.Container, error) {
@@ -580,3 +620,4 @@ func (s *DefaultService) SnapshotMounts(ctx context.Context, snapshotter, key st
 func (s *DefaultService) withNamespace(ctx context.Context) context.Context {
 	return namespaces.WithNamespace(ctx, s.namespace)
 }
+

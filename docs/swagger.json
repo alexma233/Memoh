@@ -188,71 +188,32 @@
                 }
             }
         },
-        "/fs/apply_patch": {
+        "/mcp/containers": {
             "post": {
-                "description": "Apply a unified diff patch to a file under the user data mount",
                 "tags": [
-                    "fs"
+                    "containerd"
                 ],
-                "summary": "Apply unified diff patch",
+                "summary": "Create and start MCP container",
                 "parameters": [
                     {
-                        "description": "Patch payload",
+                        "description": "Create container payload",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ApplyPatchRequest"
+                            "$ref": "#/definitions/handlers.CreateContainerRequest"
                         }
                     }
                 ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/fs/commit": {
-            "post": {
-                "description": "Create a new version snapshot for the user container",
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Commit a filesystem snapshot",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.CommitResponse"
+                            "$ref": "#/definitions/handlers.CreateContainerResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -266,34 +227,24 @@
                 }
             }
         },
-        "/fs/diff": {
-            "get": {
-                "description": "Produce a unified diff between a version snapshot and current data",
+        "/mcp/containers/{id}": {
+            "delete": {
                 "tags": [
-                    "fs"
+                    "containerd"
                 ],
-                "summary": "Diff against a version snapshot",
+                "summary": "Delete MCP container",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Path under data mount",
-                        "name": "path",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Version number",
-                        "name": "version",
-                        "in": "query",
+                        "description": "Container ID",
+                        "name": "id",
+                        "in": "path",
                         "required": true
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DiffResponse"
-                        }
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -316,119 +267,29 @@
                 }
             }
         },
-        "/fs/list": {
-            "get": {
-                "description": "List files under the user data mount",
+        "/mcp/snapshots": {
+            "post": {
                 "tags": [
-                    "fs"
+                    "containerd"
                 ],
-                "summary": "List directory contents",
+                "summary": "Create container snapshot",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Path under data mount",
-                        "name": "path",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Recursive listing",
-                        "name": "recursive",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/fs/read": {
-            "get": {
-                "description": "Read a file under the user data mount",
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Read file content",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Path under data mount",
-                        "name": "path",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ReadResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/fs/write_atomic": {
-            "put": {
-                "description": "Atomically replace a file under the user data mount",
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Write file atomically",
-                "parameters": [
-                    {
-                        "description": "Write payload",
+                        "description": "Create snapshot payload",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.WriteAtomicRequest"
+                            "$ref": "#/definitions/handlers.CreateSnapshotRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateSnapshotResponse"
+                        }
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1646,45 +1507,56 @@
                 }
             }
         },
-        "handlers.ApplyPatchRequest": {
+        "handlers.CreateContainerRequest": {
             "type": "object",
             "properties": {
-                "patch": {
+                "container_id": {
                     "type": "string"
                 },
-                "path": {
+                "snapshotter": {
                     "type": "string"
                 }
             }
         },
-        "handlers.CommitResponse": {
+        "handlers.CreateContainerResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "container_id": {
                     "type": "string"
                 },
-                "id": {
+                "image": {
                     "type": "string"
                 },
-                "snapshot_id": {
+                "snapshotter": {
                     "type": "string"
                 },
-                "version": {
-                    "type": "integer"
+                "started": {
+                    "type": "boolean"
                 }
             }
         },
-        "handlers.DiffResponse": {
+        "handlers.CreateSnapshotRequest": {
             "type": "object",
             "properties": {
-                "diff": {
+                "container_id": {
                     "type": "string"
                 },
-                "path": {
+                "snapshot_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.CreateSnapshotResponse": {
+            "type": "object",
+            "properties": {
+                "container_id": {
                     "type": "string"
                 },
-                "version": {
-                    "type": "integer"
+                "snapshot_name": {
+                    "type": "string"
+                },
+                "snapshotter": {
+                    "type": "string"
                 }
             }
         },
@@ -1773,40 +1645,6 @@
                 }
             }
         },
-        "handlers.FileEntry": {
-            "type": "object",
-            "properties": {
-                "is_dir": {
-                    "type": "boolean"
-                },
-                "mod_time": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "integer"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.ListResponse": {
-            "type": "object",
-            "properties": {
-                "entries": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/handlers.FileEntry"
-                    }
-                },
-                "path": {
-                    "type": "string"
-                }
-            }
-        },
         "handlers.LoginRequest": {
             "type": "object",
             "properties": {
@@ -1834,49 +1672,6 @@
                     "type": "string"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.ReadResponse": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "encoding": {
-                    "type": "string"
-                },
-                "mod_time": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "integer"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.WriteAtomicRequest": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "encoding": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "integer"
-                },
-                "mtime": {
-                    "type": "string"
-                },
-                "path": {
                     "type": "string"
                 }
             }

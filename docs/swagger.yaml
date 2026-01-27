@@ -58,32 +58,39 @@ definitions:
       total_tokens:
         type: integer
     type: object
-  handlers.ApplyPatchRequest:
+  handlers.CreateContainerRequest:
     properties:
-      patch:
+      container_id:
         type: string
-      path:
+      snapshotter:
         type: string
     type: object
-  handlers.CommitResponse:
+  handlers.CreateContainerResponse:
     properties:
-      created_at:
+      container_id:
         type: string
-      id:
+      image:
         type: string
-      snapshot_id:
+      snapshotter:
         type: string
-      version:
-        type: integer
+      started:
+        type: boolean
     type: object
-  handlers.DiffResponse:
+  handlers.CreateSnapshotRequest:
     properties:
-      diff:
+      container_id:
         type: string
-      path:
+      snapshot_name:
         type: string
-      version:
-        type: integer
+    type: object
+  handlers.CreateSnapshotResponse:
+    properties:
+      container_id:
+        type: string
+      snapshot_name:
+        type: string
+      snapshotter:
+        type: string
     type: object
   handlers.EmbeddingsInput:
     properties:
@@ -140,28 +147,6 @@ definitions:
       message:
         type: string
     type: object
-  handlers.FileEntry:
-    properties:
-      is_dir:
-        type: boolean
-      mod_time:
-        type: string
-      mode:
-        type: integer
-      path:
-        type: string
-      size:
-        type: integer
-    type: object
-  handlers.ListResponse:
-    properties:
-      entries:
-        items:
-          $ref: '#/definitions/handlers.FileEntry'
-        type: array
-      path:
-        type: string
-    type: object
   handlers.LoginRequest:
     properties:
       password:
@@ -180,34 +165,6 @@ definitions:
       user_id:
         type: string
       username:
-        type: string
-    type: object
-  handlers.ReadResponse:
-    properties:
-      content:
-        type: string
-      encoding:
-        type: string
-      mod_time:
-        type: string
-      mode:
-        type: integer
-      path:
-        type: string
-      size:
-        type: integer
-    type: object
-  handlers.WriteAtomicRequest:
-    properties:
-      content:
-        type: string
-      encoding:
-        type: string
-      mode:
-        type: integer
-      mtime:
-        type: string
-      path:
         type: string
     type: object
   memory.AddRequest:
@@ -638,16 +595,39 @@ paths:
       summary: Create embeddings
       tags:
       - embeddings
-  /fs/apply_patch:
+  /mcp/containers:
     post:
-      description: Apply a unified diff patch to a file under the user data mount
       parameters:
-      - description: Patch payload
+      - description: Create container payload
         in: body
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/handlers.ApplyPatchRequest'
+          $ref: '#/definitions/handlers.CreateContainerRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CreateContainerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create and start MCP container
+      tags:
+      - containerd
+  /mcp/containers/{id}:
+    delete:
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -663,138 +643,23 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Apply unified diff patch
+      summary: Delete MCP container
       tags:
-      - fs
-  /fs/commit:
+      - containerd
+  /mcp/snapshots:
     post:
-      description: Create a new version snapshot for the user container
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.CommitResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Commit a filesystem snapshot
-      tags:
-      - fs
-  /fs/diff:
-    get:
-      description: Produce a unified diff between a version snapshot and current data
       parameters:
-      - description: Path under data mount
-        in: query
-        name: path
-        type: string
-      - description: Version number
-        in: query
-        name: version
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.DiffResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Diff against a version snapshot
-      tags:
-      - fs
-  /fs/list:
-    get:
-      description: List files under the user data mount
-      parameters:
-      - description: Path under data mount
-        in: query
-        name: path
-        type: string
-      - description: Recursive listing
-        in: query
-        name: recursive
-        type: boolean
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.ListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: List directory contents
-      tags:
-      - fs
-  /fs/read:
-    get:
-      description: Read a file under the user data mount
-      parameters:
-      - description: Path under data mount
-        in: query
-        name: path
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.ReadResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Read file content
-      tags:
-      - fs
-  /fs/write_atomic:
-    put:
-      description: Atomically replace a file under the user data mount
-      parameters:
-      - description: Write payload
+      - description: Create snapshot payload
         in: body
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/handlers.WriteAtomicRequest'
+          $ref: '#/definitions/handlers.CreateSnapshotRequest'
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CreateSnapshotResponse'
         "400":
           description: Bad Request
           schema:
@@ -807,9 +672,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Write file atomically
+      summary: Create container snapshot
       tags:
-      - fs
+      - containerd
   /memory/add:
     post:
       description: Add memory for a user via memory
