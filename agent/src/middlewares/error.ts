@@ -8,8 +8,17 @@ export interface ErrorResponse {
 }
 
 export const errorMiddleware = new Elysia({ name: 'error' })
-  .onError(({ code, error, set }) => {
-    console.error('[Error]', code, error)
+  .onError(({ code, error, set, request }) => {
+    const url = new URL(request.url)
+    const status = set.status ?? 500
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[Error]', {
+      method: request.method,
+      path: url.pathname,
+      code,
+      status,
+      message,
+    })
 
     switch (code) {
       case 'VALIDATION':

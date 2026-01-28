@@ -959,20 +959,12 @@ const docTemplate = `{
         },
         "/models/enable-as/{enableAs}": {
             "get": {
-                "description": "Get the model that is enabled for a specific purpose (chat, memory, embedding)\nGet the default model configured for a specific purpose (chat, memory, or embedding)",
+                "description": "Get the model that is enabled for a specific purpose (chat, memory, embedding)",
                 "tags": [
-                    "models",
                     "models"
                 ],
-                "summary": "Get default model by enable_as",
+                "summary": "Get model by enable_as",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Enable as value (chat, memory, embedding)",
-                        "name": "enableAs",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Enable as value (chat, memory, embedding)",
@@ -2499,11 +2491,11 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
+	Title:            "Memoh API",
 	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

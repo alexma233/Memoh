@@ -1,7 +1,9 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "title": "Memoh API",
+        "contact": {},
+        "version": "1.0.0"
     },
     "paths": {
         "/auth/login": {
@@ -948,20 +950,12 @@
         },
         "/models/enable-as/{enableAs}": {
             "get": {
-                "description": "Get the model that is enabled for a specific purpose (chat, memory, embedding)\nGet the default model configured for a specific purpose (chat, memory, or embedding)",
+                "description": "Get the model that is enabled for a specific purpose (chat, memory, embedding)",
                 "tags": [
-                    "models",
                     "models"
                 ],
-                "summary": "Get default model by enable_as",
+                "summary": "Get model by enable_as",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Enable as value (chat, memory, embedding)",
-                        "name": "enableAs",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Enable as value (chat, memory, embedding)",

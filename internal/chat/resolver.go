@@ -62,6 +62,7 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 	if strings.TrimSpace(req.UserID) == "" {
 		return ChatResponse{}, fmt.Errorf("user id is required")
 	}
+	skipHistory := req.MaxContextLoadTime < 0
 
 	chatModel, provider, err := r.selectChatModel(ctx, req)
 	if err != nil {
@@ -83,9 +84,12 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 		language = req.Language
 	}
 
-	messages, err := r.loadHistoryMessages(ctx, req.UserID, maxContextLoadTime)
-	if err != nil {
-		return ChatResponse{}, err
+	var messages []GatewayMessage
+	if !skipHistory {
+		messages, err = r.loadHistoryMessages(ctx, req.UserID, maxContextLoadTime)
+		if err != nil {
+			return ChatResponse{}, err
+		}
 	}
 	if len(req.Messages) > 0 {
 		messages = append(messages, req.Messages...)
@@ -142,6 +146,7 @@ func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan Stre
 			errChan <- fmt.Errorf("user id is required")
 			return
 		}
+		skipHistory := req.MaxContextLoadTime < 0
 
 		chatModel, provider, err := r.selectChatModel(ctx, req)
 		if err != nil {
@@ -166,10 +171,13 @@ func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan Stre
 			language = req.Language
 		}
 
-		messages, err := r.loadHistoryMessages(ctx, req.UserID, maxContextLoadTime)
-		if err != nil {
-			errChan <- err
-			return
+		var messages []GatewayMessage
+		if !skipHistory {
+			messages, err = r.loadHistoryMessages(ctx, req.UserID, maxContextLoadTime)
+			if err != nil {
+				errChan <- err
+				return
+			}
 		}
 		if len(req.Messages) > 0 {
 			messages = append(messages, req.Messages...)
@@ -225,6 +233,7 @@ func (r *Resolver) postChat(ctx context.Context, payload agentGatewayRequest) (a
 		return agentGatewayResponse{}, err
 	}
 	url := r.gatewayBaseURL + "/chat"
+	fmt.Println("url", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return agentGatewayResponse{}, err

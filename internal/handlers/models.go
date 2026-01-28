@@ -257,15 +257,6 @@ func (h *ModelsHandler) DeleteByModelID(c echo.Context) error {
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /models/enable-as/{enableAs} [get]
-// GetByEnableAs godoc
-// @Summary Get default model by enable_as
-// @Description Get the default model configured for a specific purpose (chat, memory, or embedding)
-// @Tags models
-// @Param enableAs path string true "Enable as value (chat, memory, embedding)"
-// @Success 200 {object} models.GetResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Router /models/enable-as/{enableAs} [get]
 func (h *ModelsHandler) GetByEnableAs(c echo.Context) error {
 	enableAs := c.Param("enableAs")
 	if enableAs == "" {

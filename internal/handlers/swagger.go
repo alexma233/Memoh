@@ -1,5 +1,8 @@
 package handlers
 
+// @title Memoh API
+// @version 1.0.0
+
 import (
 	"net/http"
 	"os"
