@@ -15,10 +15,12 @@ import (
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/embeddings"
 	"github.com/memohai/memoh/internal/handlers"
+	"github.com/memohai/memoh/internal/history"
 	"github.com/memohai/memoh/internal/mcp"
 	"github.com/memohai/memoh/internal/memory"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/providers"
+	"github.com/memohai/memoh/internal/settings"
 	"github.com/memohai/memoh/internal/server"
 )
 
@@ -71,8 +73,8 @@ func main() {
 
 	authHandler := handlers.NewAuthHandler(conn, cfg.Auth.JWTSecret, jwtExpiresIn)
 
-	// Initialize chat resolver for both chat and memory operations
-	chatResolver := chat.NewResolver(modelsService, queries, cfg.AgentGateway.BaseURL(), 30*time.Second)
+	// Initialize chat resolver after memory service is configured.
+	var chatResolver *chat.Resolver
 
 	// Create LLM client for memory operations (deferred model/provider selection).
 	var llmClient memory.LLM = &lazyLLMClient{
@@ -140,6 +142,7 @@ func main() {
 		memoryService = memory.NewService(llmClient, textEmbedder, store, resolver, textModel.ModelID, multimodalModel.ModelID)
 		memoryHandler = handlers.NewMemoryHandler(memoryService)
 	}
+	chatResolver = chat.NewResolver(modelsService, queries, memoryService, cfg.AgentGateway.BaseURL(), 30*time.Second)
 	embeddingsHandler := handlers.NewEmbeddingsHandler(modelsService, queries)
 	swaggerHandler := handlers.NewSwaggerHandler()
 	chatHandler := handlers.NewChatHandler(chatResolver)
@@ -148,7 +151,11 @@ func main() {
 	providersService := providers.NewService(queries)
 	providersHandler := handlers.NewProvidersHandler(providersService)
 	modelsHandler := handlers.NewModelsHandler(modelsService)
-	srv := server.NewServer(addr, cfg.Auth.JWTSecret, pingHandler, authHandler, memoryHandler, embeddingsHandler, chatHandler, swaggerHandler, providersHandler, modelsHandler, containerdHandler)
+	settingsService := settings.NewService(queries)
+	settingsHandler := handlers.NewSettingsHandler(settingsService)
+	historyService := history.NewService(queries)
+	historyHandler := handlers.NewHistoryHandler(historyService)
+	srv := server.NewServer(addr, cfg.Auth.JWTSecret, pingHandler, authHandler, memoryHandler, embeddingsHandler, chatHandler, swaggerHandler, providersHandler, modelsHandler, settingsHandler, historyHandler, containerdHandler)
 
 	if err := srv.Start(); err != nil {
 		log.Fatalf("server failed: %v", err)

@@ -71,3 +71,79 @@ func (q *Queries) ListHistoryByUserSince(ctx context.Context, arg ListHistoryByU
 	}
 	return items, nil
 }
+
+const getHistoryByID = `-- name: GetHistoryByID :one
+SELECT id, messages, timestamp, "user"
+FROM history
+WHERE id = $1
+`
+
+func (q *Queries) GetHistoryByID(ctx context.Context, id pgtype.UUID) (History, error) {
+	row := q.db.QueryRow(ctx, getHistoryByID, id)
+	var i History
+	err := row.Scan(
+		&i.ID,
+		&i.Messages,
+		&i.Timestamp,
+		&i.User,
+	)
+	return i, err
+}
+
+const listHistoryByUser = `-- name: ListHistoryByUser :many
+SELECT id, messages, timestamp, "user"
+FROM history
+WHERE "user" = $1
+ORDER BY timestamp DESC
+LIMIT $2
+`
+
+type ListHistoryByUserParams struct {
+	User  pgtype.UUID `json:"user"`
+	Limit int32       `json:"limit"`
+}
+
+func (q *Queries) ListHistoryByUser(ctx context.Context, arg ListHistoryByUserParams) ([]History, error) {
+	rows, err := q.db.Query(ctx, listHistoryByUser, arg.User, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []History
+	for rows.Next() {
+		var i History
+		if err := rows.Scan(
+			&i.ID,
+			&i.Messages,
+			&i.Timestamp,
+			&i.User,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteHistoryByID = `-- name: DeleteHistoryByID :exec
+DELETE FROM history
+WHERE id = $1
+`
+
+func (q *Queries) DeleteHistoryByID(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteHistoryByID, id)
+	return err
+}
+
+const deleteHistoryByUser = `-- name: DeleteHistoryByUser :exec
+DELETE FROM history
+WHERE "user" = $1
+`
+
+func (q *Queries) DeleteHistoryByUser(ctx context.Context, user pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteHistoryByUser, user)
+	return err
+}

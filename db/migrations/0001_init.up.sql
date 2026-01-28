@@ -140,3 +140,9 @@ CREATE TABLE IF NOT EXISTS history (
 
 CREATE INDEX IF NOT EXISTS idx_history_user ON history("user");
 CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  max_context_load_time INTEGER NOT NULL DEFAULT 1440,
+  language TEXT NOT NULL DEFAULT 'Same as user input'
+);

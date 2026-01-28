@@ -40,6 +40,12 @@ type History struct {
 	User      pgtype.UUID        `json:"user"`
 }
 
+type Settings struct {
+	UserID             pgtype.UUID `json:"user_id"`
+	MaxContextLoadTime int32       `json:"max_context_load_time"`
+	Language           string      `json:"language"`
+}
+
 type LifecycleEvent struct {
 	ID          string             `json:"id"`
 	ContainerID string             `json:"container_id"`

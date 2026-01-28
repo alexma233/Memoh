@@ -1,6 +1,9 @@
+DROP TABLE IF EXISTS user_settings;
+DROP TABLE IF EXISTS history;
 DROP TABLE IF EXISTS lifecycle_events;
 DROP TABLE IF EXISTS container_versions;
 DROP TABLE IF EXISTS models;
+DROP TABLE IF EXISTS llm_providers;
 DROP TABLE IF EXISTS snapshots;
 DROP TABLE IF EXISTS containers;
 DROP TABLE IF EXISTS users;

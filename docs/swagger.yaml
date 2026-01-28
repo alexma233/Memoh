@@ -151,6 +151,35 @@ definitions:
       username:
         type: string
     type: object
+  history.CreateRequest:
+    properties:
+      messages:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+    type: object
+  history.ListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/history.Record'
+        type: array
+    type: object
+  history.Record:
+    properties:
+      id:
+        type: string
+      messages:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      timestamp:
+        type: string
+      user_id:
+        type: string
+    type: object
   memory.AddRequest:
     properties:
       agent_id:
@@ -454,6 +483,20 @@ definitions:
       name:
         type: string
     type: object
+  settings.Settings:
+    properties:
+      language:
+        type: string
+      max_context_load_time:
+        type: integer
+    type: object
+  settings.UpsertRequest:
+    properties:
+      language:
+        type: string
+      max_context_load_time:
+        type: integer
+    type: object
 info:
   contact: {}
 paths:
@@ -582,6 +625,126 @@ paths:
       summary: Create embeddings
       tags:
       - embeddings
+  /history:
+    delete:
+      description: Delete all history records for current user
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete all history records
+      tags:
+      - history
+    get:
+      description: List history records for current user
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history.ListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List history records
+      tags:
+      - history
+    post:
+      description: Create a history record for current user
+      parameters:
+      - description: History payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/history.CreateRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/history.Record'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create history record
+      tags:
+      - history
+  /history/{id}:
+    delete:
+      description: Delete a history record by ID (must belong to current user)
+      parameters:
+      - description: History ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete history record
+      tags:
+      - history
+    get:
+      description: Get a history record by ID (must belong to current user)
+      parameters:
+      - description: History ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/history.Record'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get history record
+      tags:
+      - history
   /mcp/containers:
     post:
       parameters:
@@ -1394,4 +1557,89 @@ paths:
       summary: Get provider by name
       tags:
       - providers
+  /settings:
+    delete:
+      description: Remove agent settings for current user
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete user settings
+      tags:
+      - settings
+    get:
+      description: Get agent settings for current user
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/settings.Settings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get user settings
+      tags:
+      - settings
+    post:
+      description: Update or create agent settings for current user
+      parameters:
+      - description: Settings payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/settings.UpsertRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/settings.Settings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update user settings
+      tags:
+      - settings
+    put:
+      description: Update or create agent settings for current user
+      parameters:
+      - description: Settings payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/settings.UpsertRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/settings.Settings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update user settings
+      tags:
+      - settings
 swagger: "2.0"

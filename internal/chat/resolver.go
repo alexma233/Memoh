@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,9 +13,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/db/sqlc"
+	"github.com/memohai/memoh/internal/memory"
 	"github.com/memohai/memoh/internal/models"
 )
 
@@ -23,13 +26,14 @@ const defaultMaxContextMinutes = 24 * 60
 type Resolver struct {
 	modelsService   *models.Service
 	queries         *sqlc.Queries
+	memoryService   *memory.Service
 	gatewayBaseURL  string
 	timeout         time.Duration
 	httpClient      *http.Client
 	streamingClient *http.Client
 }
 
-func NewResolver(modelsService *models.Service, queries *sqlc.Queries, gatewayBaseURL string, timeout time.Duration) *Resolver {
+func NewResolver(modelsService *models.Service, queries *sqlc.Queries, memoryService *memory.Service, gatewayBaseURL string, timeout time.Duration) *Resolver {
 	if strings.TrimSpace(gatewayBaseURL) == "" {
 		gatewayBaseURL = "http://127.0.0.1:8081"
 	}
@@ -40,6 +44,7 @@ func NewResolver(modelsService *models.Service, queries *sqlc.Queries, gatewayBa
 	return &Resolver{
 		modelsService:  modelsService,
 		queries:        queries,
+		memoryService:  memoryService,
 		gatewayBaseURL: gatewayBaseURL,
 		timeout:        timeout,
 		httpClient: &http.Client{
@@ -66,7 +71,18 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 		return ChatResponse{}, err
 	}
 
-	messages, err := r.loadHistoryMessages(ctx, req.UserID, req.MaxContextLoadTime)
+	maxContextLoadTime, language, err := r.loadUserSettings(ctx, req.UserID)
+	if err != nil {
+		return ChatResponse{}, err
+	}
+	if req.MaxContextLoadTime > 0 {
+		maxContextLoadTime = req.MaxContextLoadTime
+	}
+	if strings.TrimSpace(req.Language) != "" {
+		language = req.Language
+	}
+
+	messages, err := r.loadHistoryMessages(ctx, req.UserID, maxContextLoadTime)
 	if err != nil {
 		return ChatResponse{}, err
 	}
@@ -82,12 +98,13 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 		Locale:             req.Locale,
 		Language:           req.Language,
 		MaxSteps:           req.MaxSteps,
-		MaxContextLoadTime: normalizeMaxContextLoad(req.MaxContextLoadTime),
+		MaxContextLoadTime: normalizeMaxContextLoad(maxContextLoadTime),
 		Platforms:          req.Platforms,
 		CurrentPlatform:    req.CurrentPlatform,
 		Messages:           messages,
 		Query:              req.Query,
 	}
+	payload.Language = language
 
 	resp, err := r.postChat(ctx, payload)
 	if err != nil {
@@ -95,6 +112,9 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 	}
 
 	if err := r.storeHistory(ctx, req.UserID, req.Query, resp.Messages); err != nil {
+		return ChatResponse{}, err
+	}
+	if err := r.storeMemory(ctx, req.UserID, req.Query, resp.Messages); err != nil {
 		return ChatResponse{}, err
 	}
 
@@ -133,7 +153,19 @@ func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan Stre
 			return
 		}
 
-		messages, err := r.loadHistoryMessages(ctx, req.UserID, req.MaxContextLoadTime)
+		maxContextLoadTime, language, err := r.loadUserSettings(ctx, req.UserID)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if req.MaxContextLoadTime > 0 {
+			maxContextLoadTime = req.MaxContextLoadTime
+		}
+		if strings.TrimSpace(req.Language) != "" {
+			language = req.Language
+		}
+
+		messages, err := r.loadHistoryMessages(ctx, req.UserID, maxContextLoadTime)
 		if err != nil {
 			errChan <- err
 			return
@@ -150,12 +182,13 @@ func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan Stre
 			Locale:             req.Locale,
 			Language:           req.Language,
 			MaxSteps:           req.MaxSteps,
-			MaxContextLoadTime: normalizeMaxContextLoad(req.MaxContextLoadTime),
+			MaxContextLoadTime: normalizeMaxContextLoad(maxContextLoadTime),
 			Platforms:          req.Platforms,
 			CurrentPlatform:    req.CurrentPlatform,
 			Messages:           messages,
 			Query:              req.Query,
 		}
+		payload.Language = language
 
 		if err := r.streamChat(ctx, payload, req.UserID, req.Query, chunkChan); err != nil {
 			errChan <- err
@@ -270,6 +303,9 @@ func (r *Resolver) streamChat(ctx context.Context, payload agentGatewayRequest, 
 		if err := r.storeHistory(ctx, userID, query, parsed.Messages); err != nil {
 			return err
 		}
+		if err := r.storeMemory(ctx, userID, query, parsed.Messages); err != nil {
+			return err
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -343,6 +379,65 @@ func (r *Resolver) storeHistory(ctx context.Context, userID, query string, respo
 		User: pgUserID,
 	})
 	return err
+}
+
+func (r *Resolver) storeMemory(ctx context.Context, userID, query string, responseMessages []GatewayMessage) error {
+	if r.memoryService == nil {
+		return nil
+	}
+	if strings.TrimSpace(userID) == "" {
+		return fmt.Errorf("user id is required")
+	}
+	if strings.TrimSpace(query) == "" && len(responseMessages) == 0 {
+		return nil
+	}
+
+	userMessage := GatewayMessage{
+		"role":    "user",
+		"content": query,
+	}
+	messages := append([]GatewayMessage{userMessage}, responseMessages...)
+	memoryMessages := make([]memory.Message, 0, len(messages))
+	for _, msg := range messages {
+		role, content := gatewayMessageToMemory(msg)
+		if strings.TrimSpace(content) == "" {
+			continue
+		}
+		memoryMessages = append(memoryMessages, memory.Message{
+			Role:    role,
+			Content: content,
+		})
+	}
+	if len(memoryMessages) == 0 {
+		return nil
+	}
+
+	_, err := r.memoryService.Add(ctx, memory.AddRequest{
+		Messages: memoryMessages,
+		UserID:   userID,
+	})
+	return err
+}
+
+func gatewayMessageToMemory(msg GatewayMessage) (string, string) {
+	role := "assistant"
+	if raw, ok := msg["role"].(string); ok && strings.TrimSpace(raw) != "" {
+		role = raw
+	}
+	if raw, ok := msg["content"]; ok {
+		switch v := raw.(type) {
+		case string:
+			return role, v
+		default:
+			if encoded, err := json.Marshal(v); err == nil {
+				return role, string(encoded)
+			}
+		}
+	}
+	if encoded, err := json.Marshal(msg); err == nil {
+		return role, string(encoded)
+	}
+	return role, ""
 }
 
 func (r *Resolver) selectChatModel(ctx context.Context, req ChatRequest) (models.GetResponse, sqlc.LlmProvider, error) {
@@ -428,6 +523,32 @@ func normalizeMaxContextLoad(value int) int {
 	return value
 }
 
+func (r *Resolver) loadUserSettings(ctx context.Context, userID string) (int, string, error) {
+	if r.queries == nil {
+		return defaultMaxContextMinutes, "Same as user input", nil
+	}
+	pgUserID, err := parseUUID(userID)
+	if err != nil {
+		return 0, "", err
+	}
+	settings, err := r.queries.GetSettingsByUserID(ctx, pgUserID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return defaultMaxContextMinutes, "Same as user input", nil
+		}
+		return 0, "", err
+	}
+	maxLoad := int(settings.MaxContextLoadTime)
+	if maxLoad <= 0 {
+		maxLoad = defaultMaxContextMinutes
+	}
+	language := strings.TrimSpace(settings.Language)
+	if language == "" {
+		language = "Same as user input"
+	}
+	return maxLoad, language, nil
+}
+
 func normalizeClientType(clientType string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(clientType)) {
 	case "openai":
@@ -453,4 +574,3 @@ func parseUUID(id string) (pgtype.UUID, error) {
 	copy(pgID.Bytes[:], parsed[:])
 	return pgID, nil
 }
-
