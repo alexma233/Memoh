@@ -23,25 +23,6 @@ import (
 	mcptools "github.com/memohai/memoh/internal/mcp"
 )
 
-type mcpJSONRPCRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type mcpJSONRPCResponse struct {
-	JSONRPC string           `json:"jsonrpc"`
-	ID      json.RawMessage  `json:"id,omitempty"`
-	Result  any              `json:"result,omitempty"`
-	Error   *mcpJSONRPCError `json:"error,omitempty"`
-}
-
-type mcpJSONRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 // HandleMCPFS godoc
 // @Summary MCP filesystem tools (JSON-RPC)
 // @Description Forwards MCP JSON-RPC requests to the MCP server inside the container.
@@ -72,15 +53,15 @@ func (h *ContainerdHandler) HandleMCPFS(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "container id is required")
 	}
 
-	var req mcpJSONRPCRequest
+	var req mcptools.JSONRPCRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if req.JSONRPC != "" && req.JSONRPC != "2.0" {
-		return c.JSON(http.StatusOK, mcpJSONRPCResponse{
+		return c.JSON(http.StatusOK, mcptools.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Error:   &mcpJSONRPCError{Code: -32600, Message: "invalid jsonrpc version"},
+			Error:   &mcptools.JSONRPCError{Code: -32600, Message: "invalid jsonrpc version"},
 		})
 	}
 
@@ -109,10 +90,10 @@ func (h *ContainerdHandler) HandleMCPFS(c echo.Context) error {
 		}
 		return c.JSON(http.StatusOK, payload)
 	default:
-		return c.JSON(http.StatusOK, mcpJSONRPCResponse{
+		return c.JSON(http.StatusOK, mcptools.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Error:   &mcpJSONRPCError{Code: -32601, Message: "method not found"},
+			Error:   &mcptools.JSONRPCError{Code: -32601, Message: "method not found"},
 		})
 	}
 }
@@ -155,7 +136,7 @@ func (h *ContainerdHandler) requireUserID(c echo.Context) (string, error) {
 	return userID, nil
 }
 
-func (h *ContainerdHandler) callMCPServer(ctx context.Context, containerID string, req mcpJSONRPCRequest) (map[string]any, error) {
+func (h *ContainerdHandler) callMCPServer(ctx context.Context, containerID string, req mcptools.JSONRPCRequest) (map[string]any, error) {
 	session, err := h.getMCPSession(ctx, containerID)
 	if err != nil {
 		return nil, err
@@ -171,7 +152,7 @@ type mcpSession struct {
 	initOnce  sync.Once
 	writeMu   sync.Mutex
 	pendingMu sync.Mutex
-	pending   map[string]chan mcpJSONRPCResponse
+	pending   map[string]chan mcptools.JSONRPCResponse
 	closed    chan struct{}
 	closeOnce sync.Once
 	closeErr  error
@@ -225,7 +206,7 @@ func (h *ContainerdHandler) startContainerdMCPSession(ctx context.Context, conta
 		stdin:   execSession.Stdin,
 		stdout:  execSession.Stdout,
 		stderr:  execSession.Stderr,
-		pending: make(map[string]chan mcpJSONRPCResponse),
+		pending: make(map[string]chan mcptools.JSONRPCResponse),
 		closed:  make(chan struct{}),
 	}
 
@@ -290,7 +271,7 @@ func (h *ContainerdHandler) startLimaMCPSession(containerID string) (*mcpSession
 		stdout:  stdout,
 		stderr:  stderr,
 		cmd:     cmd,
-		pending: make(map[string]chan mcpJSONRPCResponse),
+		pending: make(map[string]chan mcptools.JSONRPCResponse),
 		closed:  make(chan struct{}),
 	}
 
@@ -314,7 +295,7 @@ func (s *mcpSession) closeWithError(err error) {
 		for _, ch := range s.pending {
 			close(ch)
 		}
-		s.pending = map[string]chan mcpJSONRPCResponse{}
+		s.pending = map[string]chan mcptools.JSONRPCResponse{}
 		s.pendingMu.Unlock()
 		_ = s.stdin.Close()
 		_ = s.stdout.Close()
@@ -336,7 +317,7 @@ func (s *mcpSession) readLoop() {
 		if line == "" {
 			continue
 		}
-		var resp mcpJSONRPCResponse
+		var resp mcptools.JSONRPCResponse
 		if err := json.Unmarshal([]byte(line), &resp); err != nil {
 			continue
 		}
@@ -362,7 +343,7 @@ func (s *mcpSession) readLoop() {
 	}
 }
 
-func (s *mcpSession) call(ctx context.Context, req mcpJSONRPCRequest) (map[string]any, error) {
+func (s *mcpSession) call(ctx context.Context, req mcptools.JSONRPCRequest) (map[string]any, error) {
 	payloads, targetID, err := buildMCPPayloads(req, &s.initOnce)
 	if err != nil {
 		return nil, err
@@ -372,7 +353,7 @@ func (s *mcpSession) call(ctx context.Context, req mcpJSONRPCRequest) (map[strin
 		return nil, fmt.Errorf("missing request id")
 	}
 
-	respCh := make(chan mcpJSONRPCResponse, 1)
+	respCh := make(chan mcptools.JSONRPCResponse, 1)
 	s.pendingMu.Lock()
 	s.pending[target] = respCh
 	s.pendingMu.Unlock()
@@ -419,7 +400,7 @@ func (s *mcpSession) call(ctx context.Context, req mcpJSONRPCRequest) (map[strin
 	}
 }
 
-func buildMCPPayloads(req mcpJSONRPCRequest, initOnce *sync.Once) ([]string, json.RawMessage, error) {
+func buildMCPPayloads(req mcptools.JSONRPCRequest, initOnce *sync.Once) ([]string, json.RawMessage, error) {
 	if req.JSONRPC == "" {
 		req.JSONRPC = "2.0"
 	}

@@ -101,6 +101,9 @@ func (h *ContainerdHandler) Register(e *echo.Echo) {
 	group.DELETE("/containers/:id", h.DeleteContainer)
 	group.POST("/snapshots", h.CreateSnapshot)
 	group.GET("/snapshots", h.ListSnapshots)
+	group.GET("/skills", h.ListSkills)
+	group.POST("/skills", h.UpsertSkills)
+	group.DELETE("/skills", h.DeleteSkills)
 	group.POST("/fs/:id", h.HandleMCPFS)
 }
 
@@ -153,6 +156,9 @@ func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
 	}
 	dataDir := filepath.Join(dataRoot, "users", userID)
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if err := os.MkdirAll(filepath.Join(dataDir, ".skills"), 0o755); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -239,6 +245,33 @@ func (h *ContainerdHandler) ensureTaskRunning(ctx context.Context, containerID s
 		FIFODir:  fifoDir,
 	})
 	return err
+}
+
+func (h *ContainerdHandler) userContainerID(ctx context.Context, userID string) (string, error) {
+	containers, err := h.service.ListContainersByLabel(ctx, mcp.UserLabelKey, userID)
+	if err != nil {
+		return "", err
+	}
+	if len(containers) == 0 {
+		return "", echo.NewHTTPError(http.StatusNotFound, "container not found")
+	}
+	infoCtx := ctx
+	if strings.TrimSpace(h.namespace) != "" {
+		infoCtx = namespaces.WithNamespace(ctx, h.namespace)
+	}
+	bestID := ""
+	var bestUpdated time.Time
+	for _, container := range containers {
+		info, err := container.Info(infoCtx)
+		if err != nil {
+			return "", err
+		}
+		if bestID == "" || info.UpdatedAt.After(bestUpdated) {
+			bestID = info.ID
+			bestUpdated = info.UpdatedAt
+		}
+	}
+	return bestID, nil
 }
 
 // ListContainers godoc

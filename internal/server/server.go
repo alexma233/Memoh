@@ -29,9 +29,6 @@ func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler,
 		if path == "/ping" || path == "/api/swagger.json" || path == "/auth/login" {
 			return true
 		}
-		if strings.HasPrefix(path, "/mcp/") {
-			return false
-		}
 		if strings.HasPrefix(path, "/api/docs") {
 			return true
 		}

@@ -190,6 +190,36 @@ definitions:
       username:
         type: string
     type: object
+  handlers.SkillItem:
+    properties:
+      content:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  handlers.SkillsDeleteRequest:
+    properties:
+      names:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.SkillsResponse:
+    properties:
+      skills:
+        items:
+          $ref: '#/definitions/handlers.SkillItem'
+        type: array
+    type: object
+  handlers.SkillsUpsertRequest:
+    properties:
+      skills:
+        items:
+          $ref: '#/definitions/handlers.SkillItem'
+        type: array
+    type: object
   handlers.SnapshotInfo:
     properties:
       created_at:
@@ -208,6 +238,11 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  handlers.skillsOpResponse:
+    properties:
+      ok:
+        type: boolean
     type: object
   history.CreateRequest:
     properties:
@@ -1086,6 +1121,84 @@ paths:
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: MCP filesystem tools (JSON-RPC)
+      tags:
+      - containerd
+  /mcp/skills:
+    delete:
+      parameters:
+      - description: Delete skills payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SkillsDeleteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete skills from container
+      tags:
+      - containerd
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SkillsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List skills from container
+      tags:
+      - containerd
+    post:
+      parameters:
+      - description: Skills payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SkillsUpsertRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Upload skills into container
       tags:
       - containerd
   /mcp/snapshots:
