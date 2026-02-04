@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containerd/containerd/v2/pkg/oci"
 	"github.com/containerd/errdefs"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/opencontainers/runtime-spec/specs-go"
 
 	"github.com/memohai/memoh/internal/config"
 
@@ -65,12 +67,39 @@ func (m *Manager) CreateVersion(ctx context.Context, userID string) (*VersionInf
 		return nil, err
 	}
 
+	dataDir, err := m.ensureUserDir(userID)
+	if err != nil {
+		return nil, err
+	}
+	dataMount := m.cfg.DataMount
+	if dataMount == "" {
+		dataMount = config.DefaultDataMount
+	}
+
+	specOpts := []oci.SpecOpts{
+		oci.WithMounts([]specs.Mount{
+			{
+				Destination: dataMount,
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+			{
+				Destination: "/app",
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+		}),
+	}
+
 	_, err = m.service.CreateContainerFromSnapshot(ctx, ctr.CreateContainerRequest{
 		ID:          containerID,
 		ImageRef:    info.Image,
 		SnapshotID:  activeSnapshotID,
 		Snapshotter: info.Snapshotter,
 		Labels:      info.Labels,
+		SpecOpts:    specOpts,
 	})
 	if err != nil {
 		return nil, err
@@ -165,12 +194,38 @@ func (m *Manager) RollbackVersion(ctx context.Context, userID string, version in
 		return err
 	}
 
+	dataDir, err := m.ensureUserDir(userID)
+	if err != nil {
+		return err
+	}
+	dataMount := m.cfg.DataMount
+	if dataMount == "" {
+		dataMount = config.DefaultDataMount
+	}
+	specOpts := []oci.SpecOpts{
+		oci.WithMounts([]specs.Mount{
+			{
+				Destination: dataMount,
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+			{
+				Destination: "/app",
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+		}),
+	}
+
 	_, err = m.service.CreateContainerFromSnapshot(ctx, ctr.CreateContainerRequest{
 		ID:          containerID,
 		ImageRef:    info.Image,
 		SnapshotID:  activeSnapshotID,
 		Snapshotter: info.Snapshotter,
 		Labels:      info.Labels,
+		SpecOpts:    specOpts,
 	})
 	if err != nil {
 		return err

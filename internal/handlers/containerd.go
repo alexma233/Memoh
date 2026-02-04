@@ -165,12 +165,20 @@ func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
 	}
 
 	specOpts := []oci.SpecOpts{
-		oci.WithMounts([]specs.Mount{{
-			Destination: dataMount,
-			Type:        "bind",
-			Source:      dataDir,
-			Options:     []string{"rbind", "rw"},
-		}}),
+		oci.WithMounts([]specs.Mount{
+			{
+				Destination: dataMount,
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+			{
+				Destination: "/app",
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+		}),
 		oci.WithProcessArgs("/bin/sh", "-lc", "sleep 2147483647"),
 	}
 

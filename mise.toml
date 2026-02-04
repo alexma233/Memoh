@@ -9,6 +9,8 @@ node = "25"
 bun = "latest"
 # pnpm for workspace management
 pnpm = "10"
+# Lima for macOS
+lima = { version = "latest", platform = "darwin" }
 
 [task_config]
 dir = "{{cwd}}"
@@ -23,6 +25,24 @@ run = "pnpm install"
 [tasks.go-install]
 description = "Install Go dependencies"
 run = "go mod download"
+
+[tasks.lima-up]
+run = """
+if [ "$(uname -s)" = "Darwin" ]; then
+  limactl start default
+fi
+"""
+
+[tasks.lima-down]
+run = """
+if [ "$(uname -s)" = "Darwin" ]; then
+  limactl stop default
+fi
+"""
+
+[tasks.containerd-install]
+description = "Install containerd or verify in Lima"
+run = "scripts/containerd-install.sh"
 
 [tasks.swagger-generate]
 description = "Generate Swagger documentation"
@@ -44,6 +64,18 @@ run = "scripts/db-drop.sh"
 description = "Install CLI"
 depends = ["//:pnpm-install"]
 run = "cd packages/cli && npm install -g"
+
+[tasks.mcp-image-up]
+description = "Build MCP container image"
+run = "scripts/mcp-image-up.sh"
+
+[tasks.mcp-image-down]
+description = "Remove MCP container image"
+run = "scripts/mcp-image-down.sh"
+
+[tasks.compile-mcp]
+description = "Build MCP binary into /app and signal container"
+run = "scripts/compile-mcp.sh"
 
 [tasks.dev]
 description = "Start development environment"

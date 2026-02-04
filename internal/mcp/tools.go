@@ -1,12 +1,14 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"io/fs"
 	"mime"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -109,6 +111,17 @@ type FSReadBase64Output struct {
 	MimeType string `json:"mime_type" jsonschema:"detected mime type"`
 }
 
+type GrepInput struct {
+	Pattern string   `json:"pattern" jsonschema:"grep pattern"`
+	Args    []string `json:"args" jsonschema:"grep options (flags only)"`
+}
+
+type GrepOutput struct {
+	Stdout   string `json:"stdout" jsonschema:"grep standard output"`
+	Stderr   string `json:"stderr" jsonschema:"grep standard error"`
+	ExitCode int    `json:"exit_code" jsonschema:"grep exit code"`
+}
+
 func RegisterTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{Name: "echo", Description: "echo input text"}, echoTool)
 	sdkmcp.AddTool(server, &sdkmcp.Tool{Name: "fs.read", Description: "read file content"}, fsReadTool)
@@ -120,6 +133,7 @@ func RegisterTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{Name: "fs.apply_patch", Description: "apply unified diff patch"}, fsApplyPatchTool)
 	sdkmcp.AddTool(server, &sdkmcp.Tool{Name: "fs.mkdir", Description: "create directory (mkdir -p)"}, fsMkdirTool)
 	sdkmcp.AddTool(server, &sdkmcp.Tool{Name: "fs.rename", Description: "rename/move file or directory"}, fsRenameTool)
+	sdkmcp.AddTool(server, &sdkmcp.Tool{Name: "grep", Description: "grep within /data using GNU grep"}, grepTool)
 }
 
 func echoTool(ctx context.Context, req *sdkmcp.CallToolRequest, input EchoInput) (
@@ -193,6 +207,48 @@ func fsReadBase64Tool(ctx context.Context, req *sdkmcp.CallToolRequest, input FS
 	return nil, FSReadBase64Output{
 		Data:     base64.StdEncoding.EncodeToString(data),
 		MimeType: mimeType,
+	}, nil
+}
+
+func grepTool(ctx context.Context, req *sdkmcp.CallToolRequest, input GrepInput) (
+	*sdkmcp.CallToolResult,
+	GrepOutput,
+	error,
+) {
+	if strings.TrimSpace(input.Pattern) == "" {
+		return nil, GrepOutput{}, fmt.Errorf("pattern is required")
+	}
+	if stat, err := os.Stat("/data"); err != nil || !stat.IsDir() {
+		return nil, GrepOutput{}, fmt.Errorf("/data is not available")
+	}
+
+	args := append([]string{}, input.Args...)
+	args = append(args, input.Pattern, ".")
+
+	cmd := exec.CommandContext(ctx, "grep", args...)
+	cmd.Dir = "/data"
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	exitCode := 0
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+			if exitCode != 1 {
+				return nil, GrepOutput{}, fmt.Errorf("grep failed: %s", strings.TrimSpace(stderr.String()))
+			}
+		} else {
+			return nil, GrepOutput{}, err
+		}
+	}
+
+	return nil, GrepOutput{
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
+		ExitCode: exitCode,
 	}, nil
 }
 

@@ -98,12 +98,20 @@ func (m *Manager) EnsureUser(ctx context.Context, userID string) error {
 	}
 
 	specOpts := []oci.SpecOpts{
-		oci.WithMounts([]specs.Mount{{
-			Destination: dataMount,
-			Type:        "bind",
-			Source:      dataDir,
-			Options:     []string{"rbind", "rw"},
-		}}),
+		oci.WithMounts([]specs.Mount{
+			{
+				Destination: dataMount,
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+			{
+				Destination: "/app",
+				Type:        "bind",
+				Source:      dataDir,
+				Options:     []string{"rbind", "rw"},
+			},
+		}),
 	}
 
 	_, err = m.service.CreateContainer(ctx, ctr.CreateContainerRequest{
