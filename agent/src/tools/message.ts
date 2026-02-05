@@ -1,11 +1,11 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import { AuthFetcher } from '..'
-import type { ToolContext } from '../agent'
+import type { IdentityContext } from '../types'
 
 export type MessageToolParams = {
   fetch: AuthFetcher
-  toolContext?: ToolContext
+  identity: IdentityContext
 }
 
 const SendMessageSchema = z.object({
@@ -16,14 +16,14 @@ const SendMessageSchema = z.object({
   message: z.string(),
 })
 
-export const getMessageTools = ({ fetch, toolContext }: MessageToolParams) => {
+export const getMessageTools = ({ fetch, identity }: MessageToolParams) => {
   const sendMessage = tool({
     description: 'Send a message to a channel or session',
     inputSchema: SendMessageSchema,
     execute: async (payload) => {
-      const botId = (payload.bot_id ?? toolContext?.botId ?? '').trim()
-      const platform = (payload.platform ?? toolContext?.currentPlatform ?? '').trim()
-      const replyTarget = (toolContext?.replyTarget ?? '').trim()
+      const botId = (payload.bot_id ?? identity.botId ?? '').trim()
+      const platform = (payload.platform ?? identity.currentPlatform ?? '').trim()
+      const replyTarget = (identity.replyTarget ?? '').trim()
       const target = (payload.target ?? replyTarget).trim()
       const toUserID = (payload.to_user_id ?? '').trim()
       if (!botId) {
@@ -32,12 +32,12 @@ export const getMessageTools = ({ fetch, toolContext }: MessageToolParams) => {
       if (!platform) {
         throw new Error('platform is required')
       }
-      if (!target && !toUserID && !toolContext?.sessionToken) {
+      if (!target && !toUserID && !identity.sessionToken) {
         throw new Error('target or to_user_id is required')
       }
       // Use session token if available and no explicit to_user_id specified
       // This allows replying to current session without needing explicit auth
-      const useSessionToken = !!toolContext?.sessionToken && !toUserID
+      const useSessionToken = !!identity.sessionToken && !toUserID
       console.log('[Tool] send_message', {
         botId,
         platform,
@@ -59,8 +59,8 @@ export const getMessageTools = ({ fetch, toolContext }: MessageToolParams) => {
         ? `/bots/${botId}/channel/${platform}/send_session`
         : `/bots/${botId}/channel/${platform}/send`
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (useSessionToken && toolContext?.sessionToken) {
-        headers.Authorization = `Bearer ${toolContext.sessionToken}`
+      if (useSessionToken && identity.sessionToken) {
+        headers.Authorization = `Bearer ${identity.sessionToken}`
       }
       const response = await fetch(url, {
         method: 'POST',

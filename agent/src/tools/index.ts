@@ -5,6 +5,8 @@ import { getWebTools } from './web'
 import { getScheduleTools } from './schedule'
 import { getMemoryTools } from './memory'
 import { getSubagentTools } from './subagent'
+import { getContactTools } from './contact'
+import { getMessageTools } from './message'
 
 export interface ToolsParams {
   fetch: AuthFetcher
@@ -33,6 +35,14 @@ export const getTools = (
   if (actions.includes(AgentAction.Subagent)) {
     const subagentTools = getSubagentTools({ fetch, model, brave, identity })
     Object.assign(tools, subagentTools)
+  }
+  if (actions.includes(AgentAction.Contact)) {
+    const contactTools = getContactTools({ fetch, identity })
+    Object.assign(tools, contactTools)
+  }
+  if (actions.includes(AgentAction.Message)) {
+    const messageTools = getMessageTools({ fetch, identity })
+    Object.assign(tools, messageTools)
   }
   return tools
 }

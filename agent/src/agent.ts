@@ -6,7 +6,6 @@ import { createModel } from './model'
 import { AgentAction } from './types/action'
 import { getTools } from './tools'
 
-
 export const createAgent = ({
   model: modelConfig,
   activeContextTime = 24 * 60,

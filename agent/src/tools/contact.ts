@@ -1,70 +1,23 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import { AuthFetcher } from '..'
-import type { ToolContext } from '../agent'
+import type { IdentityContext } from '../types'
 
 export type ContactToolParams = {
   fetch: AuthFetcher
-  toolContext?: ToolContext
+  identity: IdentityContext
 }
 
-const ContactID = z.string().min(1)
-
-const ContactCreateSchema = z.object({
-  bot_id: z.string().optional(),
-  display_name: z.string().optional(),
-  alias: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  status: z.string().optional(),
-  metadata: z.object({}).passthrough().optional(),
-})
-
-const ContactUpdateSchema = z.object({
-  bot_id: z.string().optional(),
-  contact_id: ContactID,
-  display_name: z.string().optional(),
-  alias: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  status: z.string().optional(),
-  metadata: z.object({}).passthrough().optional(),
-})
-
-const ContactSearchSchema = z.object({
-  bot_id: z.string().optional(),
-  query: z.string().optional(),
-})
-
-const ContactBindTokenSchema = z.object({
-  bot_id: z.string().optional(),
-  contact_id: ContactID,
-  target_platform: z.string().optional(),
-  target_external_id: z.string().optional(),
-  ttl_seconds: z.number().optional(),
-})
-
-const ContactBindSchema = z.object({
-  bot_id: z.string().optional(),
-  contact_id: ContactID,
-  platform: z.string(),
-  external_id: z.string(),
-  bind_token: z.string(),
-})
-
-export const getContactTools = ({ fetch, toolContext }: ContactToolParams) => {
-  const resolveBotId = (botId?: string) => (botId ?? toolContext?.botId ?? '').trim()
+export const getContactTools = ({ fetch, identity }: ContactToolParams) => {
+  const botId = identity.botId.trim()
 
   const contactSearch = tool({
     description: 'Search contacts by name or alias',
-    inputSchema: ContactSearchSchema,
-    execute: async (payload) => {
-      const botId = resolveBotId(payload.bot_id)
-      if (!botId) {
-        throw new Error('bot_id is required')
-      }
-      const query = (payload.query ?? '').trim()
-      const url = query
-        ? `/bots/${botId}/contacts?q=${encodeURIComponent(query)}`
-        : `/bots/${botId}/contacts`
+    inputSchema: z.object({
+      query: z.string().describe('The query to search for contacts'),
+    }),
+    execute: async ({ query }) => {
+      const url = `/bots/${botId}/contacts?q=${encodeURIComponent(query)}`
       const response = await fetch(url)
       return response.json()
     },
@@ -72,21 +25,19 @@ export const getContactTools = ({ fetch, toolContext }: ContactToolParams) => {
 
   const contactCreate = tool({
     description: 'Create a contact',
-    inputSchema: ContactCreateSchema,
-    execute: async (payload) => {
-      const botId = resolveBotId(payload.bot_id)
-      if (!botId) {
-        throw new Error('bot_id is required')
-      }
+    inputSchema: z.object({
+      name: z.string().describe('The display name of the contact'),
+      alias: z.string().describe('The alias of the contact').optional(),
+      tags: z.array(z.string()).describe('The tags of the contact').optional(),
+    }),
+    execute: async ({ name, alias, tags }) => {
       const response = await fetch(`/bots/${botId}/contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          display_name: payload.display_name,
-          alias: payload.alias,
-          tags: payload.tags,
-          status: payload.status,
-          metadata: payload.metadata,
+          display_name: name,
+          alias: alias,
+          tags: tags ?? [],
         }),
       })
       return response.json()
@@ -95,63 +46,64 @@ export const getContactTools = ({ fetch, toolContext }: ContactToolParams) => {
 
   const contactUpdate = tool({
     description: 'Update a contact',
-    inputSchema: ContactUpdateSchema,
-    execute: async (payload) => {
-      const botId = resolveBotId(payload.bot_id)
-      if (!botId) {
-        throw new Error('bot_id is required')
-      }
-      const response = await fetch(`/bots/${botId}/contacts/${payload.contact_id}`, {
+    inputSchema: z.object({
+      contact_id: z.string().describe('The ID of the contact to update'),
+      name: z.string().describe('The display name of the contact').optional(),
+      alias: z.string().describe('The alias of the contact').optional(),
+      tags: z.array(z.string()).describe('The tags of the contact').optional(),
+    }),
+    execute: async ({ contact_id, name, alias, tags }) => {
+      const response = await fetch(`/bots/${botId}/contacts/${contact_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          display_name: payload.display_name,
-          alias: payload.alias,
-          tags: payload.tags,
-          status: payload.status,
-          metadata: payload.metadata,
+          display_name: name,
+          alias: alias,
+          tags: tags ?? [],
         }),
       })
       return response.json()
     },
   })
 
-  const contactBindToken = tool({
-    description: 'Issue a one-time bind token for a contact',
-    inputSchema: ContactBindTokenSchema,
-    execute: async (payload) => {
-      const botId = resolveBotId(payload.bot_id)
-      if (!botId) {
-        throw new Error('bot_id is required')
-      }
-      const response = await fetch(`/bots/${botId}/contacts/${payload.contact_id}/bind_token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target_platform: payload.target_platform,
-          target_external_id: payload.target_external_id,
-          ttl_seconds: payload.ttl_seconds,
-        }),
-      })
-      return response.json()
-    },
-  })
+  // const contactBindToken = tool({
+  //   description: 'Issue a one-time bind token for a contact',
+  //   inputSchema: z.object({
+  //     contact_id: ContactID,
+  //     target_platform: z.string().describe('The platform to bind the contact to'),
+  //     target_external_id: z.string().describe('The external ID of the contact'),
+  //     ttl_seconds: z.number().describe('The number of seconds the bind token is valid').optional(),
+  //   }),
+  //   execute: async ({ bot_id, contact_id, target_platform, target_external_id, ttl_seconds }) => {
+  //     const response = await fetch(`/bots/${botId}/contacts/${contact_id}/bind_token`, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({
+  //         target_platform: target_platform,
+  //         target_external_id: target_external_id,
+  //         ttl_seconds: ttl_seconds,
+  //       }),
+  //     })
+  //     return response.json()
+  //   },
+  // })
 
   const contactBind = tool({
     description: 'Bind a contact to a platform identity using a bind token',
-    inputSchema: ContactBindSchema,
-    execute: async (payload) => {
-      const botId = resolveBotId(payload.bot_id)
-      if (!botId) {
-        throw new Error('bot_id is required')
-      }
-      const response = await fetch(`/bots/${botId}/contacts/${payload.contact_id}/bind`, {
+    inputSchema: z.object({
+      contact_id: z.string().describe('The ID of the contact to bind'),
+      platform: z.string().describe('The platform to bind the contact to'),
+      external_id: z.string().describe('The external ID of the contact'),
+      bind_token: z.string().describe('The bind token to use'),
+    }),
+    execute: async ({ contact_id, platform, external_id, bind_token }) => {
+      const response = await fetch(`/bots/${botId}/contacts/${contact_id}/bind`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          platform: payload.platform,
-          external_id: payload.external_id,
-          bind_token: payload.bind_token,
+          platform: platform,
+          external_id: external_id,
+          bind_token: bind_token,
         }),
       })
       return response.json()
@@ -162,7 +114,7 @@ export const getContactTools = ({ fetch, toolContext }: ContactToolParams) => {
     'contact_search': contactSearch,
     'contact_create': contactCreate,
     'contact_update': contactUpdate,
-    'contact_bind_token': contactBindToken,
+    // 'contact_bind_token': contactBindToken,
     'contact_bind': contactBind,
   }
 }
