@@ -4,7 +4,7 @@ import { createAgent } from '../agent'
 import { createAuthFetcher } from '../index'
 import { ModelConfig } from '../types'
 import { bearerMiddleware } from '../middlewares/bearer'
-import { AllowedActionModel, IdentityContextModel, ModelConfigModel } from '../models'
+import { AllowedActionModel, IdentityContextModel, ModelConfigModel, ScheduleModel } from '../models'
 import { allActions } from '../types'
 
 const AgentModel = z.object({
@@ -61,4 +61,21 @@ export const chatModule = new Elysia({ prefix: '/chat' })
   }, {
     body: AgentModel,
   })
-  
+  .post('/trigger-schedule', async ({ body, bearer }) => {
+    const authFetcher = createAuthFetcher(bearer)
+    const { triggerSchedule } = createAgent({
+      model: body.model as ModelConfig,
+      activeContextTime: body.activeContextTime,
+      platforms: body.platforms,
+      currentPlatform: body.currentPlatform,
+      allowedActions: body.allowedActions,
+    }, authFetcher)
+    return triggerSchedule({
+      schedule: body.schedule,
+      messages: body.messages,
+    })
+  }, {
+    body: AgentModel.extend({
+      schedule: ScheduleModel,
+    }),
+  })

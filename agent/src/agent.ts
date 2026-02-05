@@ -12,7 +12,13 @@ export const createAgent = ({
   brave,
   language = 'Same as the user input',
   allowedActions = allActions,
-  identity,
+  identity = {
+    botId: '',
+    sessionId: '',
+    containerId: '',
+    contactId: '',
+    contactName: '',
+  },
   platforms = [],
   currentPlatform = 'Unknown Platform',
 }: AgentParams, fetch: AuthFetcher) => {

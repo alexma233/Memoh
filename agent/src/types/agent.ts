@@ -40,7 +40,7 @@ export interface AgentParams {
   activeContextTime?: number
   allowedActions?: AgentAction[]
   brave?: BraveConfig
-  identity: IdentityContext
+  identity?: IdentityContext
   platforms?: string[]
   currentPlatform?: string
 }
