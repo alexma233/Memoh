@@ -13,8 +13,8 @@ export const createAgent = ({
   language = 'Same as the user input',
   allowedActions = allActions,
   identity,
-  platforms = [],
-  currentPlatform = 'Unknown Platform',
+  channels = [],
+  currentChannel = 'Unknown Channel',
 }: AgentParams, fetch: AuthFetcher) => {
   const model = createModel(modelConfig)
   
@@ -23,7 +23,7 @@ export const createAgent = ({
       date: new Date(),
       language,
       maxContextLoadTime: activeContextTime,
-      platforms,
+      channels,
       skills: [],
       enabledSkills: [],
     })
@@ -42,7 +42,7 @@ export const createAgent = ({
     const text = user(input.query, {
       contactId: identity.contactId,
       contactName: identity.contactName,
-      platform: currentPlatform,
+      channel: currentChannel,
       date: new Date(),
       attachments: files,
     })

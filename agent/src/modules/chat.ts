@@ -10,8 +10,8 @@ import { allActions } from '../types'
 const AgentModel = z.object({
   model: ModelConfigModel,
   activeContextTime: z.number(),
-  platforms: z.array(z.string()),
-  currentPlatform: z.string(),
+  channels: z.array(z.string()),
+  currentChannel: z.string(),
   allowedActions: z.array(AllowedActionModel).optional().default(allActions),
   messages: z.array(z.any()),
   skills: z.array(z.string()),
@@ -27,8 +27,8 @@ export const chatModule = new Elysia({ prefix: '/chat' })
     const { ask } = createAgent({
       model: body.model as ModelConfig,
       activeContextTime: body.activeContextTime,
-      platforms: body.platforms,
-      currentPlatform: body.currentPlatform,
+      channels: body.channels,
+      currentChannel: body.currentChannel,
       allowedActions: body.allowedActions,
       identity: body.identity,
     }, authFetcher)
@@ -46,8 +46,8 @@ export const chatModule = new Elysia({ prefix: '/chat' })
     const { stream } = createAgent({
       model: body.model as ModelConfig,
       activeContextTime: body.activeContextTime,
-      platforms: body.platforms,
-      currentPlatform: body.currentPlatform,
+      channels: body.channels,
+      currentChannel: body.currentChannel,
       allowedActions: body.allowedActions,
       identity: body.identity,
     }, authFetcher)

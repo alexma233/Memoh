@@ -41,8 +41,8 @@ export interface AgentParams {
   allowedActions?: AgentAction[]
   brave?: BraveConfig
   identity: IdentityContext
-  platforms?: string[]
-  currentPlatform?: string
+  channels?: string[]
+  currentChannel?: string
 }
 
 export interface AgentInput {
