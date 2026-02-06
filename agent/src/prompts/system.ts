@@ -27,7 +27,6 @@ export const system = ({
   channels,
   skills,
   enabledSkills,
-  attachments = [],
 }: SystemParams) => {
   const headers = {
     'language': language,
@@ -35,27 +34,6 @@ export const system = ({
     'max-context-load-time': maxContextLoadTime.toString(),
     'time-now': date.toISOString(),
   }
-
-  const attachmentPaths = attachments
-    .map((p) => (typeof p === 'string' ? p.trim() : ''))
-    .filter(Boolean)
-
-  const attachmentsBlock = attachmentPaths.length
-    ? [
-      '## Current Attachments',
-      '',
-      'The following file paths are available in this request:',
-      '',
-      block(
-        [
-          '<attachments>',
-          ...attachmentPaths.map((p) => `- ${p}`),
-          '</attachments>',
-        ].join('\n')
-      ),
-      '',
-    ].join('\n')
-    : ''
 
   return `
 ---
@@ -111,6 +89,5 @@ ${skills.map(skill => `- ${skill.name}: ${skill.description}`).join('\n')}
 
 ${enabledSkills.map(skill => skillPrompt(skill)).join('\n\n---\n\n')}
 
-${attachmentsBlock}
   `.trim()
 }

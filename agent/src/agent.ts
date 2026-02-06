@@ -25,7 +25,7 @@ export const createAgent = ({
 }: AgentParams, fetch: AuthFetcher) => {
   const model = createModel(modelConfig)
   
-  const generateSystemPrompt = (attachmentPaths: string[] = []) => {
+  const generateSystemPrompt = () => {
     return system({
       date: new Date(),
       language,
@@ -33,7 +33,6 @@ export const createAgent = ({
       channels,
       skills: [],
       enabledSkills: [],
-      attachments: attachmentPaths,
     })
   }
 
@@ -43,12 +42,6 @@ export const createAgent = ({
     brave,
     identity,
   })
-
-  const getInputAttachmentPaths = (input: AgentInput): string[] => {
-    return input.attachments
-      .filter((a): a is ContainerFileAttachment => a.type === 'file')
-      .map(a => a.path)
-  }
 
   const generateUserPrompt = (input: AgentInput) => {
     const images = input.attachments.filter(attachment => attachment.type === 'image')
@@ -73,8 +66,7 @@ export const createAgent = ({
   const ask = async (input: AgentInput) => {
     const userPrompt = generateUserPrompt(input)
     const messages = [...input.messages, userPrompt]
-    const attachmentPaths = getInputAttachmentPaths(input)
-    const systemPrompt = generateSystemPrompt(attachmentPaths)
+    const systemPrompt = generateSystemPrompt()
     const { response, reasoning, text, usage } = await generateText({
       model,
       messages,
@@ -167,8 +159,7 @@ export const createAgent = ({
   async function* stream(input: AgentInput): AsyncGenerator<AgentAction> {
     const userPrompt = generateUserPrompt(input)
     const messages = [...input.messages, userPrompt]
-    const attachmentPaths = getInputAttachmentPaths(input)
-    const systemPrompt = generateSystemPrompt(attachmentPaths)
+    const systemPrompt = generateSystemPrompt()
     const attachmentsExtractor = new AttachmentsStreamExtractor()
     const result: {
       messages: ModelMessage[]
