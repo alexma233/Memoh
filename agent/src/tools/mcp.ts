@@ -12,7 +12,7 @@ export const getMCPTools = async (connections: MCPConnection[]) => {
         headers: connection.headers,
       }
     })
-    closeCallbacks.push(client.close)
+    closeCallbacks.push(() => client.close())
     return await client.tools()
   }
 
@@ -24,26 +24,28 @@ export const getMCPTools = async (connections: MCPConnection[]) => {
         headers: connection.headers,
       }
     })
-    closeCallbacks.push(client.close)
+    closeCallbacks.push(() => client.close())
     return await client.tools()
   }
 
   const getStdioTools = async (connection: StdioMCPConnection) => {
     // TODO: Implement stdio tools
-    return []
+    return {}
   }
 
+  const toolSets = await Promise.all(connections.map(connection => {
+    switch (connection.type) {
+      case 'http':
+        return getHTTPTools(connection)
+      case 'sse':
+        return getSSETools(connection)
+      case 'stdio':
+        return getStdioTools(connection)
+    }
+  }))
+
   return {
-    tools: await Promise.all(connections.map(connection => {
-      switch (connection.type) {
-        case 'http':
-          return getHTTPTools(connection)
-        case 'sse':
-          return getSSETools(connection)
-        case 'stdio':
-          return getStdioTools(connection)
-      }
-    })),
+    tools: Object.assign({}, ...toolSets),
     close: async () => {
       await Promise.all(closeCallbacks.map(callback => callback()))
     }

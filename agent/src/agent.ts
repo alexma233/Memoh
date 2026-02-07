@@ -38,7 +38,7 @@ export const createAgent = ({
     const fs: HTTPMCPConnection = {
       type: 'http',
       name: 'fs',
-      url: `http://localhost:8080/bots/${identity.botId}/container/fs`,
+      url: `${auth.baseUrl}/bots/${identity.botId}/container/fs`,
       headers: {
         'Authorization': `Bearer ${auth.bearer}`,
       },
@@ -65,7 +65,6 @@ export const createAgent = ({
       identity,
     })
     const defaultMCPConnections = getDefaultMCPConnections()
-    console.log('defaultMCPConnections', defaultMCPConnections)
     const { tools: mcpTools, close: closeMCP } = await getMCPTools([
       ...defaultMCPConnections,
       ...mcpConnections,

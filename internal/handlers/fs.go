@@ -93,6 +93,14 @@ func (h *ContainerdHandler) HandleMCPFS(c echo.Context) error {
 			Error:   &mcptools.JSONRPCError{Code: -32601, Message: "method not found"},
 		})
 	}
+	if len(req.ID) == 0 && strings.HasPrefix(req.Method, "notifications/") {
+		if err := h.notifyMCPServer(c.Request().Context(), containerID, req); err != nil {
+			h.logger.Error("mcp fs notify failed", slog.Any("error", err), slog.String("method", req.Method), slog.String("bot_id", botID), slog.String("container_id", containerID))
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		// MCP Streamable HTTP spec: notifications must be answered with 202 Accepted and no body.
+		return c.NoContent(http.StatusAccepted)
+	}
 	payload, err := h.callMCPServer(c.Request().Context(), containerID, req)
 	if err != nil {
 		h.logger.Error("mcp fs call failed", slog.Any("error", err), slog.String("method", req.Method), slog.String("bot_id", botID), slog.String("container_id", containerID))
@@ -138,6 +146,14 @@ func (h *ContainerdHandler) callMCPServer(ctx context.Context, containerID strin
 		return nil, err
 	}
 	return session.call(ctx, req)
+}
+
+func (h *ContainerdHandler) notifyMCPServer(ctx context.Context, containerID string, req mcptools.JSONRPCRequest) error {
+	session, err := h.getMCPSession(ctx, containerID)
+	if err != nil {
+		return err
+	}
+	return session.notify(ctx, req)
 }
 
 type mcpSession struct {
@@ -420,6 +436,22 @@ func (s *mcpSession) call(ctx context.Context, req mcptools.JSONRPCRequest) (map
 	}
 }
 
+func (s *mcpSession) notify(ctx context.Context, req mcptools.JSONRPCRequest) error {
+	payloads, err := buildMCPNotificationPayloads(req)
+	if err != nil {
+		return err
+	}
+	s.writeMu.Lock()
+	for _, payload := range payloads {
+		if _, err := s.stdin.Write([]byte(payload + "\n")); err != nil {
+			s.writeMu.Unlock()
+			return err
+		}
+	}
+	s.writeMu.Unlock()
+	return nil
+}
+
 func buildMCPPayloads(req mcptools.JSONRPCRequest, initOnce *sync.Once) ([]string, json.RawMessage, error) {
 	if req.JSONRPC == "" {
 		req.JSONRPC = "2.0"
@@ -479,4 +511,18 @@ func buildMCPPayloads(req mcptools.JSONRPCRequest, initOnce *sync.Once) ([]strin
 	}
 	payloads = append(payloads, string(reqBytes))
 	return payloads, targetID, nil
+}
+
+func buildMCPNotificationPayloads(req mcptools.JSONRPCRequest) ([]string, error) {
+	if req.JSONRPC == "" {
+		req.JSONRPC = "2.0"
+	}
+	if strings.TrimSpace(req.Method) == "" {
+		return nil, fmt.Errorf("missing method")
+	}
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	return []string{string(reqBytes)}, nil
 }

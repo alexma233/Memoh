@@ -20,6 +20,7 @@ export interface IdentityContext {
 
 export interface AgentAuthContext {
   bearer: string
+  baseUrl: string
 }
 
 export enum AgentAction {
