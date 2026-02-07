@@ -41,10 +41,10 @@ export interface AgentParams {
   activeContextTime?: number
   allowedActions?: AgentAction[]
   brave?: BraveConfig
-  identity: IdentityContext
   channels?: string[]
   currentChannel?: string
   mcpConnections?: MCPConnection[]
+  identity?: IdentityContext
 }
 
 export interface AgentInput {

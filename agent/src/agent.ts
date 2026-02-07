@@ -20,10 +20,16 @@ export const createAgent = ({
   brave,
   language = 'Same as the user input',
   allowedActions = allActions,
-  identity,
   channels = [],
   mcpConnections = [],
   currentChannel = 'Unknown Channel',
+  identity = {
+    botId: '',
+    sessionId: '',
+    containerId: '',
+    contactId: '',
+    contactName: '',
+  },
 }: AgentParams, fetch: AuthFetcher) => {
   const model = createModel(modelConfig)
   
