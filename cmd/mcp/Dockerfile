@@ -14,4 +14,5 @@ FROM alpine:latest
 RUN apk add --no-cache grep
 WORKDIR /app
 COPY --from=build /out/mcp /opt/mcp
+COPY cmd/mcp/template /opt/mcp-template
 ENTRYPOINT ["/bin/sh","-lc","bootstrap(){ [ -e /app/mcp ] || { mkdir -p /app; [ -f /opt/mcp ] && cp -a /opt/mcp /app/mcp 2>/dev/null || true; }; }; bootstrap; if [ -x /app/mcp ]; then exec /app/mcp \"$@\"; fi; exec /opt/mcp \"$@\"","--"]

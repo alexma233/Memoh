@@ -8,6 +8,9 @@ export interface SystemParams {
   channels: string[]
   skills: AgentSkill[]
   enabledSkills: AgentSkill[]
+  identityContent?: string
+  soulContent?: string
+  toolsContent?: string
   attachments?: string[]
 }
 
@@ -27,6 +30,9 @@ export const system = ({
   channels,
   skills,
   enabledSkills,
+  identityContent,
+  soulContent,
+  toolsContent,
 }: SystemParams) => {
   const headers = {
     'language': language,
@@ -34,8 +40,6 @@ export const system = ({
     'max-context-load-time': maxContextLoadTime.toString(),
     'time-now': date.toISOString(),
   }
-
-  console.log('enabledSkills', enabledSkills)
 
   return `
 ---
@@ -65,6 +69,19 @@ ${block([
   - If multiple occurrences exist, include more context in ${quote('old_text')}
 
 - ${quote('exec')}: execute command
+
+## Every Session
+
+Before anything else:
+- Read ${quote('IDENTITY.md')} to remember who you are
+- Read ${quote('SOUL.md')} to remember how to behave
+- Read ${quote('TOOLS.md')} to remember how to use the tools
+
+## Safety
+
+- Keep private data private
+- Don’t run destructive commands without asking
+- When in doubt, ask
 
 ## Memory
 
@@ -110,7 +127,17 @@ Important rules for attachments blocks:
 There are ${skills.length} skills available, you can use ${quote('use_skill')} to use a skill.
 ${skills.map(skill => `- ${skill.name}: ${skill.description}`).join('\n')}
 
-## Enabled Skills
+## IDENTITY.md
+
+${identityContent}
+
+## SOUL.md
+
+${soulContent}
+
+## TOOLS.md
+
+${toolsContent}
 
 ${enabledSkills.map(skill => skillPrompt(skill)).join('\n\n---\n\n')}
 

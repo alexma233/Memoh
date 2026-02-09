@@ -59,7 +59,36 @@ export const createAgent = ({
     return [fs]
   }
   
-  const generateSystemPrompt = () => {
+  const loadSystemFiles = async () => {
+    if (!auth?.bearer || !identity.botId) {
+      return {
+        identityContent: '',
+        soulContent: '',
+        toolsContent: '',
+      }
+    }
+    const fetchFile = async (path: string) => {
+      const response = await fetch(`/bots/${identity.botId}/container/fs/file?path=${encodeURIComponent(path)}`)
+      if (!response.ok) {
+        return ''
+      }
+      const data = await response.json().catch(() => ({} as { content?: string }))
+      return typeof data?.content === 'string' ? data.content : ''
+    }
+    const [identityContent, soulContent, toolsContent] = await Promise.all([
+      fetchFile('IDENTITY.md'),
+      fetchFile('SOUL.md'),
+      fetchFile('TOOLS.md'),
+    ])
+    return {
+      identityContent,
+      soulContent,
+      toolsContent,
+    }
+  }
+
+  const generateSystemPrompt = async () => {
+    const { identityContent, soulContent, toolsContent } = await loadSystemFiles()
     return system({
       date: new Date(),
       language,
@@ -67,6 +96,9 @@ export const createAgent = ({
       channels,
       skills,
       enabledSkills,
+      identityContent,
+      soulContent,
+      toolsContent,
     })
   }
 
@@ -118,7 +150,7 @@ export const createAgent = ({
     const userPrompt = generateUserPrompt(input)
     const messages = [...input.messages, userPrompt]
     input.skills.forEach(skill => enableSkill(skill))
-    const systemPrompt = generateSystemPrompt()
+    const systemPrompt = await generateSystemPrompt()
     const { tools, close } = await getAgentTools()
     const { response, reasoning, text, usage } = await generateText({
       model,
@@ -210,7 +242,7 @@ export const createAgent = ({
     const { response, reasoning, text, usage } = await generateText({
       model,
       messages,
-      system: generateSystemPrompt(),
+      system: await generateSystemPrompt(),
       stopWhen: stepCountIs(Infinity),
       onFinish: async () => {
         await close()
@@ -230,7 +262,7 @@ export const createAgent = ({
     const userPrompt = generateUserPrompt(input)
     const messages = [...input.messages, userPrompt]
     input.skills.forEach(skill => enableSkill(skill))
-    const systemPrompt = generateSystemPrompt()
+    const systemPrompt = await generateSystemPrompt()
     const attachmentsExtractor = new AttachmentsStreamExtractor()
     const result: {
       messages: ModelMessage[]
