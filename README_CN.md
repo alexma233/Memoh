@@ -15,6 +15,11 @@
     <img src="https://img.shields.io/github/last-commit/memohai/Memoh" alt="Last Commit" />
     <img src="https://img.shields.io/github/issues/memohai/Memoh" alt="Issues" />
   </div>
+  <div align="center">
+    [<a href="https://t.me/memohai">Telegram 群组</a>]
+    [<a href="https://docs.memoh.ai">文档</a>]
+    [<a href="mailto:business@memoh.net">合作</a>]
+  </div>
   <hr>
 </div>
 
@@ -70,17 +75,6 @@ cd Memoh
 <a href="https://github.com/memohai/Memoh/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=memohai/Memoh" />
 </a>
-
-## 联系我们
-
-商务合作: [business@memoh.net](mailto:business@memoh.net)
-
-- Telegram Group: [MEMOHAI](https://t.me/memohai)
-  <br>
-  <a href="https://t.me/memohai">
-  <img width="200" src="./assets/telegram.jpg" >
-  </a>
----
 
 **LICENSE**: AGPLv3
 
