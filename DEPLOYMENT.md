@@ -17,9 +17,7 @@ cd Memoh
 
 The script will automatically:
 - Check Docker and Docker Compose installation
-- Create `.env` configuration file (if not exists)
-- Generate random JWT secret
-- Create `config.toml` configuration file
+- Create `config.toml` configuration file (if not exists)
 - Build MCP image
 - Start all services
 
@@ -30,30 +28,26 @@ The script will automatically:
 
 Default admin credentials:
 - Username: `admin`
-- Password: `admin123` (change in `.env`)
+- Password: `admin123` (change in `config.toml`)
 
 ## Manual Deployment
 
 If you prefer not to use the automated script:
 
 ```bash
-# 1. Create configuration files
-cp .env.example .env
-cp config.docker.toml config.toml
+# 1. Create configuration file
+cp docker/config/config.docker.toml config.toml
 
 # 2. Edit configuration (Important!)
-nano .env
+nano config.toml
 
-# 3. Generate JWT secret
-openssl rand -base64 32
+# 3. Build MCP image
+docker build -f docker/Dockerfile.mcp -t memoh-mcp:latest .
 
-# 4. Build MCP image
-docker build -f cmd/mcp/Dockerfile -t memoh-mcp:latest .
-
-# 5. Start services
+# 4. Start services
 docker compose up -d
 
-# 6. View logs
+# 5. View logs
 docker compose logs -f
 ```
 
@@ -79,17 +73,6 @@ Advantages:
 
 ## Common Commands
 
-### Using Make (Recommended)
-```bash
-make help       # Show all commands
-make deploy     # One-click deployment
-make logs       # View logs
-make restart    # Restart services
-make ps         # View status
-make backup     # Backup data
-make bots       # View Bot containers
-```
-
 ### Using Docker Compose
 ```bash
 docker compose up -d        # Start services
@@ -99,23 +82,39 @@ docker compose ps           # View status
 docker compose restart      # Restart services
 ```
 
+### Bot Container Management
+
+View all Bot containers:
+```bash
+docker ps -a | grep memoh-bot
+```
+
 ## Configuration
 
-### Environment Variables (.env)
+### Environment Variables
 
-Key configuration items:
+Configuration is managed through `config.toml` file. Key configuration items:
 
-```bash
-# PostgreSQL password (must change)
-POSTGRES_PASSWORD=your_secure_password
-
-# JWT secret (must change)
-JWT_SECRET=your_random_jwt_secret
-
+```toml
 # Admin account
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your_admin_password
-ADMIN_EMAIL=admin@yourdomain.com
+[admin]
+username = "admin"
+password = "admin123"  # Must change
+email = "admin@yourdomain.com"
+
+# Auth configuration
+[auth]
+jwt_secret = "YZq8kXrW5dFpNt9mLxQvHbRjKsMnOePw"  # Must change
+jwt_expires_in = "168h"
+
+# PostgreSQL password
+[postgres]
+host = "postgres"
+port = 5432
+user = "memoh"
+password = "memoh123"  # Must change
+database = "memoh"
+sslmode = "disable"
 ```
 
 ### Application Configuration (config.toml)
@@ -125,7 +124,7 @@ Main configuration items:
 ```toml
 [postgres]
 host = "postgres"
-password = "your_secure_password"  # Must match POSTGRES_PASSWORD in .env
+password = "your_secure_password"  # Must change in config.toml
 
 [containerd]
 socket_path = "unix:///var/run/docker.sock"  # Use host Docker
@@ -163,8 +162,6 @@ Bot containers are dynamically created by the main service and run directly on t
 
 ```bash
 # View all Bot containers
-make bots
-# or
 docker ps -a | grep memoh-bot
 
 # View Bot logs
@@ -192,7 +189,7 @@ docker run --rm -v memoh_memoh_bot_data:/data -v $(pwd)/backups:/backup alpine \
   tar czf /backup/bot_data_$(date +%Y%m%d).tar.gz -C /data .
 
 # Backup configuration files
-tar czf backups/config_$(date +%Y%m%d).tar.gz config.toml .env
+tar czf backups/config_$(date +%Y%m%d).tar.gz config.toml
 ```
 
 ### Restore
@@ -264,10 +261,10 @@ services:
       - "443:443"
     volumes:
       - ./ssl:/etc/nginx/ssl:ro
-      - ./nginx-https.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/config/nginx-https.conf:/etc/nginx/conf.d/default.conf:ro
 ```
 
-Create `nginx-https.conf`:
+Create `docker/config/nginx-https.conf`:
 ```nginx
 server {
     listen 80;
@@ -287,7 +284,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
     
-    # Other configurations same as nginx.conf
+    # Other configurations same as docker/config/nginx.conf
     # ...
 }
 ```
@@ -311,8 +308,7 @@ services:
 ### 3. Security Recommendations
 
 Production environment recommendations:
-- Use separate `.env` file
-- Change all default passwords
+- Change all default passwords in `config.toml`
 - Use strong JWT secret
 - Configure firewall rules
 - Use HTTPS
@@ -358,9 +354,6 @@ git pull
 
 # Rebuild and restart
 docker compose up -d --build
-
-# Or use Make
-make update
 ```
 
 ## Complete Uninstall
@@ -382,8 +375,8 @@ docker rmi $(docker images | grep memoh | awk '{print $3}')
 ⚠️ Important Security Notes:
 
 1. **Docker Socket Access**: The main service container has access to the host Docker socket, which means the application can manage other containers on the host. Only run in trusted environments.
-2. **Change Default Passwords**: Must change all default passwords in `.env`
-3. **Strong JWT Secret**: Use a strong random JWT secret
+2. **Change Default Passwords**: Must change all default passwords in `config.toml`
+3. **Strong JWT Secret**: Use a strong random JWT secret (generate with `openssl rand -base64 32`)
 4. **Firewall**: Configure firewall to only open necessary ports
 5. **HTTPS**: Use HTTPS in production
 6. **Regular Backups**: Regularly backup data

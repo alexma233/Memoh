@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: memoh
       POSTGRES_USER: memoh
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-memoh123}
+      POSTGRES_PASSWORD: memoh123
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
@@ -51,31 +51,9 @@ services:
 
   server:
     build:
-      context: .
+      context: ./docker
       dockerfile: Dockerfile.server
     container_name: memoh-server
-    environment:
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - SERVER_ADDR=:8080
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=memoh
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-memoh123}
-      - POSTGRES_DB=memoh
-      - POSTGRES_SSLMODE=disable
-      - QDRANT_BASE_URL=http://qdrant:6334
-      - QDRANT_COLLECTION=memory
-      - CONTAINERD_SOCKET=unix:///var/run/docker.sock
-      - AGENT_GATEWAY_HOST=agent
-      - AGENT_GATEWAY_PORT=8081
-      - JWT_SECRET=${JWT_SECRET:-YZq8kXrW5dFpNt9mLxQvHbRjKsMnOePw}
-      - JWT_EXPIRES_IN=168h
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@memoh.local}
-      - MCP_BUSYBOX_IMAGE=memoh-mcp:latest
-      - MCP_DATA_ROOT=/var/lib/memoh/data
-      - MCP_DATA_MOUNT=/data
     volumes:
       - ./config.toml:/app/config.toml:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -94,11 +72,10 @@ services:
   agent:
     build:
       context: .
-      dockerfile: Dockerfile.agent
+      dockerfile: docker/Dockerfile.agent
     container_name: memoh-agent
-    environment:
-      - NODE_ENV=production
-      - PORT=8081
+    volumes:
+      - ./config.toml:/app/config.toml:ro
     ports:
       - "8081:8081"
     depends_on:
@@ -110,10 +87,10 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: docker/Dockerfile.web
       args:
-        - VITE_API_URL=${VITE_API_URL:-http://localhost:8080}
-        - VITE_AGENT_URL=${VITE_AGENT_URL:-http://localhost:8081}
+        - VITE_API_URL=http://localhost:8080
+        - VITE_AGENT_URL=http://localhost:8081
     container_name: memoh-web
     ports:
       - "80:80"

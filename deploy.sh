@@ -15,14 +15,20 @@ echo ""
 # Check Docker
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Error: Docker is not installed${NC}"
-    echo "Please install Docker first: https://docs.docker.com/get-docker/"
+    echo "Please install Docker first:"
+    echo "  - Linux: curl -fsSL https://get.docker.com | sh"
+    echo "  - macOS: brew install --cask docker"
+    echo "  - Windows: https://docs.docker.com/desktop/install/windows-install/"
+    echo "  - Official guide: https://docs.docker.com/get-docker/"
     exit 1
 fi
 
 # Check Docker Compose
 if ! docker compose version &> /dev/null; then
     echo -e "${RED}Error: Docker Compose is not installed or version is too old${NC}"
-    echo "Please install Docker Compose v2.0+: https://docs.docker.com/compose/install/"
+    echo "Docker Compose v2.0+ is required (bundled with Docker Desktop)"
+    echo "  - Linux: sudo apt-get install docker-compose-plugin"
+    echo "  - Or follow: https://docs.docker.com/compose/install/"
     exit 1
 fi
 
@@ -33,14 +39,14 @@ echo ""
 # Check config.toml
 if [ ! -f config.toml ]; then
     echo -e "${YELLOW}⚠ config.toml does not exist, creating...${NC}"
-    cp config.docker.toml config.toml
+    cp docker/config/config.docker.toml config.toml
     echo -e "${GREEN}✓ config.toml created${NC}"
     echo ""
 fi
 
 # Build MCP image
 echo -e "${GREEN}Building MCP image...${NC}"
-if docker build -f cmd/mcp/Dockerfile -t memoh-mcp:latest . > /dev/null 2>&1; then
+if docker build -f docker/Dockerfile.mcp -t memoh-mcp:latest . > /dev/null 2>&1; then
     echo -e "${GREEN}✓ MCP image built successfully${NC}"
 else
     echo -e "${YELLOW}⚠ MCP image build failed, will try to pull at runtime${NC}"
