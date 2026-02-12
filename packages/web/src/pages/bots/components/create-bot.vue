@@ -14,7 +14,7 @@
     <DialogContent class="sm:max-w-md">
       <form @submit="handleSubmit">
         <DialogHeader>
-          <DialogTitle>{{ isEdit ? $t('bots.editBot') : $t('bots.createBot') }}</DialogTitle>
+          <DialogTitle>{{ $t('bots.createBot') }}</DialogTitle>
           <DialogDescription>
             <Separator class="my-4" />
           </DialogDescription>
@@ -58,9 +58,8 @@
             </FormItem>
           </FormField>
 
-          <!-- Type (only for create) -->
+          <!-- Type -->
           <FormField
-            v-if="!isEdit"
             v-slot="{ componentField }"
             name="type"
           >
@@ -76,30 +75,15 @@
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value="personal">
-                        Personal
+                        {{ $t('bots.types.personal') }}
                       </SelectItem>
                       <SelectItem value="public">
-                        Public
+                        {{ $t('bots.types.public') }}
                       </SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </FormControl>
-            </FormItem>
-          </FormField>
-
-          <!-- Active (only for edit) -->
-          <FormField
-            v-if="isEdit"
-            v-slot="{ componentField }"
-            name="is_active"
-          >
-            <FormItem class="flex items-center justify-between">
-              <Label>{{ $t('bots.active') }}</Label>
-              <Switch
-                v-model="componentField.modelValue"
-                @update:model-value="componentField['onUpdate:modelValue']"
-              />
             </FormItem>
           </FormField>
         </div>
@@ -115,7 +99,7 @@
             :disabled="!form.meta.value.valid || submitLoading"
           >
             <Spinner v-if="submitLoading" />
-            {{ isEdit ? $t('common.save') : $t('bots.createBot') }}
+            {{ $t('bots.createBot') }}
           </Button>
         </DialogFooter>
       </form>
@@ -138,93 +122,63 @@ import {
   FormField,
   FormControl,
   FormItem,
+  Separator,
+  Label,
+  Spinner,
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Separator,
-  Label,
-  Spinner,
-  Switch,
 } from '@memoh/ui'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import z from 'zod'
-import { computed, watch } from 'vue'
-import { useMutation, useQueryCache } from '@pinia/colada'
-import { postBotsMutation, putBotsByIdMutation, getBotsQueryKey } from '@memoh/sdk/colada'
-import type { BotsBot } from '@memoh/sdk'
+import { watch } from 'vue'
+import { useCreateBot } from '@/composables/api/useBots'
 
 const open = defineModel<boolean>('open', { default: false })
-const editBot = defineModel<BotsBot | null>('editBot', { default: null })
-
-const isEdit = computed(() => !!editBot.value)
 
 const formSchema = toTypedSchema(z.object({
   display_name: z.string().min(1),
   avatar_url: z.string().optional(),
-  type: z.string().min(1),
-  is_active: z.coerce.boolean().optional(),
+  type: z.string(),
 }))
 
 const form = useForm({
   validationSchema: formSchema,
   initialValues: {
+    display_name: '',
+    avatar_url: '',
     type: 'personal',
   },
 })
 
-const queryCache = useQueryCache()
-const { mutate: createBot, isLoading: createLoading } = useMutation({
-  ...postBotsMutation(),
-  onSettled: () => queryCache.invalidateQueries({ key: getBotsQueryKey() }),
-})
-const { mutate: updateBot, isLoading: updateLoading } = useMutation({
-  ...putBotsByIdMutation(),
-  onSettled: () => queryCache.invalidateQueries({ key: getBotsQueryKey() }),
-})
+const { mutate: createBot, isLoading: submitLoading } = useCreateBot()
 
-const submitLoading = computed(() => createLoading.value || updateLoading.value)
-
-// 打开弹窗时，如果是编辑模式则填入数据，否则重置
 watch(open, (val) => {
-  if (val && editBot.value) {
+  if (val) {
     form.resetForm({
       values: {
-        display_name: editBot.value.display_name,
-        avatar_url: editBot.value.avatar_url || '',
-        is_active: editBot.value.is_active,
+        display_name: '',
+        avatar_url: '',
+        type: 'personal',
       },
     })
-  } else if (!val) {
-    form.resetForm({ values: { display_name: '', avatar_url: '', type: 'personal' } })
-    editBot.value = null
+  } else {
+    form.resetForm()
   }
 })
 
 const handleSubmit = form.handleSubmit(async (values) => {
   try {
-    if (isEdit.value && editBot.value) {
-      await updateBot({
-        path: { id: editBot.value.id },
-        body: {
-          display_name: values.display_name,
-          avatar_url: values.avatar_url || undefined,
-          is_active: values.is_active,
-        },
-      })
-    } else {
-      await createBot({
-        body: {
-          display_name: values.display_name,
-          avatar_url: values.avatar_url || undefined,
-          type: values.type || undefined,
-          is_active: true,
-        },
-      })
-    }
+    await createBot({
+      display_name: values.display_name,
+      avatar_url: values.avatar_url || undefined,
+      type: values.type,
+      is_active: true,
+    })
     open.value = false
   } catch {
     return

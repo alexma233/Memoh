@@ -9,39 +9,38 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/memohai/memoh/internal/accounts"
 	"github.com/memohai/memoh/internal/auth"
-	"github.com/memohai/memoh/internal/boot"
-	"github.com/memohai/memoh/internal/users"
 )
 
 type AuthHandler struct {
-	userService *users.Service
-	jwtSecret   string
-	expiresIn   time.Duration
-	logger      *slog.Logger
+	accountService *accounts.Service
+	jwtSecret      string
+	expiresIn      time.Duration
+	logger         *slog.Logger
 }
 
 type LoginRequest struct {
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type LoginResponse struct {
-	AccessToken string `json:"access_token" validate:"required"`
-	TokenType   string `json:"token_type" validate:"required"`
-	ExpiresAt   string `json:"expires_at" validate:"required"`
-	UserID      string `json:"user_id" validate:"required"`
-	Role        string `json:"role" validate:"required"`
-	DisplayName string `json:"display_name" validate:"required"`
-	Username    string `json:"username" validate:"required"`
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresAt   string `json:"expires_at"`
+	UserID      string `json:"user_id"`
+	Role        string `json:"role"`
+	DisplayName string `json:"display_name"`
+	Username    string `json:"username"`
 }
 
-func NewAuthHandler(log *slog.Logger, userService *users.Service, runtimeConfig *boot.RuntimeConfig) *AuthHandler {
+func NewAuthHandler(log *slog.Logger, accountService *accounts.Service, jwtSecret string, expiresIn time.Duration) *AuthHandler {
 	return &AuthHandler{
-		userService: userService,
-		jwtSecret:   runtimeConfig.JwtSecret,
-		expiresIn:   runtimeConfig.JwtExpiresIn,
-		logger:      log.With(slog.String("handler", "auth")),
+		accountService: accountService,
+		jwtSecret:      jwtSecret,
+		expiresIn:      expiresIn,
+		logger:         log.With(slog.String("handler", "auth")),
 	}
 }
 
@@ -60,7 +59,7 @@ func (h *AuthHandler) Register(e *echo.Echo) {
 // @Failure 500 {object} ErrorResponse
 // @Router /auth/login [post]
 func (h *AuthHandler) Login(c echo.Context) error {
-	if h.userService == nil {
+	if h.accountService == nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "user service not configured")
 	}
 	if strings.TrimSpace(h.jwtSecret) == "" {
@@ -79,17 +78,17 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username and password are required")
 	}
 
-	user, err := h.userService.Login(c.Request().Context(), req.Username, req.Password)
+	account, err := h.accountService.Login(c.Request().Context(), req.Username, req.Password)
 	if err != nil {
-		if errors.Is(err, users.ErrInvalidCredentials) {
+		if errors.Is(err, accounts.ErrInvalidCredentials) {
 			return echo.NewHTTPError(http.StatusUnauthorized, "invalid credentials")
 		}
-		if errors.Is(err, users.ErrInactiveUser) {
+		if errors.Is(err, accounts.ErrInactiveAccount) {
 			return echo.NewHTTPError(http.StatusUnauthorized, "user is inactive")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	token, expiresAt, err := auth.GenerateToken(user.ID, h.jwtSecret, h.expiresIn)
+	token, expiresAt, err := auth.GenerateToken(account.ID, h.jwtSecret, h.expiresIn)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -98,9 +97,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		AccessToken: token,
 		TokenType:   "Bearer",
 		ExpiresAt:   expiresAt.Format(time.RFC3339),
-		UserID:      user.ID,
-		Username:    user.Username,
-		Role:        user.Role,
-		DisplayName: user.DisplayName,
+		UserID:      account.ID,
+		Username:    account.Username,
+		Role:        account.Role,
+		DisplayName: account.DisplayName,
 	})
 }

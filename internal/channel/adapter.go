@@ -12,9 +12,42 @@ var ErrStopNotSupported = errors.New("channel connection stop not supported")
 // InboundHandler is a callback invoked when a message arrives from a channel.
 type InboundHandler func(ctx context.Context, cfg ChannelConfig, msg InboundMessage) error
 
-// ReplySender sends an outbound reply within the scope of a single inbound message.
-type ReplySender interface {
+// StreamReplySender sends replies within a single inbound-processing scope.
+// It supports both one-shot delivery and streaming sessions.
+type StreamReplySender interface {
 	Send(ctx context.Context, msg OutboundMessage) error
+	OpenStream(ctx context.Context, target string, opts StreamOptions) (OutboundStream, error)
+}
+
+// OutboundStream is a live stream session for emitting outbound events.
+type OutboundStream interface {
+	Push(ctx context.Context, event StreamEvent) error
+	Close(ctx context.Context) error
+}
+
+// ProcessingStatusInfo carries context for channel-level processing status updates.
+type ProcessingStatusInfo struct {
+	BotID             string
+	ChatID            string
+	RouteID           string
+	ChannelIdentityID string
+	UserID            string
+	Query             string
+	ReplyTarget       string
+	SourceMessageID   string
+}
+
+// ProcessingStatusHandle stores channel-specific state between status callbacks.
+type ProcessingStatusHandle struct {
+	Token string
+}
+
+// ProcessingStatusNotifier reports processing lifecycle updates to channel platforms.
+// Implementations should be best-effort and idempotent.
+type ProcessingStatusNotifier interface {
+	ProcessingStarted(ctx context.Context, cfg ChannelConfig, msg InboundMessage, info ProcessingStatusInfo) (ProcessingStatusHandle, error)
+	ProcessingCompleted(ctx context.Context, cfg ChannelConfig, msg InboundMessage, info ProcessingStatusInfo, handle ProcessingStatusHandle) error
+	ProcessingFailed(ctx context.Context, cfg ChannelConfig, msg InboundMessage, info ProcessingStatusInfo, handle ProcessingStatusHandle, cause error) error
 }
 
 // Adapter is the base interface every channel adapter must implement.
@@ -57,6 +90,17 @@ type BindingMatcher interface {
 // Sender is an adapter capable of sending outbound messages.
 type Sender interface {
 	Send(ctx context.Context, cfg ChannelConfig, msg OutboundMessage) error
+}
+
+// StreamSender is an adapter capable of opening outbound stream sessions.
+type StreamSender interface {
+	OpenStream(ctx context.Context, cfg ChannelConfig, target string, opts StreamOptions) (OutboundStream, error)
+}
+
+// MessageEditor updates and deletes already-sent messages when supported.
+type MessageEditor interface {
+	Update(ctx context.Context, cfg ChannelConfig, target string, messageID string, msg Message) error
+	Unsend(ctx context.Context, cfg ChannelConfig, target string, messageID string) error
 }
 
 // Receiver is an adapter capable of establishing a long-lived connection to receive messages.

@@ -10,11 +10,11 @@ import (
 
 // CLIAdapter implements channel.Sender for the local CLI channel.
 type CLIAdapter struct {
-	hub *SessionHub
+	hub *RouteHub
 }
 
-// NewCLIAdapter creates a CLIAdapter backed by the given session hub.
-func NewCLIAdapter(hub *SessionHub) *CLIAdapter {
+// NewCLIAdapter creates a CLIAdapter backed by the given route hub.
+func NewCLIAdapter(hub *RouteHub) *CLIAdapter {
 	return &CLIAdapter{hub: hub}
 }
 
@@ -30,20 +30,22 @@ func (a *CLIAdapter) Descriptor() channel.Descriptor {
 		DisplayName: "CLI",
 		Configless:  true,
 		Capabilities: channel.ChannelCapabilities{
-			Text:        true,
-			Reply:       true,
-			Attachments: true,
+			Text:           true,
+			Reply:          true,
+			Attachments:    true,
+			Streaming:      true,
+			BlockStreaming: true,
 		},
 		TargetSpec: channel.TargetSpec{
-			Format: "session_id",
+			Format: "bot_id",
 			Hints: []channel.TargetHint{
-				{Label: "Session ID", Example: "cli:uuid"},
+				{Label: "Bot ID", Example: "bot_123"},
 			},
 		},
 	}
 }
 
-// Send publishes an outbound message to the CLI session hub.
+// Send publishes an outbound message to the CLI route hub.
 func (a *CLIAdapter) Send(ctx context.Context, cfg channel.ChannelConfig, msg channel.OutboundMessage) error {
 	if a.hub == nil {
 		return fmt.Errorf("cli hub not configured")
@@ -57,4 +59,21 @@ func (a *CLIAdapter) Send(ctx context.Context, cfg channel.ChannelConfig, msg ch
 	}
 	a.hub.Publish(target, msg)
 	return nil
+}
+
+// OpenStream opens a local stream session bound to the target route.
+func (a *CLIAdapter) OpenStream(ctx context.Context, cfg channel.ChannelConfig, target string, opts channel.StreamOptions) (channel.OutboundStream, error) {
+	if a.hub == nil {
+		return nil, fmt.Errorf("cli hub not configured")
+	}
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil, fmt.Errorf("cli target is required")
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	return newLocalOutboundStream(a.hub, target), nil
 }

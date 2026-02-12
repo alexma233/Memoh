@@ -8,10 +8,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -39,7 +38,7 @@ func (s *Service) Create(ctx context.Context, botID string, req CreateRequest) (
 	if description == "" {
 		return Subagent{}, fmt.Errorf("description is required")
 	}
-	pgBotID, err := parseUUID(botID)
+	pgBotID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Subagent{}, err
 	}
@@ -70,7 +69,7 @@ func (s *Service) Create(ctx context.Context, botID string, req CreateRequest) (
 }
 
 func (s *Service) Get(ctx context.Context, id string) (Subagent, error) {
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Subagent{}, err
 	}
@@ -85,7 +84,7 @@ func (s *Service) Get(ctx context.Context, id string) (Subagent, error) {
 }
 
 func (s *Service) List(ctx context.Context, botID string) ([]Subagent, error) {
-	pgBotID, err := parseUUID(botID)
+	pgBotID, err := db.ParseUUID(botID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +130,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Sub
 	if err != nil {
 		return Subagent{}, err
 	}
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Subagent{}, err
 	}
@@ -152,7 +151,7 @@ func (s *Service) UpdateContext(ctx context.Context, id string, req UpdateContex
 	if err != nil {
 		return Subagent{}, err
 	}
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Subagent{}, err
 	}
@@ -171,7 +170,7 @@ func (s *Service) UpdateSkills(ctx context.Context, id string, req UpdateSkillsR
 	if err != nil {
 		return Subagent{}, err
 	}
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Subagent{}, err
 	}
@@ -195,7 +194,7 @@ func (s *Service) AddSkills(ctx context.Context, id string, req AddSkillsRequest
 	if err != nil {
 		return Subagent{}, err
 	}
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Subagent{}, err
 	}
@@ -210,7 +209,7 @@ func (s *Service) AddSkills(ctx context.Context, id string, req AddSkillsRequest
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return err
 	}
@@ -231,10 +230,10 @@ func toSubagent(row sqlc.Subagent) (Subagent, error) {
 		return Subagent{}, err
 	}
 	item := Subagent{
-		ID:          toUUIDString(row.ID),
+		ID:          row.ID.String(),
 		Name:        row.Name,
 		Description: row.Description,
-		BotID:       toUUIDString(row.BotID),
+		BotID:       row.BotID.String(),
 		Messages:    messages,
 		Metadata:    metadata,
 		Skills:      skills,
@@ -336,24 +335,3 @@ func mergeSkills(existing []string, incoming []string) []string {
 	return normalizeSkills(merged)
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(strings.TrimSpace(id))
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
-}
-
-func toUUIDString(value pgtype.UUID) string {
-	if !value.Valid {
-		return ""
-	}
-	id, err := uuid.FromBytes(value.Bytes[:])
-	if err != nil {
-		return ""
-	}
-	return id.String()
-}

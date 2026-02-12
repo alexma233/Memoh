@@ -72,6 +72,45 @@ func (q *Queries) GetContainerByContainerID(ctx context.Context, containerID str
 	return i, err
 }
 
+const listAutoStartContainers = `-- name: ListAutoStartContainers :many
+SELECT id, bot_id, container_id, container_name, image, status, namespace, auto_start, host_path, container_path, created_at, updated_at, last_started_at, last_stopped_at FROM containers WHERE auto_start = true ORDER BY updated_at DESC
+`
+
+func (q *Queries) ListAutoStartContainers(ctx context.Context) ([]Container, error) {
+	rows, err := q.db.Query(ctx, listAutoStartContainers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Container
+	for rows.Next() {
+		var i Container
+		if err := rows.Scan(
+			&i.ID,
+			&i.BotID,
+			&i.ContainerID,
+			&i.ContainerName,
+			&i.Image,
+			&i.Status,
+			&i.Namespace,
+			&i.AutoStart,
+			&i.HostPath,
+			&i.ContainerPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastStartedAt,
+			&i.LastStoppedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateContainerStarted = `-- name: UpdateContainerStarted :exec
 UPDATE containers
 SET status = 'running', last_started_at = now(), updated_at = now()

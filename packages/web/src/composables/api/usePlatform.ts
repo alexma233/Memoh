@@ -15,7 +15,7 @@ export interface CreatePlatformRequest {
   active: boolean
 }
 
-// ---- Query: 获取平台列表 ----
+// ---- Query: platform list ----
 
 export function usePlatformList() {
   return useQuery({

@@ -14,6 +14,13 @@ type connectionEntry struct {
 }
 
 func (m *Manager) refresh(ctx context.Context) {
+	// Serialize refresh calls to prevent concurrent reconcile from starting
+	// duplicate adapter connections.
+	if !m.refreshMu.TryLock() {
+		return
+	}
+	defer m.refreshMu.Unlock()
+
 	if m.service == nil {
 		return
 	}
@@ -75,35 +82,56 @@ func (m *Manager) ensureConnection(ctx context.Context, cfg ChannelConfig) error
 
 	m.mu.Lock()
 	entry := m.connections[cfg.ID]
+
+	// Config unchanged — nothing to do.
 	if entry != nil && !entry.config.UpdatedAt.Before(cfg.UpdatedAt) {
 		m.mu.Unlock()
 		return nil
 	}
+
+	// Need to stop existing connection before starting a new one.
+	// Keep the lock to prevent another goroutine from starting a duplicate.
+	var oldConn Connection
 	if entry != nil {
-		m.mu.Unlock()
+		oldConn = entry.connection
+		delete(m.connections, cfg.ID)
+	}
+	m.mu.Unlock()
+
+	if oldConn != nil {
 		if m.logger != nil {
 			m.logger.Info("adapter restart", slog.String("channel", cfg.ChannelType.String()), slog.String("config_id", cfg.ID))
 		}
-		if err := entry.connection.Stop(ctx); err != nil {
+		if err := oldConn.Stop(ctx); err != nil {
 			if errors.Is(err, ErrStopNotSupported) {
 				if m.logger != nil {
 					m.logger.Warn("adapter restart skipped", slog.String("channel", cfg.ChannelType.String()), slog.String("config_id", cfg.ID))
 				}
+				// Re-insert the entry since we can't restart it.
+				m.mu.Lock()
+				if _, exists := m.connections[cfg.ID]; !exists {
+					m.connections[cfg.ID] = entry
+				}
+				m.mu.Unlock()
 				return nil
 			}
 			return err
 		}
-		m.mu.Lock()
-		delete(m.connections, cfg.ID)
-		m.mu.Unlock()
-	} else {
-		m.mu.Unlock()
 	}
 
 	receiver, ok := m.registry.GetReceiver(cfg.ChannelType)
 	if !ok {
 		return nil
 	}
+
+	// Double-check: another goroutine may have already started a connection
+	// for this config while we were stopping the old one.
+	m.mu.Lock()
+	if existing, ok := m.connections[cfg.ID]; ok && existing != nil {
+		m.mu.Unlock()
+		return nil
+	}
+	m.mu.Unlock()
 
 	if m.logger != nil {
 		m.logger.Info("adapter start", slog.String("channel", cfg.ChannelType.String()), slog.String("config_id", cfg.ID))
@@ -116,7 +144,15 @@ func (m *Manager) ensureConnection(ctx context.Context, cfg ChannelConfig) error
 	if err != nil {
 		return err
 	}
+
 	m.mu.Lock()
+	// Final check: if another goroutine raced and inserted first, stop our new
+	// connection and keep the existing one.
+	if existing, ok := m.connections[cfg.ID]; ok && existing != nil {
+		m.mu.Unlock()
+		_ = conn.Stop(ctx)
+		return nil
+	}
 	m.connections[cfg.ID] = &connectionEntry{
 		config:     cfg,
 		connection: conn,

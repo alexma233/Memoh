@@ -52,3 +52,6 @@ WHERE bot_id = sqlc.arg(bot_id);
 UPDATE containers
 SET status = 'stopped', last_stopped_at = now(), updated_at = now()
 WHERE bot_id = sqlc.arg(bot_id);
+
+-- name: ListAutoStartContainers :many
+SELECT * FROM containers WHERE auto_start = true ORDER BY updated_at DESC;

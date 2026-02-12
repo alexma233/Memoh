@@ -6,6 +6,8 @@ export interface SystemParams {
   language: string
   maxContextLoadTime: number
   channels: string[]
+  /** Channel where the current session/message is from (e.g. telegram, feishu, web). */
+  currentChannel: string
   skills: AgentSkill[]
   enabledSkills: AgentSkill[]
   identityContent?: string
@@ -23,11 +25,12 @@ ${skill.content}
   `.trim()
 }
 
-export const system = ({ 
+export const system = ({
   date,
   language,
   maxContextLoadTime,
   channels,
+  currentChannel,
   skills,
   enabledSkills,
   identityContent,
@@ -37,6 +40,7 @@ export const system = ({
   const headers = {
     'language': language,
     'available-channels': channels.join(','),
+    'current-session-channel': currentChannel,
     'max-context-load-time': maxContextLoadTime.toString(),
     'time-now': date.toISOString(),
   }
@@ -97,7 +101,11 @@ You have a contacts book to record them that you do not need to worry about who 
 
 ## Channels
 
+The current session (and the latest user message) is from channel: ${quote(currentChannel)}. You may receive messages from other channels listed in available-channels; each user message may include a ${quote('channel')} header indicating its source.
+
 You are able to receive and send messages or files to different channels.
+
+When you need to resolve a user or group on a channel (e.g. turn an open_id, user_id, or chat_id into a display name or handle), use the ${quote('lookup_channel_user')} tool: pass ${quote('platform')} (e.g. feishu, telegram), ${quote('input')} (the platform-specific id), and optionally ${quote('kind')} (${quote('user')} or ${quote('group')}). It returns name, handle, and id for that entry.
 
 ## Attachments
 

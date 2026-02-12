@@ -45,7 +45,7 @@
               v-if="bot.type"
               class="text-xs text-muted-foreground truncate"
             >
-              {{ bot.type }}
+              {{ botTypeLabel(bot.type) }}
             </div>
           </div>
         </button>
@@ -65,19 +65,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Avatar, AvatarImage, AvatarFallback, ScrollArea } from '@memoh/ui'
-import { useQuery } from '@pinia/colada'
-import { getBotsQuery } from '@memoh/sdk/colada'
-import type { BotsBot } from '@memoh/sdk'
-import { useChatStore } from '@/store/chat-list'
+import { useBotList, type BotInfo } from '@/composables/api/useBots'
+import { useChatList } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
 
-const chatStore = useChatStore()
+const { t } = useI18n()
+const chatStore = useChatList()
 const { currentBotId } = storeToRefs(chatStore)
 
-const { data: botData, isLoading } = useQuery(getBotsQuery())
-const bots = computed<BotsBot[]>(() => botData.value?.items ?? [])
+const { data: botData, isLoading } = useBotList()
+const bots = computed<BotInfo[]>(() => botData.value ?? [])
 
-function handleSelect(bot: BotsBot) {
+function botTypeLabel(type: string) {
+  if (type === 'personal' || type === 'public') return t('bots.types.' + type)
+  return type ?? ''
+}
+
+function handleSelect(bot: BotInfo) {
   chatStore.selectBot(bot.id)
 }
 </script>

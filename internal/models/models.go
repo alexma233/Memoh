@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -33,7 +34,7 @@ func (s *Service) Create(ctx context.Context, req AddRequest) (AddResponse, erro
 	}
 
 	// Convert to sqlc params
-	llmProviderID, err := parseUUID(model.LlmProviderID)
+	llmProviderID, err := db.ParseUUID(model.LlmProviderID)
 	if err != nil {
 		return AddResponse{}, fmt.Errorf("invalid llm provider ID: %w", err)
 	}
@@ -78,7 +79,7 @@ func (s *Service) Create(ctx context.Context, req AddRequest) (AddResponse, erro
 
 // GetByID retrieves a model by its internal UUID
 func (s *Service) GetByID(ctx context.Context, id string) (GetResponse, error) {
-	uuid, err := parseUUID(id)
+	uuid, err := db.ParseUUID(id)
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("invalid ID: %w", err)
 	}
@@ -148,7 +149,7 @@ func (s *Service) ListByProviderID(ctx context.Context, providerID string) ([]Ge
 	if strings.TrimSpace(providerID) == "" {
 		return nil, fmt.Errorf("provider id is required")
 	}
-	uuid, err := parseUUID(providerID)
+	uuid, err := db.ParseUUID(providerID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid provider id: %w", err)
 	}
@@ -167,7 +168,7 @@ func (s *Service) ListByProviderIDAndType(ctx context.Context, providerID string
 	if strings.TrimSpace(providerID) == "" {
 		return nil, fmt.Errorf("provider id is required")
 	}
-	uuid, err := parseUUID(providerID)
+	uuid, err := db.ParseUUID(providerID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid provider id: %w", err)
 	}
@@ -183,7 +184,7 @@ func (s *Service) ListByProviderIDAndType(ctx context.Context, providerID string
 
 // UpdateByID updates a model by its internal UUID
 func (s *Service) UpdateByID(ctx context.Context, id string, req UpdateRequest) (GetResponse, error) {
-	uuid, err := parseUUID(id)
+	uuid, err := db.ParseUUID(id)
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("invalid ID: %w", err)
 	}
@@ -199,7 +200,7 @@ func (s *Service) UpdateByID(ctx context.Context, id string, req UpdateRequest) 
 		Type:         string(model.Type),
 	}
 
-	llmProviderID, err := parseUUID(model.LlmProviderID)
+	llmProviderID, err := db.ParseUUID(model.LlmProviderID)
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("invalid llm provider ID: %w", err)
 	}
@@ -238,7 +239,7 @@ func (s *Service) UpdateByModelID(ctx context.Context, modelID string, req Updat
 		Type:         string(model.Type),
 	}
 
-	llmProviderID, err := parseUUID(model.LlmProviderID)
+	llmProviderID, err := db.ParseUUID(model.LlmProviderID)
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("invalid llm provider ID: %w", err)
 	}
@@ -262,7 +263,7 @@ func (s *Service) UpdateByModelID(ctx context.Context, modelID string, req Updat
 
 // DeleteByID deletes a model by its internal UUID
 func (s *Service) DeleteByID(ctx context.Context, id string) error {
-	uuid, err := parseUUID(id)
+	uuid, err := db.ParseUUID(id)
 	if err != nil {
 		return fmt.Errorf("invalid ID: %w", err)
 	}
@@ -311,19 +312,6 @@ func (s *Service) CountByType(ctx context.Context, modelType ModelType) (int64, 
 
 // Helper functions
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID format: %w", err)
-	}
-
-	var pgUUID pgtype.UUID
-	copy(pgUUID.Bytes[:], parsed[:])
-	pgUUID.Valid = true
-
-	return pgUUID, nil
-}
-
 func convertToGetResponse(dbModel sqlc.Model) GetResponse {
 	resp := GetResponse{
 		ModelId: dbModel.ModelID,
@@ -335,8 +323,8 @@ func convertToGetResponse(dbModel sqlc.Model) GetResponse {
 		},
 	}
 
-	if llmProviderID, ok := uuidStringFromPgUUID(dbModel.LlmProviderID); ok {
-		resp.Model.LlmProviderID = llmProviderID
+	if dbModel.LlmProviderID.Valid {
+		resp.Model.LlmProviderID = dbModel.LlmProviderID.String()
 	}
 
 	if dbModel.Name.Valid {
@@ -382,17 +370,6 @@ func isValidClientType(clientType ClientType) bool {
 	}
 }
 
-func uuidStringFromPgUUID(value pgtype.UUID) (string, bool) {
-	if !value.Valid {
-		return "", false
-	}
-	id, err := uuid.FromBytes(value.Bytes[:])
-	if err != nil {
-		return "", false
-	}
-	return id.String(), true
-}
-
 // SelectMemoryModel selects a chat model for memory operations.
 func SelectMemoryModel(ctx context.Context, modelsService *Service, queries *sqlc.Queries) (GetResponse, sqlc.LlmProvider, error) {
 	if modelsService == nil {
@@ -415,7 +392,7 @@ func FetchProviderByID(ctx context.Context, queries *sqlc.Queries, providerID st
 	if strings.TrimSpace(providerID) == "" {
 		return sqlc.LlmProvider{}, fmt.Errorf("provider id missing")
 	}
-	parsed, err := parseUUID(providerID)
+	parsed, err := db.ParseUUID(providerID)
 	if err != nil {
 		return sqlc.LlmProvider{}, err
 	}

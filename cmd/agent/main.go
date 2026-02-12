@@ -11,24 +11,41 @@ import (
 	"time"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/memohai/memoh/internal/accounts"
+	"github.com/memohai/memoh/internal/bind"
 	"github.com/memohai/memoh/internal/boot"
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/channel/adapters/feishu"
 	"github.com/memohai/memoh/internal/channel/adapters/local"
 	"github.com/memohai/memoh/internal/channel/adapters/telegram"
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/channel/identities"
+	"github.com/memohai/memoh/internal/channel/route"
 	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/contacts"
 	ctr "github.com/memohai/memoh/internal/containerd"
+	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow"
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/embeddings"
 	"github.com/memohai/memoh/internal/handlers"
-	"github.com/memohai/memoh/internal/history"
 	"github.com/memohai/memoh/internal/logger"
 	"github.com/memohai/memoh/internal/mcp"
+	mcpcontainer "github.com/memohai/memoh/internal/mcp/providers/container"
+	mcpdirectory "github.com/memohai/memoh/internal/mcp/providers/directory"
+	mcpmemory "github.com/memohai/memoh/internal/mcp/providers/memory"
+	mcpmessage "github.com/memohai/memoh/internal/mcp/providers/message"
+	mcpschedule "github.com/memohai/memoh/internal/mcp/providers/schedule"
+	mcpfederation "github.com/memohai/memoh/internal/mcp/sources/federation"
 	"github.com/memohai/memoh/internal/memory"
+	"github.com/memohai/memoh/internal/message"
+	"github.com/memohai/memoh/internal/message/event"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/policy"
 	"github.com/memohai/memoh/internal/preauth"
@@ -38,47 +55,8 @@ import (
 	"github.com/memohai/memoh/internal/server"
 	"github.com/memohai/memoh/internal/settings"
 	"github.com/memohai/memoh/internal/subagent"
-	"github.com/memohai/memoh/internal/users"
 	"github.com/memohai/memoh/internal/version"
-	"go.uber.org/fx"
-	"go.uber.org/fx/fxevent"
-
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
 )
-
-func provideConfig() (config.Config, error) {
-	cfgPath := os.Getenv("CONFIG_PATH")
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		return config.Config{}, fmt.Errorf("load config: %v\n", err)
-	}
-	return cfg, nil
-}
-
-func provideLogger(cfg config.Config) *slog.Logger {
-	logger.Init(cfg.Log.Level, cfg.Log.Format)
-	return logger.L
-}
-
-func provideContainerdClient(lc fx.Lifecycle, runtimeConfig *boot.RuntimeConfig) (*containerd.Client, error) {
-	factory := ctr.DefaultClientFactory{SocketPath: runtimeConfig.ContainerdSocketPath}
-	client, err := factory.New(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("connect containerd: %w", err)
-	}
-
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			if err := client.Close(); err != nil {
-				return fmt.Errorf("close containerd client: %w", err)
-			}
-			return nil
-		},
-	})
-	return client, nil
-}
 
 func main() {
 	fx.New(
@@ -86,66 +64,74 @@ func main() {
 			provideConfig,
 			boot.ProvideRuntimeConfig,
 			provideLogger,
-
-			// misc
 			provideContainerdClient,
 			provideDBConn,
 			provideDBQueries,
 
+			// containerd & mcp infrastructure
 			fx.Annotate(ctr.NewDefaultService, fx.As(new(ctr.Service))),
-			mcp.NewManager,
+			provideMCPManager,
 
+			// memory pipeline
 			provideMemoryLLM,
 			provideEmbeddingsResolver,
 			provideEmbeddingSetup,
 			provideTextEmbedderForMemory,
 			provideQdrantStore,
 			memory.NewBM25Indexer,
-			provideChatResolver,
-			local.NewSessionHub,
-			provideChannelRegistry,
+			provideMemoryService,
 
-			provideChannelRouter,
-			provideChannelManager,
-
-			chat.NewScheduleGateway,
-			fx.Annotate(func(scheduleGateway *chat.ScheduleGateway) schedule.Triggerer {
-				return scheduleGateway
-			}, fx.As(new(schedule.Triggerer))),
-
+			// domain services (auto-wired)
 			models.NewService,
 			bots.NewService,
-			users.NewService,
-			providers.NewService,
+			accounts.NewService,
 			settings.NewService,
-			history.NewService,
-			contacts.NewService,
+			providers.NewService,
+			policy.NewService,
 			preauth.NewService,
 			mcp.NewConnectionService,
 			subagent.NewService,
-			schedule.NewService,
-			channel.NewService,
-			policy.NewService,
-			provideMemoryService,
+			conversation.NewService,
+			identities.NewService,
+			bind.NewService,
+			event.NewHub,
 
+			// services requiring provide functions
+			provideRouteService,
+			provideMessageService,
+
+			// channel infrastructure
+			local.NewRouteHub,
+			provideChannelRegistry,
+			channel.NewService,
+			provideChannelRouter,
+			provideChannelManager,
+
+			// conversation flow
+			provideChatResolver,
+			provideScheduleTriggerer,
+			schedule.NewService,
+
+			// containerd handler & tool gateway
+			provideContainerdHandler,
+			provideToolGatewayService,
+
+			// http handlers (group:"server_handlers")
 			provideServerHandler(handlers.NewPingHandler),
-			provideServerHandler(handlers.NewAuthHandler),
+			provideServerHandler(provideAuthHandler),
 			provideServerHandler(handlers.NewMemoryHandler),
 			provideServerHandler(handlers.NewEmbeddingsHandler),
-			provideServerHandler(handlers.NewChatHandler),
+			provideServerHandler(provideMessageHandler),
 			provideServerHandler(handlers.NewSwaggerHandler),
 			provideServerHandler(handlers.NewProvidersHandler),
 			provideServerHandler(handlers.NewModelsHandler),
 			provideServerHandler(handlers.NewSettingsHandler),
-			provideServerHandler(handlers.NewHistoryHandler),
-			provideServerHandler(handlers.NewContactsHandler),
 			provideServerHandler(handlers.NewPreauthHandler),
+			provideServerHandler(handlers.NewBindHandler),
 			provideServerHandler(handlers.NewScheduleHandler),
 			provideServerHandler(handlers.NewSubagentHandler),
-			handlers.NewContainerdHandler,
-			provideServerHandler(handlers.NewContainerdHandler),
 			provideServerHandler(handlers.NewChannelHandler),
-			provideServerHandler(handlers.NewUsersHandler),
+			provideServerHandler(provideUsersHandler),
 			provideServerHandler(handlers.NewMCPHandler),
 			provideServerHandler(provideCLIHandler),
 			provideServerHandler(provideWebHandler),
@@ -156,15 +142,18 @@ func main() {
 			startMemoryWarmup,
 			startScheduleService,
 			startChannelManager,
+			startContainerReconciliation,
 			startServer,
 		),
 		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
-			l := &fxevent.SlogLogger{Logger: logger.With(slog.String("component", "fx"))}
-			// l.UseLogLevel(slog.LevelInfo)
-			return l
+			return &fxevent.SlogLogger{Logger: logger.With(slog.String("component", "fx"))}
 		}),
 	).Run()
 }
+
+// ---------------------------------------------------------------------------
+// fx helper
+// ---------------------------------------------------------------------------
 
 func provideServerHandler(fn any) any {
 	return fx.Annotate(
@@ -174,10 +163,40 @@ func provideServerHandler(fn any) any {
 	)
 }
 
-func provideDBConn(lc fx.Lifecycle, cfg config.Config) (*pgxpool.Pool, error) {
-	ctx := context.Background() // TODO: use timeout context
+// ---------------------------------------------------------------------------
+// infrastructure providers
+// ---------------------------------------------------------------------------
 
-	conn, err := db.Open(ctx, cfg.Postgres)
+func provideConfig() (config.Config, error) {
+	cfgPath := os.Getenv("CONFIG_PATH")
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("load config: %w", err)
+	}
+	return cfg, nil
+}
+
+func provideLogger(cfg config.Config) *slog.Logger {
+	logger.Init(cfg.Log.Level, cfg.Log.Format)
+	return logger.L
+}
+
+func provideContainerdClient(lc fx.Lifecycle, rc *boot.RuntimeConfig) (*containerd.Client, error) {
+	factory := ctr.DefaultClientFactory{SocketPath: rc.ContainerdSocketPath}
+	client, err := factory.New(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("connect containerd: %w", err)
+	}
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			return client.Close()
+		},
+	})
+	return client, nil
+}
+
+func provideDBConn(lc fx.Lifecycle, cfg config.Config) (*pgxpool.Pool, error) {
+	conn, err := db.Open(context.Background(), cfg.Postgres)
 	if err != nil {
 		return nil, fmt.Errorf("db connect: %w", err)
 	}
@@ -192,6 +211,23 @@ func provideDBConn(lc fx.Lifecycle, cfg config.Config) (*pgxpool.Pool, error) {
 
 func provideDBQueries(conn *pgxpool.Pool) *dbsqlc.Queries {
 	return dbsqlc.New(conn)
+}
+
+func provideMCPManager(log *slog.Logger, service ctr.Service, cfg config.Config, conn *pgxpool.Pool) *mcp.Manager {
+	return mcp.NewManager(log, service, cfg.MCP, cfg.Containerd.Namespace, conn)
+}
+
+// ---------------------------------------------------------------------------
+// memory providers
+// ---------------------------------------------------------------------------
+
+func provideMemoryLLM(modelsService *models.Service, queries *dbsqlc.Queries, log *slog.Logger) memory.LLM {
+	return &lazyLLMClient{
+		modelsService: modelsService,
+		queries:       queries,
+		timeout:       30 * time.Second,
+		logger:        log,
+	}
 }
 
 func provideEmbeddingsResolver(log *slog.Logger, modelsService *models.Service, queries *dbsqlc.Queries) *embeddings.Resolver {
@@ -228,57 +264,157 @@ func provideTextEmbedderForMemory(resolver *embeddings.Resolver, setup embedding
 	return buildTextEmbedder(resolver, setup.TextModel, setup.HasEmbeddingModels, log)
 }
 
-func provideMemoryService(log *slog.Logger, llm memory.LLM, embedder embeddings.Embedder, store *memory.QdrantStore, resolver *embeddings.Resolver, bm25Indexer *memory.BM25Indexer, setup embeddingSetup) *memory.Service {
-	return memory.NewService(log, llm, embedder, store, resolver, bm25Indexer, setup.TextModel.ModelID, setup.MultimodalModel.ModelID)
+func provideQdrantStore(log *slog.Logger, cfg config.Config, setup embeddingSetup) (*memory.QdrantStore, error) {
+	qcfg := cfg.Qdrant
+	timeout := time.Duration(qcfg.TimeoutSeconds) * time.Second
+	if setup.HasEmbeddingModels && len(setup.Vectors) > 0 {
+		store, err := memory.NewQdrantStoreWithVectors(log, qcfg.BaseURL, qcfg.APIKey, qcfg.Collection, setup.Vectors, "sparse_hash", timeout)
+		if err != nil {
+			return nil, fmt.Errorf("qdrant named vectors init: %w", err)
+		}
+		return store, nil
+	}
+	store, err := memory.NewQdrantStore(log, qcfg.BaseURL, qcfg.APIKey, qcfg.Collection, setup.TextModel.Dimensions, "sparse_hash", timeout)
+	if err != nil {
+		return nil, fmt.Errorf("qdrant init: %w", err)
+	}
+	return store, nil
 }
 
-func provideChatResolver(log *slog.Logger, cfg config.Config, modelsService *models.Service, queries *dbsqlc.Queries, memoryService *memory.Service, historyService *history.Service, settingsService *settings.Service, mcpConnectionsService *mcp.ConnectionService, containerdHandler *handlers.ContainerdHandler) *chat.Resolver {
-	chatResolver := chat.NewResolver(log, modelsService, queries, memoryService, historyService, settingsService, mcpConnectionsService, cfg.AgentGateway.BaseURL(), 120*time.Second)
-	chatResolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
-	return chatResolver
+func provideMemoryService(log *slog.Logger, llm memory.LLM, embedder embeddings.Embedder, store *memory.QdrantStore, resolver *embeddings.Resolver, bm25 *memory.BM25Indexer, setup embeddingSetup) *memory.Service {
+	return memory.NewService(log, llm, embedder, store, resolver, bm25, setup.TextModel.ModelID, setup.MultimodalModel.ModelID)
 }
 
-func provideChannelRegistry(log *slog.Logger, sessionHub *local.SessionHub) *channel.Registry {
+// ---------------------------------------------------------------------------
+// domain service providers (interface adapters)
+// ---------------------------------------------------------------------------
+
+func provideRouteService(log *slog.Logger, queries *dbsqlc.Queries, chatService *conversation.Service) *route.DBService {
+	return route.NewService(log, queries, chatService)
+}
+
+func provideMessageService(log *slog.Logger, queries *dbsqlc.Queries, hub *event.Hub) *message.DBService {
+	return message.NewService(log, queries, hub)
+}
+
+func provideScheduleTriggerer(resolver *flow.Resolver) schedule.Triggerer {
+	return flow.NewScheduleGateway(resolver)
+}
+
+// ---------------------------------------------------------------------------
+// conversation flow
+// ---------------------------------------------------------------------------
+
+func provideChatResolver(log *slog.Logger, cfg config.Config, modelsService *models.Service, queries *dbsqlc.Queries, memoryService *memory.Service, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, mcpConnService *mcp.ConnectionService, containerdHandler *handlers.ContainerdHandler) *flow.Resolver {
+	resolver := flow.NewResolver(log, modelsService, queries, memoryService, chatService, msgService, settingsService, mcpConnService, cfg.AgentGateway.BaseURL(), 120*time.Second)
+	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
+	return resolver
+}
+
+// ---------------------------------------------------------------------------
+// channel providers
+// ---------------------------------------------------------------------------
+
+func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub) *channel.Registry {
 	registry := channel.NewRegistry()
 	registry.MustRegister(telegram.NewTelegramAdapter(log))
 	registry.MustRegister(feishu.NewFeishuAdapter(log))
-	registry.MustRegister(local.NewCLIAdapter(sessionHub))
-	registry.MustRegister(local.NewWebAdapter(sessionHub))
+	registry.MustRegister(local.NewCLIAdapter(hub))
+	registry.MustRegister(local.NewWebAdapter(hub))
 	return registry
 }
 
-func provideChannelRouter(log *slog.Logger, registry *channel.Registry, channelService *channel.Service, chatResolver *chat.Resolver, contactsService *contacts.Service, policyService *policy.Service, preauthService *preauth.Service, cfg config.Config) *router.ChannelInboundProcessor {
-	return router.NewChannelInboundProcessor(log, registry, channelService, chatResolver, contactsService, policyService, preauthService, cfg.Auth.JWTSecret, 5*time.Minute)
+func provideChannelRouter(log *slog.Logger, registry *channel.Registry, routeService *route.DBService, msgService *message.DBService, resolver *flow.Resolver, identityService *identities.Service, botService *bots.Service, policyService *policy.Service, preauthService *preauth.Service, bindService *bind.Service, rc *boot.RuntimeConfig) *router.ChannelInboundProcessor {
+	return router.NewChannelInboundProcessor(log, registry, routeService, msgService, resolver, identityService, botService, policyService, preauthService, bindService, rc.JwtSecret, 5*time.Minute)
 }
 
 func provideChannelManager(log *slog.Logger, registry *channel.Registry, channelService *channel.Service, channelRouter *router.ChannelInboundProcessor) *channel.Manager {
-	channelManager := channel.NewManager(log, registry, channelService, channelRouter)
+	mgr := channel.NewManager(log, registry, channelService, channelRouter)
 	if mw := channelRouter.IdentityMiddleware(); mw != nil {
-		channelManager.Use(mw)
+		mgr.Use(mw)
 	}
-	return channelManager
+	return mgr
 }
 
-func provideCLIHandler(channelManager *channel.Manager, channelService *channel.Service, sessionHub *local.SessionHub, botService *bots.Service, usersService *users.Service) *handlers.LocalChannelHandler {
-	return handlers.NewLocalChannelHandler(local.CLIType, channelManager, channelService, sessionHub, botService, usersService)
+// ---------------------------------------------------------------------------
+// containerd handler & tool gateway
+// ---------------------------------------------------------------------------
+
+func provideContainerdHandler(log *slog.Logger, service ctr.Service, cfg config.Config, botService *bots.Service, accountService *accounts.Service, policyService *policy.Service, queries *dbsqlc.Queries) *handlers.ContainerdHandler {
+	return handlers.NewContainerdHandler(log, service, cfg.MCP, cfg.Containerd.Namespace, botService, accountService, policyService, queries)
 }
 
-func provideWebHandler(channelManager *channel.Manager, channelService *channel.Service, sessionHub *local.SessionHub, botService *bots.Service, usersService *users.Service) *handlers.LocalChannelHandler {
-	return handlers.NewLocalChannelHandler(local.WebType, channelManager, channelService, sessionHub, botService, usersService)
+func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManager *channel.Manager, registry *channel.Registry, channelService *channel.Service, scheduleService *schedule.Service, memoryService *memory.Service, chatService *conversation.Service, accountService *accounts.Service, manager *mcp.Manager, containerdHandler *handlers.ContainerdHandler, mcpConnService *mcp.ConnectionService) *mcp.ToolGatewayService {
+	messageExec := mcpmessage.NewExecutor(log, channelManager, registry)
+	directoryExec := mcpdirectory.NewExecutor(log, registry, channelService, registry)
+	scheduleExec := mcpschedule.NewExecutor(log, scheduleService)
+	memoryExec := mcpmemory.NewExecutor(log, memoryService, chatService, accountService)
+	execWorkDir := cfg.MCP.DataMount
+	if strings.TrimSpace(execWorkDir) == "" {
+		execWorkDir = config.DefaultDataMount
+	}
+	fsExec := mcpcontainer.NewExecutor(log, manager, execWorkDir)
+
+	fedGateway := handlers.NewMCPFederationGateway(log, containerdHandler)
+	fedSource := mcpfederation.NewSource(log, fedGateway, mcpConnService)
+
+	svc := mcp.NewToolGatewayService(
+		log,
+		[]mcp.ToolExecutor{messageExec, directoryExec, scheduleExec, memoryExec, fsExec},
+		[]mcp.ToolSource{fedSource},
+	)
+	containerdHandler.SetToolGatewayService(svc)
+	return svc
 }
+
+// ---------------------------------------------------------------------------
+// handler providers (interface adaptation / config extraction)
+// ---------------------------------------------------------------------------
+
+func provideAuthHandler(log *slog.Logger, accountService *accounts.Service, rc *boot.RuntimeConfig) *handlers.AuthHandler {
+	return handlers.NewAuthHandler(log, accountService, rc.JwtSecret, rc.JwtExpiresIn)
+}
+
+func provideMessageHandler(log *slog.Logger, resolver *flow.Resolver, chatService *conversation.Service, msgService *message.DBService, botService *bots.Service, accountService *accounts.Service, identityService *identities.Service, hub *event.Hub) *handlers.MessageHandler {
+	return handlers.NewMessageHandler(log, resolver, chatService, msgService, botService, accountService, identityService, hub)
+}
+
+func provideUsersHandler(log *slog.Logger, accountService *accounts.Service, identityService *identities.Service, botService *bots.Service, routeService *route.DBService, channelService *channel.Service, channelManager *channel.Manager, registry *channel.Registry) *handlers.UsersHandler {
+	return handlers.NewUsersHandler(log, accountService, identityService, botService, routeService, channelService, channelManager, registry)
+}
+
+func provideCLIHandler(channelManager *channel.Manager, channelService *channel.Service, chatService *conversation.Service, hub *local.RouteHub, botService *bots.Service, accountService *accounts.Service) *handlers.LocalChannelHandler {
+	return handlers.NewLocalChannelHandler(local.CLIType, channelManager, channelService, chatService, hub, botService, accountService)
+}
+
+func provideWebHandler(channelManager *channel.Manager, channelService *channel.Service, chatService *conversation.Service, hub *local.RouteHub, botService *bots.Service, accountService *accounts.Service) *handlers.LocalChannelHandler {
+	return handlers.NewLocalChannelHandler(local.WebType, channelManager, channelService, chatService, hub, botService, accountService)
+}
+
+// ---------------------------------------------------------------------------
+// server
+// ---------------------------------------------------------------------------
 
 type serverParams struct {
 	fx.In
 
-	Logger         *slog.Logger
-	RuntimeConfig  *boot.RuntimeConfig
-	Config         config.Config
-	ServerHandlers []server.Handler `group:"server_handlers"`
+	Logger            *slog.Logger
+	RuntimeConfig     *boot.RuntimeConfig
+	Config            config.Config
+	ServerHandlers    []server.Handler          `group:"server_handlers"`
+	ContainerdHandler *handlers.ContainerdHandler
 }
 
 func provideServer(params serverParams) *server.Server {
-	return server.NewServer(params.Logger, params.RuntimeConfig.ServerAddr, params.Config.Auth.JWTSecret, params.ServerHandlers...)
+	allHandlers := make([]server.Handler, 0, len(params.ServerHandlers)+1)
+	allHandlers = append(allHandlers, params.ServerHandlers...)
+	allHandlers = append(allHandlers, params.ContainerdHandler)
+	return server.NewServer(params.Logger, params.RuntimeConfig.ServerAddr, params.Config.Auth.JWTSecret, allHandlers...)
 }
+
+// ---------------------------------------------------------------------------
+// lifecycle hooks
+// ---------------------------------------------------------------------------
 
 func startMemoryWarmup(lc fx.Lifecycle, memoryService *memory.Service, logger *slog.Logger) {
 	lc.Append(fx.Hook{
@@ -291,19 +427,9 @@ func startMemoryWarmup(lc fx.Lifecycle, memoryService *memory.Service, logger *s
 			return nil
 		},
 	})
-
 }
 
-func startChannelManager(lc fx.Lifecycle, channelManager *channel.Manager, logger *slog.Logger) {
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			channelManager.Start(ctx)
-			return nil
-		},
-	})
-}
-
-func startScheduleService(lc fx.Lifecycle, scheduleService *schedule.Service, logger *slog.Logger) {
+func startScheduleService(lc fx.Lifecycle, scheduleService *schedule.Service) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			return scheduleService.Bootstrap(ctx)
@@ -311,40 +437,48 @@ func startScheduleService(lc fx.Lifecycle, scheduleService *schedule.Service, lo
 	})
 }
 
-func startServer(
-	lc fx.Lifecycle,
-	logger *slog.Logger,
-	srv *server.Server,
-	shutdowner fx.Shutdowner,
-	cfg config.Config,
-	queries *dbsqlc.Queries,
-	scheduleService *schedule.Service,
-	channelManager *channel.Manager,
-	botService *bots.Service,
-	containerdHandler *handlers.ContainerdHandler,
-) {
+func startChannelManager(lc fx.Lifecycle, channelManager *channel.Manager) {
+	ctx, cancel := context.WithCancel(context.Background())
+	lc.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			channelManager.Start(ctx)
+			return nil
+		},
+		OnStop: func(stopCtx context.Context) error {
+			cancel()
+			return channelManager.Shutdown(stopCtx)
+		},
+	})
+}
+
+func startContainerReconciliation(lc fx.Lifecycle, containerdHandler *handlers.ContainerdHandler, _ *mcp.ToolGatewayService) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go containerdHandler.ReconcileContainers(ctx)
+			return nil
+		},
+	})
+}
+
+func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutdowner fx.Shutdowner, cfg config.Config, queries *dbsqlc.Queries, botService *bots.Service, containerdHandler *handlers.ContainerdHandler) {
 	fmt.Printf("Starting Memoh Agent %s\n", version.GetInfo())
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-
 			if err := ensureAdminUser(ctx, logger, queries, cfg); err != nil {
 				return err
 			}
-
 			botService.SetContainerLifecycle(containerdHandler)
 
 			go func() {
-				if err := srv.Start(); err != nil { // block until server is stopped
+				if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					logger.Error("server failed", slog.Any("error", err))
-					_ = shutdowner.Shutdown() // shutdown the application if the server fails to start
+					_ = shutdowner.Shutdown()
 				}
 			}()
-
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			// graceful shutdown
 			if err := srv.Stop(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				return fmt.Errorf("server stop: %w", err)
 			}
@@ -352,6 +486,10 @@ func startServer(
 		},
 	})
 }
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
 
 func buildTextEmbedder(resolver *embeddings.Resolver, textModel models.GetResponse, hasModels bool, log *slog.Logger) embeddings.Embedder {
 	if !hasModels {
@@ -368,44 +506,11 @@ func buildTextEmbedder(resolver *embeddings.Resolver, textModel models.GetRespon
 	}
 }
 
-func provideQdrantStore(log *slog.Logger, cfgAll config.Config, setup embeddingSetup) (*memory.QdrantStore, error) {
-	cfg := cfgAll.Qdrant
-	timeout := time.Duration(cfg.TimeoutSeconds) * time.Second
-	if setup.HasEmbeddingModels && len(setup.Vectors) > 0 {
-		store, err := memory.NewQdrantStoreWithVectors(
-			log,
-			cfg.BaseURL,
-			cfg.APIKey,
-			cfg.Collection,
-			setup.Vectors,
-			"sparse_hash",
-			timeout,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("qdrant named vectors init: %w", err)
-		}
-		return store, nil
-	}
-	store, err := memory.NewQdrantStore(
-		log,
-		cfg.BaseURL,
-		cfg.APIKey,
-		cfg.Collection,
-		setup.TextModel.Dimensions,
-		"sparse_hash",
-		timeout,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("qdrant init: %w", err)
-	}
-	return store, nil
-}
-
 func ensureAdminUser(ctx context.Context, log *slog.Logger, queries *dbsqlc.Queries, cfg config.Config) error {
 	if queries == nil {
 		return fmt.Errorf("db queries not configured")
 	}
-	count, err := queries.CountUsers(ctx)
+	count, err := queries.CountAccounts(ctx)
 	if err != nil {
 		return err
 	}
@@ -428,6 +533,14 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, queries *dbsqlc.Quer
 		return err
 	}
 
+	user, err := queries.CreateUser(ctx, dbsqlc.CreateUserParams{
+		IsActive: true,
+		Metadata: []byte("{}"),
+	})
+	if err != nil {
+		return fmt.Errorf("create admin user: %w", err)
+	}
+
 	emailValue := pgtype.Text{Valid: false}
 	if email != "" {
 		emailValue = pgtype.Text{String: email, Valid: true}
@@ -435,10 +548,11 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, queries *dbsqlc.Quer
 	displayName := pgtype.Text{String: username, Valid: true}
 	dataRoot := pgtype.Text{String: cfg.MCP.DataRoot, Valid: cfg.MCP.DataRoot != ""}
 
-	_, err = queries.CreateUser(ctx, dbsqlc.CreateUserParams{
-		Username:     username,
+	_, err = queries.CreateAccount(ctx, dbsqlc.CreateAccountParams{
+		UserID:       user.ID,
+		Username:     pgtype.Text{String: username, Valid: true},
 		Email:        emailValue,
-		PasswordHash: string(hashed),
+		PasswordHash: pgtype.Text{String: string(hashed), Valid: true},
 		Role:         "admin",
 		DisplayName:  displayName,
 		AvatarUrl:    pgtype.Text{Valid: false},
@@ -452,14 +566,9 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, queries *dbsqlc.Quer
 	return nil
 }
 
-func provideMemoryLLM(modelsService *models.Service, queries *dbsqlc.Queries, log *slog.Logger) memory.LLM {
-	return &lazyLLMClient{
-		modelsService: modelsService,
-		queries:       queries,
-		timeout:       30 * time.Second,
-		logger:        log,
-	}
-}
+// ---------------------------------------------------------------------------
+// lazy LLM client
+// ---------------------------------------------------------------------------
 
 type lazyLLMClient struct {
 	modelsService *models.Service
@@ -507,19 +616,19 @@ func (c *lazyLLMClient) resolve(ctx context.Context) (memory.LLM, error) {
 	return memory.NewLLMClient(c.logger, memoryProvider.BaseUrl, memoryProvider.ApiKey, memoryModel.ModelID, c.timeout)
 }
 
-// skillLoaderAdapter bridges handlers.ContainerdHandler to chat.SkillLoader.
+// skillLoaderAdapter bridges handlers.ContainerdHandler to flow.SkillLoader.
 type skillLoaderAdapter struct {
 	handler *handlers.ContainerdHandler
 }
 
-func (a *skillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]chat.SkillEntry, error) {
+func (a *skillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]flow.SkillEntry, error) {
 	items, err := a.handler.LoadSkills(ctx, botID)
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]chat.SkillEntry, len(items))
+	entries := make([]flow.SkillEntry, len(items))
 	for i, item := range items {
-		entries[i] = chat.SkillEntry{
+		entries[i] = flow.SkillEntry{
 			Name:        item.Name,
 			Description: item.Description,
 			Content:     item.Content,

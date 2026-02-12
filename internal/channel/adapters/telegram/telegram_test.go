@@ -1,9 +1,12 @@
 package telegram
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/memohai/memoh/internal/channel"
 )
 
 func TestResolveTelegramSender(t *testing.T) {
@@ -22,5 +25,282 @@ func TestResolveTelegramSender(t *testing.T) {
 	}
 	if attrs["user_id"] != "123" || attrs["username"] != "alice" {
 		t.Fatalf("unexpected attrs: %#v", attrs)
+	}
+}
+
+func TestIsTelegramBotMentioned(t *testing.T) {
+	t.Parallel()
+
+	t.Run("text mention", func(t *testing.T) {
+		t.Parallel()
+		msg := &tgbotapi.Message{
+			Text: "hello @MemohBot",
+		}
+		if !isTelegramBotMentioned(msg, "memohbot") {
+			t.Fatalf("expected bot mention from text")
+		}
+	})
+
+	t.Run("entity text mention", func(t *testing.T) {
+		t.Parallel()
+		msg := &tgbotapi.Message{
+			Entities: []tgbotapi.MessageEntity{
+				{
+					Type: "text_mention",
+					User: &tgbotapi.User{IsBot: true},
+				},
+			},
+		}
+		if !isTelegramBotMentioned(msg, "") {
+			t.Fatalf("expected bot mention from text_mention entity")
+		}
+	})
+
+	t.Run("not mentioned", func(t *testing.T) {
+		t.Parallel()
+		msg := &tgbotapi.Message{
+			Text: "hello everyone",
+		}
+		if isTelegramBotMentioned(msg, "memohbot") {
+			t.Fatalf("expected no mention")
+		}
+	})
+}
+
+func TestTelegramDescriptorIncludesStreaming(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewTelegramAdapter(nil)
+	caps := adapter.Descriptor().Capabilities
+	if !caps.Streaming {
+		t.Fatal("expected streaming capability")
+	}
+	if !caps.Media {
+		t.Fatal("expected media capability")
+	}
+}
+
+func TestBuildTelegramAttachmentIncludesPlatformReference(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewTelegramAdapter(nil)
+	att := adapter.buildTelegramAttachment(nil, channel.AttachmentFile, "file_1", "doc.txt", "text/plain", 10)
+	if att.PlatformKey != "file_1" {
+		t.Fatalf("unexpected platform key: %s", att.PlatformKey)
+	}
+	if att.SourcePlatform != Type.String() {
+		t.Fatalf("unexpected source platform: %s", att.SourcePlatform)
+	}
+}
+
+func TestParseReplyToMessageID(t *testing.T) {
+	t.Parallel()
+
+	if got := parseReplyToMessageID(nil); got != 0 {
+		t.Fatalf("nil reply should return 0: %d", got)
+	}
+	if got := parseReplyToMessageID(&channel.ReplyRef{}); got != 0 {
+		t.Fatalf("empty MessageID should return 0: %d", got)
+	}
+	if got := parseReplyToMessageID(&channel.ReplyRef{MessageID: "  123  "}); got != 123 {
+		t.Fatalf("expected 123: %d", got)
+	}
+	if got := parseReplyToMessageID(&channel.ReplyRef{MessageID: "abc"}); got != 0 {
+		t.Fatalf("invalid number should return 0: %d", got)
+	}
+}
+
+func TestResolveTelegramParseMode(t *testing.T) {
+	t.Parallel()
+
+	if got := resolveTelegramParseMode(channel.MessageFormatMarkdown); got != tgbotapi.ModeMarkdown {
+		t.Fatalf("markdown should return ModeMarkdown: %s", got)
+	}
+	if got := resolveTelegramParseMode(channel.MessageFormatPlain); got != "" {
+		t.Fatalf("plain should return empty: %s", got)
+	}
+	if got := resolveTelegramParseMode(channel.MessageFormatRich); got != "" {
+		t.Fatalf("rich should return empty: %s", got)
+	}
+}
+
+func TestBuildTelegramReplyRef(t *testing.T) {
+	t.Parallel()
+
+	if buildTelegramReplyRef(nil, "123") != nil {
+		t.Fatal("nil msg should return nil")
+	}
+	msg := &tgbotapi.Message{}
+	if buildTelegramReplyRef(msg, "123") != nil {
+		t.Fatal("msg without ReplyToMessage should return nil")
+	}
+	msg.ReplyToMessage = &tgbotapi.Message{MessageID: 42}
+	ref := buildTelegramReplyRef(msg, "  -100  ")
+	if ref == nil {
+		t.Fatal("expected non-nil ref")
+	}
+	if ref.MessageID != "42" || ref.Target != "-100" {
+		t.Fatalf("unexpected ref: %+v", ref)
+	}
+}
+
+func TestPickTelegramPhoto(t *testing.T) {
+	t.Parallel()
+
+	if got := pickTelegramPhoto(nil); got.FileID != "" {
+		t.Fatalf("nil should return zero: %+v", got)
+	}
+	if got := pickTelegramPhoto([]tgbotapi.PhotoSize{}); got.FileID != "" {
+		t.Fatalf("empty slice should return zero: %+v", got)
+	}
+	one := tgbotapi.PhotoSize{FileID: "a", FileSize: 100, Width: 10, Height: 10}
+	if got := pickTelegramPhoto([]tgbotapi.PhotoSize{one}); got.FileID != "a" {
+		t.Fatalf("single photo should return it: %+v", got)
+	}
+	photos := []tgbotapi.PhotoSize{
+		{FileID: "small", FileSize: 100, Width: 100, Height: 100},
+		{FileID: "large", FileSize: 500, Width: 200, Height: 200},
+	}
+	if got := pickTelegramPhoto(photos); got.FileID != "large" {
+		t.Fatalf("should pick largest by size: %+v", got)
+	}
+}
+
+func TestTelegramAdapter_Type(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewTelegramAdapter(nil)
+	if adapter.Type() != Type {
+		t.Fatalf("Type should return telegram: %s", adapter.Type())
+	}
+}
+
+func TestTelegramAdapter_OpenStreamEmptyTarget(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewTelegramAdapter(nil)
+	ctx := context.Background()
+	cfg := channel.ChannelConfig{}
+	_, err := adapter.OpenStream(ctx, cfg, "", channel.StreamOptions{})
+	if err == nil {
+		t.Fatal("empty target should return error")
+	}
+	if !strings.Contains(err.Error(), "target") {
+		t.Fatalf("expected target in error: %v", err)
+	}
+}
+
+func TestResolveTelegramSender_SenderChat(t *testing.T) {
+	t.Parallel()
+
+	msg := &tgbotapi.Message{
+		SenderChat: &tgbotapi.Chat{ID: 456, UserName: "group", Title: "My Group"},
+	}
+	externalID, displayName, attrs := resolveTelegramSender(msg)
+	if externalID != "456" {
+		t.Fatalf("unexpected externalID: %s", externalID)
+	}
+	if displayName != "My Group" {
+		t.Fatalf("unexpected displayName: %s", displayName)
+	}
+	if attrs["sender_chat_id"] != "456" || attrs["sender_chat_username"] != "group" {
+		t.Fatalf("unexpected attrs: %#v", attrs)
+	}
+}
+
+func TestBuildTelegramAudio(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := buildTelegramAudio("@channel", tgbotapi.FileID("f1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.ChannelUsername != "@channel" {
+		t.Fatalf("unexpected channel: %s", cfg.ChannelUsername)
+	}
+	_, err = buildTelegramAudio("invalid", tgbotapi.FileID("f1"))
+	if err == nil {
+		t.Fatal("invalid target should return error")
+	}
+	if !strings.Contains(err.Error(), "chat_id") {
+		t.Fatalf("expected chat_id in error: %v", err)
+	}
+}
+
+func TestBuildTelegramVoice(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := buildTelegramVoice("@ch", tgbotapi.FileID("f1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.ChannelUsername != "@ch" {
+		t.Fatalf("unexpected channel: %s", cfg.ChannelUsername)
+	}
+	_, err = buildTelegramVoice("x", tgbotapi.FileID("f1"))
+	if err == nil {
+		t.Fatal("invalid target should return error")
+	}
+}
+
+func TestBuildTelegramVideo(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := buildTelegramVideo("@ch", tgbotapi.FileID("f1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.ChannelUsername != "@ch" {
+		t.Fatalf("unexpected channel: %s", cfg.ChannelUsername)
+	}
+	_, err = buildTelegramVideo("bad", tgbotapi.FileID("f1"))
+	if err == nil {
+		t.Fatal("invalid target should return error")
+	}
+}
+
+func TestBuildTelegramAnimation(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := buildTelegramAnimation("@ch", tgbotapi.FileID("f1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.ChannelUsername != "@ch" {
+		t.Fatalf("unexpected channel: %s", cfg.ChannelUsername)
+	}
+	_, err = buildTelegramAnimation("x", tgbotapi.FileID("f1"))
+	if err == nil {
+		t.Fatal("invalid target should return error")
+	}
+}
+
+func TestTelegramAdapter_NormalizeAndResolve(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewTelegramAdapter(nil)
+	norm, err := adapter.NormalizeConfig(map[string]any{"botToken": "t1"})
+	if err != nil {
+		t.Fatalf("NormalizeConfig: %v", err)
+	}
+	if norm["botToken"] != "t1" {
+		t.Fatalf("unexpected normalized: %#v", norm)
+	}
+	userNorm, err := adapter.NormalizeUserConfig(map[string]any{"username": "u1"})
+	if err != nil {
+		t.Fatalf("NormalizeUserConfig: %v", err)
+	}
+	if userNorm["username"] != "u1" {
+		t.Fatalf("unexpected user config: %#v", userNorm)
+	}
+	if got := adapter.NormalizeTarget("https://t.me/x"); got != "@x" {
+		t.Fatalf("NormalizeTarget: %s", got)
+	}
+	target, err := adapter.ResolveTarget(map[string]any{"chat_id": "123"})
+	if err != nil {
+		t.Fatalf("ResolveTarget: %v", err)
+	}
+	if target != "123" {
+		t.Fatalf("ResolveTarget: %s", target)
 	}
 }

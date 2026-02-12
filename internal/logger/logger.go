@@ -14,7 +14,7 @@ var (
 	logKey              = ctxKey{}
 )
 
-// Init 初始化全局日志
+// Init initializes the global logger with the given level and format (e.g. "debug", "json").
 func Init(level, format string) {
 	var handler slog.Handler
 	opts := &slog.HandlerOptions{
@@ -31,7 +31,7 @@ func Init(level, format string) {
 	slog.SetDefault(L)
 }
 
-// FromContext 从 context 中获取 logger，如果不存在则返回全局 logger
+// FromContext returns the logger from ctx, or the global logger if not set.
 func FromContext(ctx context.Context) *slog.Logger {
 	if l, ok := ctx.Value(logKey).(*slog.Logger); ok {
 		return l
@@ -39,7 +39,7 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return L
 }
 
-// WithContext 将 logger 注入 context
+// WithContext stores the logger in ctx and returns the new context.
 func WithContext(ctx context.Context, l *slog.Logger) context.Context {
 	return context.WithValue(ctx, logKey, l)
 }
@@ -59,7 +59,7 @@ func parseLevel(level string) slog.Level {
 	}
 }
 
-// 快捷方法，支持强类型 slog.Attr 或松散的 key-value 对
+// Debug, Info, Warn, Error log with the global logger (slog.Attr or key-value pairs).
 func Debug(msg string, args ...any) { L.Debug(msg, args...) }
 func Info(msg string, args ...any)  { L.Info(msg, args...) }
 func Warn(msg string, args ...any)  { L.Warn(msg, args...) }

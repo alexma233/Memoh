@@ -75,17 +75,16 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { Textarea, Button } from '@memoh/ui'
-import { useChatStore } from '@/store/chat-list'
+import { useChatList } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
 import MessageItem from './message-item.vue'
 
-const chatStore = useChatStore()
+const chatStore = useChatList()
 const { messages, streaming, currentBotId } = storeToRefs(chatStore)
 
 const inputText = ref('')
 const scrollContainer = ref<HTMLElement>()
 
-// 自动滚动到底部
 let userScrolledUp = false
 
 function scrollToBottom(smooth = true) {
@@ -99,7 +98,6 @@ function scrollToBottom(smooth = true) {
   })
 }
 
-// 监听用户滚动
 function handleScroll() {
   const el = scrollContainer.value
   if (!el) return
@@ -107,10 +105,8 @@ function handleScroll() {
   userScrolledUp = distanceFromBottom > 50
 }
 
-// 内容变化时自动滚动
 watch(
   () => {
-    // 深度监听消息变化（包括流式更新）
     const last = messages.value[messages.value.length - 1]
     return last?.blocks.reduce((acc, b) => {
       if (b.type === 'text') return acc + b.content.length
@@ -123,7 +119,6 @@ watch(
   },
 )
 
-// 新消息时滚动
 watch(
   () => messages.value.length,
   () => {
@@ -132,13 +127,11 @@ watch(
   },
 )
 
-// 注册滚动事件
 watch(scrollContainer, (el) => {
   if (el) el.addEventListener('scroll', handleScroll, { passive: true })
 }, { immediate: true })
 
 function handleKeydown(e: KeyboardEvent) {
-  // IME 输入中的回车用于确认候选词，不发送消息
   if (e.isComposing) return
   e.preventDefault()
   handleSend()

@@ -75,11 +75,10 @@ Advantages:
 
 ### Using Docker Compose
 ```bash
-docker compose up -d        # Start services
-docker compose down         # Stop services
-docker compose logs -f      # View logs
-docker compose ps           # View status
-docker compose restart      # Restart services
+docker compose up -d          # Start
+docker compose down           # Stop
+docker compose logs -f        # View logs
+nerdctl images                # Ensure that memoh-mcp:latest exsits
 ```
 
 ### Bot Container Management

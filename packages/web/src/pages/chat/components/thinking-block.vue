@@ -40,6 +40,5 @@ defineProps<{
   streaming: boolean
 }>()
 
-// 流式中默认展开，完成后折叠
 const isOpen = ref(true)
 </script>

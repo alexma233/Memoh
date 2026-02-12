@@ -2,23 +2,13 @@
 alias = "dev"
 description = "Start web development server"
 run = "pnpm dev"
-depends = [
-  "//:pnpm-install",
-  "//:sdk-generate",
-]
+depends = ["//:pnpm-install"]
 
 [tasks.build]
 description = "Build web"
 run = "pnpm build"
-depends = [
-  "//:pnpm-install",
-  "//:sdk-generate",
-]
+depends = ["//:pnpm-install"]
 
 [tasks.start]
 description = "Start web"
 run = "pnpm start"
-depends = [
-  "//:pnpm-install",
-  "//:sdk-generate",
-]

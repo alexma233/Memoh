@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/containerd/containerd/v2/pkg/oci"
 	"github.com/containerd/errdefs"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencontainers/runtime-spec/specs-go"
 
 	"github.com/memohai/memoh/internal/config"
 
 	ctr "github.com/memohai/memoh/internal/containerd"
+	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -84,12 +83,6 @@ func (m *Manager) CreateVersion(ctx context.Context, userID string) (*VersionInf
 		oci.WithMounts([]specs.Mount{
 			{
 				Destination: dataMount,
-				Type:        "bind",
-				Source:      dataDir,
-				Options:     []string{"rbind", "rw"},
-			},
-			{
-				Destination: "/app",
 				Type:        "bind",
 				Source:      dataDir,
 				Options:     []string{"rbind", "rw"},
@@ -225,12 +218,6 @@ func (m *Manager) RollbackVersion(ctx context.Context, userID string, version in
 				Options:     []string{"rbind", "rw"},
 			},
 			{
-				Destination: "/app",
-				Type:        "bind",
-				Source:      dataDir,
-				Options:     []string{"rbind", "rw"},
-			},
-			{
 				Destination: "/etc/resolv.conf",
 				Type:        "bind",
 				Source:      resolvPath,
@@ -291,7 +278,7 @@ func (m *Manager) ensureDBRecords(ctx context.Context, botID, containerID, runti
 	if err != nil {
 		return pgtype.UUID{}, err
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return pgtype.UUID{}, err
 	}
@@ -383,13 +370,3 @@ func (m *Manager) insertEvent(ctx context.Context, containerID, eventType string
 	})
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(strings.TrimSpace(id))
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
-}

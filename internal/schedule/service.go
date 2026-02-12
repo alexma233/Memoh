@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/robfig/cron/v3"
 
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/boot"
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -72,7 +72,7 @@ func (s *Service) Create(ctx context.Context, botID string, req CreateRequest) (
 	if _, err := s.parser.Parse(req.Pattern); err != nil {
 		return Schedule{}, fmt.Errorf("invalid cron pattern: %w", err)
 	}
-	pgBotID, err := parseUUID(botID)
+	pgBotID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Schedule{}, err
 	}
@@ -105,7 +105,7 @@ func (s *Service) Create(ctx context.Context, botID string, req CreateRequest) (
 }
 
 func (s *Service) Get(ctx context.Context, id string) (Schedule, error) {
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Schedule{}, err
 	}
@@ -120,7 +120,7 @@ func (s *Service) Get(ctx context.Context, id string) (Schedule, error) {
 }
 
 func (s *Service) List(ctx context.Context, botID string) ([]Schedule, error) {
-	pgBotID, err := parseUUID(botID)
+	pgBotID, err := db.ParseUUID(botID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (s *Service) List(ctx context.Context, botID string) ([]Schedule, error) {
 }
 
 func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Schedule, error) {
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return Schedule{}, err
 	}
@@ -192,7 +192,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Sch
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func (s *Service) runSchedule(ctx context.Context, schedule Schedule) error {
 
 // resolveBotOwner returns the owner user ID for the given bot.
 func (s *Service) resolveBotOwner(ctx context.Context, botID string) (string, error) {
-	pgBotID, err := parseUUID(botID)
+	pgBotID, err := db.ParseUUID(botID)
 	if err != nil {
 		return "", err
 	}
@@ -262,7 +262,7 @@ func (s *Service) resolveBotOwner(ctx context.Context, botID string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("get bot: %w", err)
 	}
-	ownerID := toUUIDString(bot.OwnerUserID)
+	ownerID := bot.OwnerUserID.String()
 	if ownerID == "" {
 		return "", fmt.Errorf("bot owner not found")
 	}
@@ -282,7 +282,7 @@ func (s *Service) generateTriggerToken(userID string) (string, error) {
 }
 
 func (s *Service) scheduleJob(schedule sqlc.Schedule) error {
-	id := toUUIDString(schedule.ID)
+	id := schedule.ID.String()
 	if id == "" {
 		return fmt.Errorf("schedule id missing")
 	}
@@ -300,7 +300,7 @@ func (s *Service) scheduleJob(schedule sqlc.Schedule) error {
 }
 
 func (s *Service) rescheduleJob(schedule sqlc.Schedule) {
-	id := toUUIDString(schedule.ID)
+	id := schedule.ID.String()
 	if id == "" {
 		return
 	}
@@ -322,14 +322,14 @@ func (s *Service) removeJob(id string) {
 
 func toSchedule(row sqlc.Schedule) Schedule {
 	item := Schedule{
-		ID:           toUUIDString(row.ID),
+		ID:           row.ID.String(),
 		Name:         row.Name,
 		Description:  row.Description,
 		Pattern:      row.Pattern,
 		CurrentCalls: int(row.CurrentCalls),
 		Enabled:      row.Enabled,
 		Command:      row.Command,
-		BotID:        toUUIDString(row.BotID),
+		BotID:        row.BotID.String(),
 	}
 	if row.MaxCalls.Valid {
 		max := int(row.MaxCalls.Int32)
@@ -344,32 +344,10 @@ func toSchedule(row sqlc.Schedule) Schedule {
 	return item
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(strings.TrimSpace(id))
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
-}
-
 func toUUID(id string) pgtype.UUID {
-	pgID, err := parseUUID(id)
+	pgID, err := db.ParseUUID(id)
 	if err != nil {
 		return pgtype.UUID{}
 	}
 	return pgID
-}
-
-func toUUIDString(value pgtype.UUID) string {
-	if !value.Valid {
-		return ""
-	}
-	id, err := uuid.FromBytes(value.Bytes[:])
-	if err != nil {
-		return ""
-	}
-	return id.String()
 }

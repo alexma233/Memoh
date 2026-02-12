@@ -9,24 +9,24 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/memohai/memoh/internal/accounts"
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/identity"
 	"github.com/memohai/memoh/internal/preauth"
-	"github.com/memohai/memoh/internal/users"
 )
 
 type PreauthHandler struct {
-	service     *preauth.Service
-	botService  *bots.Service
-	userService *users.Service
+	service        *preauth.Service
+	botService     *bots.Service
+	accountService *accounts.Service
 }
 
-func NewPreauthHandler(service *preauth.Service, botService *bots.Service, userService *users.Service) *PreauthHandler {
+func NewPreauthHandler(service *preauth.Service, botService *bots.Service, accountService *accounts.Service) *PreauthHandler {
 	return &PreauthHandler{
-		service:     service,
-		botService:  botService,
-		userService: userService,
+		service:        service,
+		botService:     botService,
+		accountService: accountService,
 	}
 }
 
@@ -71,21 +71,21 @@ func (h *PreauthHandler) requireUserID(c echo.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := identity.ValidateUserID(userID); err != nil {
+	if err := identity.ValidateChannelIdentityID(userID); err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	return userID, nil
 }
 
-func (h *PreauthHandler) authorizeBotAccess(ctx context.Context, actorID, botID string) (bots.Bot, error) {
-	if h.botService == nil || h.userService == nil {
+func (h *PreauthHandler) authorizeBotAccess(ctx context.Context, userID, botID string) (bots.Bot, error) {
+	if h.botService == nil || h.accountService == nil {
 		return bots.Bot{}, echo.NewHTTPError(http.StatusInternalServerError, "bot services not configured")
 	}
-	isAdmin, err := h.userService.IsAdmin(ctx, actorID)
+	isAdmin, err := h.accountService.IsAdmin(ctx, userID)
 	if err != nil {
 		return bots.Bot{}, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	bot, err := h.botService.AuthorizeAccess(ctx, actorID, botID, isAdmin, bots.AccessPolicy{AllowPublicMember: false})
+	bot, err := h.botService.AuthorizeAccess(ctx, userID, botID, isAdmin, bots.AccessPolicy{AllowPublicMember: false})
 	if err != nil {
 		if errors.Is(err, bots.ErrBotNotFound) {
 			return bots.Bot{}, echo.NewHTTPError(http.StatusNotFound, "bot not found")

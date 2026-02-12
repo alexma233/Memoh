@@ -20,15 +20,14 @@ export interface FetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   body?: unknown
   headers?: Record<string, string>
-  /** 不附加 Authorization header */
+  /** Do not attach Authorization header */
   noAuth?: boolean
   signal?: AbortSignal
 }
 
 /**
- * 基于 fetch 的类型安全请求函数。
- * 自动处理：JSON 序列化、token 注入、401 跳转。
- * 返回值直接是 API 响应的 JSON，不需要再 .data 解包。
+ * Type-safe fetch wrapper: JSON body, token injection, 401 redirect.
+ * Returns the response JSON directly (no .data unwrap).
  */
 export async function fetchApi<T = unknown>(
   url: string,
@@ -55,6 +54,7 @@ export async function fetchApi<T = unknown>(
   })
 
   if (response.status === 401) {
+    localStorage.removeItem('token')
     router.replace({ name: 'Login' })
     throw new ApiError(response.status, response.statusText)
   }
@@ -64,12 +64,11 @@ export async function fetchApi<T = unknown>(
     try {
       errorBody = await response.json()
     } catch {
-      // 无法解析
+      // response body not JSON
     }
     throw new ApiError(response.status, response.statusText, errorBody)
   }
 
-  // 204 No Content 等情况
   if (response.status === 204 || response.headers.get('content-length') === '0') {
     return undefined as T
   }

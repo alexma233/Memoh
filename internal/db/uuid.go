@@ -21,18 +21,6 @@ func ParseUUID(id string) (pgtype.UUID, error) {
 	return pgID, nil
 }
 
-// UUIDToString converts a pgtype.UUID to its string representation.
-func UUIDToString(value pgtype.UUID) string {
-	if !value.Valid {
-		return ""
-	}
-	parsed, err := uuid.FromBytes(value.Bytes[:])
-	if err != nil {
-		return ""
-	}
-	return parsed.String()
-}
-
 // TimeFromPg converts a pgtype.Timestamptz to time.Time.
 func TimeFromPg(value pgtype.Timestamptz) time.Time {
 	if value.Valid {

@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// import type { Payment } from '@/components/columns'
 import { computed, ref, provide, watch, reactive } from 'vue'
 import modelSetting from './model-setting.vue'
-import { useQueryCache } from '@pinia/colada'
 import {
   ScrollArea,
   Sidebar,
@@ -15,12 +13,6 @@ import {
   InputGroup, InputGroupAddon, InputGroupInput,
   SidebarFooter,
   Toggle,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -28,32 +20,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@memoh/ui'
-import { getProviders } from '@memoh/sdk'
-import type { ProvidersGetResponse, ProvidersClientType } from '@memoh/sdk'
+import { type ProviderInfo } from '@memoh/shared'
 import AddProvider from '@/components/add-provider/index.vue'
-import { useQuery } from '@pinia/colada'
-
-const CLIENT_TYPES: ProvidersClientType[] = ['openai', 'openai-compat', 'anthropic', 'google', 'ollama']
+import { useProviderList } from '@/composables/api/useProviders'
 
 const filterProvider = ref('')
-const { data: providerData } = useQuery({
-  key: () => ['providers', filterProvider.value],
-  query: async () => {
-    const { data } = await getProviders({
-      query: filterProvider.value ? { client_type: filterProvider.value } : undefined,
-      throwOnError: true,
-    })
-    return data
-  },
-})
-const queryCache = useQueryCache()
-
-watch(filterProvider, () => {
-  queryCache.invalidateQueries({ key: ['providers'] })
-}, { immediate: true })
+const { data: providerData } = useProviderList(filterProvider)
 
 
-const curProvider = ref<ProvidersGetResponse>()
+const curProvider = ref<Partial<ProviderInfo> & { id: string }>()
 provide('curProvider', curProvider)
 
 const selectProvider = (value: string) => computed(() => {
@@ -70,7 +45,7 @@ const curFilterProvider = computed(() => {
     return []
   }
   const searchReg = new RegExp([...searchProviderTxt.value].map(v => `\\u{${v.codePointAt(0)?.toString(16)}}`).join(''), 'u')
-  return providerData.value.filter((provider: ProvidersGetResponse) => {
+  return providerData.value.filter((provider: Partial<ProviderInfo> & { id: string }) => {
     return searchReg.test(provider.name as string)
   })
 })
@@ -145,22 +120,6 @@ const openStatus = reactive({
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
-            <Select v-model:model-value="filterProvider">
-              <SelectTrigger class="w-full">
-                <SelectValue :placeholder="$t('provider.typePlaceholder')" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem
-                    v-for="type in CLIENT_TYPES"
-                    :key="type"
-                    :value="type"
-                  >
-                    {{ type }}
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
             <AddProvider v-model:open="openStatus.provideOpen" />
           </SidebarFooter>
         </Sidebar>

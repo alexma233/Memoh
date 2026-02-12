@@ -62,18 +62,16 @@ func TestBM25Indexer_TermFrequencies(t *testing.T) {
 func TestBM25Indexer_BM25Logic(t *testing.T) {
 	indexer := NewBM25Indexer(nil)
 
-	// 1. 添加一个包含 "golang" 的文档
 	lang := "en"
 	tf1 := map[string]int{"golang": 1, "programming": 1}
 	len1 := 2
 	indices1, values1 := indexer.AddDocument(lang, tf1, len1)
 
-	// 2. 添加另一个包含 "golang" 但更长的文档
 	tf2 := map[string]int{"golang": 1, "tutorial": 1, "advanced": 1, "topics": 1}
 	len2 := 4
 	indices2, values2 := indexer.AddDocument(lang, tf2, len2)
 
-	// 验证：在 BM25 中，相同词项在短文档中的权重应该比在长文档中高（惩罚长文档）
+	// In BM25, same term in a shorter doc should have higher weight than in a longer doc.
 	var weight1, weight2 float32
 	for i, idx := range indices1 {
 		if idx == termHash("golang") {
@@ -90,11 +88,10 @@ func TestBM25Indexer_BM25Logic(t *testing.T) {
 		t.Errorf("Expected weight in shorter doc (%f) to be higher than in longer doc (%f)", weight1, weight2)
 	}
 
-	// 3. 添加一个不包含 "golang" 的文档，增加文档总数，验证 IDF 变化
-	// IDF 应该随着包含该词的文档比例减少而增加
+	// Add a doc without "golang" to increase doc count; IDF should increase.
 	oldWeight1 := weight1
 	indexer.AddDocument(lang, map[string]int{"rust": 1}, 1)
-	indices3, values3 := indexer.AddDocument(lang, tf1, len1) // 再次生成相同文档的向量
+	indices3, values3 := indexer.AddDocument(lang, tf1, len1)
 
 	for i, idx := range indices3 {
 		if idx == termHash("golang") {
@@ -112,7 +109,6 @@ func TestBM25Indexer_RemoveDocument(t *testing.T) {
 	lang := "en"
 	term := "test"
 
-	// 添加文档
 	tf, docLen, _ := indexer.TermFrequencies(lang, term)
 	indexer.AddDocument(lang, tf, docLen)
 
@@ -123,7 +119,6 @@ func TestBM25Indexer_RemoveDocument(t *testing.T) {
 	}
 	indexer.mu.RUnlock()
 
-	// 删除文档
 	indexer.RemoveDocument(lang, tf, docLen)
 
 	indexer.mu.RLock()
@@ -134,7 +129,7 @@ func TestBM25Indexer_RemoveDocument(t *testing.T) {
 }
 
 func TestTermHash_CollisionResistance(t *testing.T) {
-	// 验证不同词项生成的哈希索引在 20bit 空间内是否分布合理（简单检查不冲突）
+	// Check that different terms get distinct hashes in 20-bit space (no collision in small sample).
 	h1 := termHash("apple")
 	h2 := termHash("orange")
 	h3 := termHash("banana")
@@ -143,7 +138,6 @@ func TestTermHash_CollisionResistance(t *testing.T) {
 		t.Errorf("Detected unexpected hash collision in small sample: %d, %d, %d", h1, h2, h3)
 	}
 
-	// 验证掩码是否生效
 	if h1 > sparseDimMask {
 		t.Errorf("Hash %d exceeds mask %d", h1, sparseDimMask)
 	}

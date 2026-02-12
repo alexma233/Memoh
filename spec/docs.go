@@ -148,112 +148,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/bots/{bot_id}/chat": {
-            "post": {
-                "description": "Send a chat message and get a response. The system will automatically select an appropriate chat model from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "chat"
-                ],
-                "summary": "Chat with AI",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Chat request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/chat.ChatRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/chat.ChatResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/chat/stream": {
-            "post": {
-                "description": "Send a chat message and get a streaming response. The system will automatically select an appropriate chat model from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "text/event-stream"
-                ],
-                "tags": [
-                    "chat"
-                ],
-                "summary": "Stream chat with AI",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Chat request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/chat.ChatRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/bots/{bot_id}/container": {
             "get": {
                 "tags": [
@@ -351,489 +245,6 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs": {
-            "get": {
-                "description": "List entries under a relative path",
-                "tags": [
-                    "fs"
-                ],
-                "summary": "List files for a bot",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Relative directory path",
-                        "name": "path",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Recursive listing",
-                        "name": "recursive",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Delete a file or directory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Relative path",
-                        "name": "path",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Recursive delete for directories",
-                        "name": "recursive",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSDeleteResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs-mcp": {
-            "post": {
-                "description": "Forwards MCP JSON-RPC requests to the MCP server inside the container.\nRequired:\n- container task is running\n- container has data mount (default /data) bound to \u003cdata_root\u003e/users/\u003cuser_id\u003e\n- container image contains the \"mcp\" binary\nAuth: Bearer JWT is used to determine user_id (sub or user_id).\nPaths must be relative (no leading slash) and must not contain \"..\".\n\nExample: tools/list\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n\nExample: tools/call (fs.read)\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"fs.read\",\"arguments\":{\"path\":\"notes.txt\"}}}",
-                "tags": [
-                    "containerd"
-                ],
-                "summary": "MCP filesystem tools (JSON-RPC)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bearer \u003ctoken\u003e",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "JSON-RPC request",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "JSON-RPC response: {jsonrpc,id,result|error}",
-                        "schema": {
-                            "type": "object"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs/dir": {
-            "post": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Create a directory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Directory payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSMkdirRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSWriteResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs/file": {
-            "get": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Read file content",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Relative file path",
-                        "name": "path",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSReadResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Create or overwrite a file",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "File write payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSWriteRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSWriteResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs/stat": {
-            "get": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Get file or directory metadata",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Relative path",
-                        "name": "path",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSStatResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs/upload": {
-            "post": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Upload a file",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Relative file path or directory",
-                        "name": "path",
-                        "in": "query"
-                    },
-                    {
-                        "type": "file",
-                        "description": "File to upload",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSWriteResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/container/fs/usage": {
-            "get": {
-                "tags": [
-                    "fs"
-                ],
-                "summary": "Get usage under a path",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Relative directory path",
-                        "name": "path",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FSUsageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -1142,225 +553,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/bots/{bot_id}/history": {
-            "get": {
-                "description": "List history records for current user",
-                "tags": [
-                    "history"
-                ],
-                "summary": "List history records",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/history.ListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Create a history record for current user",
-                "tags": [
-                    "history"
-                ],
-                "summary": "Create history record",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "History payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/history.CreateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/history.Record"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete all history records for current user",
-                "tags": [
-                    "history"
-                ],
-                "summary": "Delete all history records",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/history/{id}": {
-            "get": {
-                "description": "Get a history record by ID (must belong to current user)",
-                "tags": [
-                    "history"
-                ],
-                "summary": "Get history record",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "History ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/history.Record"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a history record by ID (must belong to current user)",
-                "tags": [
-                    "history"
-                ],
-                "summary": "Delete history record",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "History ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/bots/{bot_id}/mcp": {
             "get": {
                 "description": "List MCP connections for a bot",
@@ -1368,15 +560,6 @@ const docTemplate = `{
                     "mcp"
                 ],
                 "summary": "List MCP connections",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1417,13 +600,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create MCP connection",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "MCP payload",
                         "name": "payload",
@@ -1521,7 +697,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/bots/{bot_id}/mcp-stdio/{session_id}": {
+        "/bots/{bot_id}/mcp-stdio/{connection_id}": {
             "post": {
                 "description": "Proxies MCP JSON-RPC requests to a stdio MCP process in the container.",
                 "tags": [
@@ -1538,8 +714,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Session ID",
-                        "name": "session_id",
+                        "description": "Connection ID",
+                        "name": "connection_id",
                         "in": "path",
                         "required": true
                     },
@@ -1591,13 +767,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "MCP ID",
                         "name": "id",
                         "in": "path",
@@ -1644,13 +813,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update MCP connection",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "MCP ID",
@@ -1710,13 +872,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "MCP ID",
                         "name": "id",
                         "in": "path",
@@ -1754,377 +909,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/bots/{bot_id}/memory/add": {
-            "post": {
-                "description": "Add memory for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Add memory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Add request",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.memoryAddPayload"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.SearchResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/memory/embed": {
-            "post": {
-                "description": "Embed text or multimodal input and upsert into memory store. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Embed and upsert memory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Embed upsert request",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.memoryEmbedUpsertPayload"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.EmbedUpsertResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/memory/memories": {
-            "get": {
-                "description": "List memories for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "List memories",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Run ID",
-                        "name": "run_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.SearchResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete all memories for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Delete memories",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Delete all request",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.memoryDeleteAllPayload"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.DeleteResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/memory/memories/{memoryId}": {
-            "get": {
-                "description": "Get a memory by ID via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Get memory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Memory ID",
-                        "name": "memoryId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.MemoryItem"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a memory by ID via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Delete memory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Memory ID",
-                        "name": "memoryId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.DeleteResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/memory/search": {
-            "post": {
-                "description": "Search memories for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Search memories",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Search request",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.memorySearchPayload"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.SearchResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/memory/update": {
-            "post": {
-                "description": "Update a memory by ID via memory. Auth: Bearer JWT determines user_id (sub or user_id).",
-                "tags": [
-                    "memory"
-                ],
-                "summary": "Update memory",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Update request",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/memory.UpdateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/memory.MemoryItem"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/bots/{bot_id}/schedule": {
             "get": {
                 "description": "List schedules for current user",
@@ -2132,15 +916,6 @@ const docTemplate = `{
                     "schedule"
                 ],
                 "summary": "List schedules",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2169,13 +944,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create schedule",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "Schedule payload",
                         "name": "payload",
@@ -2218,13 +986,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Schedule ID",
                         "name": "id",
                         "in": "path",
@@ -2265,13 +1026,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update schedule",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Schedule ID",
@@ -2319,13 +1073,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Schedule ID",
                         "name": "id",
                         "in": "path",
@@ -2358,15 +1105,6 @@ const docTemplate = `{
                     "settings"
                 ],
                 "summary": "Get user settings",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2395,13 +1133,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update user settings",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "Settings payload",
                         "name": "payload",
@@ -2440,13 +1171,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update user settings",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "Settings payload",
                         "name": "payload",
@@ -2484,15 +1208,6 @@ const docTemplate = `{
                     "settings"
                 ],
                 "summary": "Delete user settings",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -2519,15 +1234,6 @@ const docTemplate = `{
                     "subagent"
                 ],
                 "summary": "List subagents",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2556,13 +1262,6 @@ const docTemplate = `{
                 ],
                 "summary": "Create subagent",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "description": "Subagent payload",
                         "name": "payload",
@@ -2605,13 +1304,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Subagent ID",
                         "name": "id",
                         "in": "path",
@@ -2652,13 +1344,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update subagent",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Subagent ID",
@@ -2712,13 +1397,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Subagent ID",
                         "name": "id",
                         "in": "path",
@@ -2758,13 +1436,6 @@ const docTemplate = `{
                 ],
                 "summary": "Get subagent context",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Subagent ID",
@@ -2807,13 +1478,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update subagent context",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Subagent ID",
@@ -2869,13 +1533,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Subagent ID",
                         "name": "id",
                         "in": "path",
@@ -2916,13 +1573,6 @@ const docTemplate = `{
                 ],
                 "summary": "Update subagent skills",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Subagent ID",
@@ -2976,13 +1626,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Subagent ID",
                         "name": "id",
                         "in": "path",
@@ -3003,6 +1646,59 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/subagent.SkillsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/tools": {
+            "post": {
+                "description": "MCP endpoint for tool discovery and invocation.",
+                "tags": [
+                    "containerd"
+                ],
+                "summary": "Unified MCP tools gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "JSON-RPC request",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "JSON-RPC response: {jsonrpc,id,result|error}",
+                        "schema": {
+                            "type": "object"
                         }
                     },
                     "400": {
@@ -3148,8 +1844,14 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     },
                     "400": {
                         "description": "Bad Request",
@@ -3368,7 +2070,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/bots/{id}/channel/{platform}/send_session": {
+        "/bots/{id}/channel/{platform}/send_chat": {
             "post": {
                 "description": "Send a message using a session-scoped token (reply only)",
                 "tags": [
@@ -3424,6 +2126,56 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{id}/checks": {
+            "get": {
+                "description": "Evaluate bot attached resource checks in runtime",
+                "tags": [
+                    "bots"
+                ],
+                "summary": "List bot runtime checks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/bots.ListChecksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -4601,7 +3353,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/users.ListUsersResponse"
+                            "$ref": "#/definitions/accounts.ListAccountsResponse"
                         }
                     },
                     "400": {
@@ -4637,7 +3389,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/users.CreateUserRequest"
+                            "$ref": "#/definitions/accounts.CreateAccountRequest"
                         }
                     }
                 ],
@@ -4645,7 +3397,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/users.User"
+                            "$ref": "#/definitions/accounts.Account"
                         }
                     },
                     "400": {
@@ -4680,7 +3432,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/users.User"
+                            "$ref": "#/definitions/accounts.Account"
                         }
                     },
                     "400": {
@@ -4710,7 +3462,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/users.UpdateProfileRequest"
+                            "$ref": "#/definitions/accounts.UpdateProfileRequest"
                         }
                     }
                 ],
@@ -4718,7 +3470,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/users.User"
+                            "$ref": "#/definitions/accounts.Account"
                         }
                     },
                     "400": {
@@ -4756,7 +3508,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/channel.ChannelUserBinding"
+                            "$ref": "#/definitions/channel.ChannelIdentityBinding"
                         }
                     },
                     "400": {
@@ -4799,7 +3551,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/channel.UpsertUserConfigRequest"
+                            "$ref": "#/definitions/channel.UpsertChannelIdentityConfigRequest"
                         }
                     }
                 ],
@@ -4807,11 +3559,46 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/channel.ChannelUserBinding"
+                            "$ref": "#/definitions/channel.ChannelIdentityBinding"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/identities": {
+            "get": {
+                "description": "List all channel identities linked to current user",
+                "tags": [
+                    "users"
+                ],
+                "summary": "List current user's channel identities",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.listMyIdentitiesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -4839,7 +3626,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/users.UpdatePasswordRequest"
+                            "$ref": "#/definitions/accounts.UpdatePasswordRequest"
                         }
                     }
                 ],
@@ -4882,7 +3669,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/users.User"
+                            "$ref": "#/definitions/accounts.Account"
                         }
                     },
                     "400": {
@@ -4931,7 +3718,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/users.UpdateUserRequest"
+                            "$ref": "#/definitions/accounts.UpdateAccountRequest"
                         }
                     }
                 ],
@@ -4939,7 +3726,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/users.User"
+                            "$ref": "#/definitions/accounts.Account"
                         }
                     },
                     "400": {
@@ -4990,7 +3777,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/users.ResetPasswordRequest"
+                            "$ref": "#/definitions/accounts.ResetPasswordRequest"
                         }
                     }
                 ],
@@ -5027,19 +3814,135 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "bots.Bot": {
+        "accounts.Account": {
             "type": "object",
-            "required": [
-                "created_at",
-                "display_name",
-                "id",
-                "is_active",
-                "owner_user_id",
-                "type",
-                "updated_at"
-            ],
             "properties": {
                 "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "last_login_at": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "accounts.CreateAccountRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "accounts.ListAccountsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/accounts.Account"
+                    }
+                }
+            }
+        },
+        "accounts.ResetPasswordRequest": {
+            "type": "object",
+            "properties": {
+                "new_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "accounts.UpdateAccountRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "accounts.UpdatePasswordRequest": {
+            "type": "object",
+            "properties": {
+                "current_password": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "accounts.UpdateProfileRequest": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "bots.Bot": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "check_issue_count": {
+                    "type": "integer"
+                },
+                "check_state": {
                     "type": "string"
                 },
                 "created_at": {
@@ -5061,10 +3964,34 @@ const docTemplate = `{
                 "owner_user_id": {
                     "type": "string"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "type": {
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "bots.BotCheck": {
+            "type": "object",
+            "properties": {
+                "check_key": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "status": {
+                    "type": "string"
+                },
+                "summary": {
                     "type": "string"
                 }
             }
@@ -5109,14 +4036,22 @@ const docTemplate = `{
         },
         "bots.ListBotsResponse": {
             "type": "object",
-            "required": [
-                "items"
-            ],
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/bots.Bot"
+                    }
+                }
+            }
+        },
+        "bots.ListChecksResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bots.BotCheck"
                     }
                 }
             }
@@ -5208,8 +4143,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "platform_key": {
+                    "type": "string"
+                },
                 "size": {
                     "type": "integer"
+                },
+                "source_platform": {
+                    "type": "string"
                 },
                 "thumbnail_url": {
                     "type": "string"
@@ -5341,9 +4282,12 @@ const docTemplate = `{
                 }
             }
         },
-        "channel.ChannelUserBinding": {
+        "channel.ChannelIdentityBinding": {
             "type": "object",
             "properties": {
+                "channelIdentityID": {
+                    "type": "string"
+                },
                 "channelType": {
                     "type": "string"
                 },
@@ -5358,9 +4302,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updatedAt": {
-                    "type": "string"
-                },
-                "userID": {
                     "type": "string"
                 }
             }
@@ -5478,6 +4419,9 @@ const docTemplate = `{
         "channel.MessagePart": {
             "type": "object",
             "properties": {
+                "channel_identity_id": {
+                    "type": "string"
+                },
                 "emoji": {
                     "type": "string"
                 },
@@ -5501,9 +4445,6 @@ const docTemplate = `{
                     "$ref": "#/definitions/channel.MessagePartType"
                 },
                 "url": {
-                    "type": "string"
-                },
-                "user_id": {
                     "type": "string"
                 }
             }
@@ -5554,13 +4495,13 @@ const docTemplate = `{
         "channel.SendRequest": {
             "type": "object",
             "properties": {
+                "channel_identity_id": {
+                    "type": "string"
+                },
                 "message": {
                     "$ref": "#/definitions/channel.Message"
                 },
                 "target": {
-                    "type": "string"
-                },
-                "user_id": {
                     "type": "string"
                 }
             }
@@ -5598,6 +4539,15 @@ const docTemplate = `{
                 }
             }
         },
+        "channel.UpsertChannelIdentityConfigRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                }
+            }
+        },
         "channel.UpsertConfigRequest": {
             "type": "object",
             "properties": {
@@ -5624,148 +4574,8 @@ const docTemplate = `{
                 }
             }
         },
-        "channel.UpsertUserConfigRequest": {
-            "type": "object",
-            "properties": {
-                "config": {
-                    "type": "object",
-                    "additionalProperties": {}
-                }
-            }
-        },
-        "chat.ChatRequest": {
-            "type": "object",
-            "properties": {
-                "allowed_actions": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "channels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "current_channel": {
-                    "type": "string"
-                },
-                "language": {
-                    "type": "string"
-                },
-                "max_context_load_time": {
-                    "type": "integer"
-                },
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/chat.ModelMessage"
-                    }
-                },
-                "model": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "query": {
-                    "type": "string"
-                },
-                "skills": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "chat.ChatResponse": {
-            "type": "object",
-            "properties": {
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/chat.ModelMessage"
-                    }
-                },
-                "model": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "skills": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "chat.ModelMessage": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "tool_call_id": {
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/chat.ToolCall"
-                    }
-                }
-            }
-        },
-        "chat.ToolCall": {
-            "type": "object",
-            "properties": {
-                "function": {
-                    "$ref": "#/definitions/chat.ToolCallFunction"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "chat.ToolCallFunction": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_memohai_memoh_internal_mcp.Connection": {
             "type": "object",
-            "required": [
-                "active",
-                "bot_id",
-                "config",
-                "created_at",
-                "id",
-                "name",
-                "type",
-                "updated_at"
-            ],
             "properties": {
                 "active": {
                     "type": "boolean"
@@ -5796,12 +4606,6 @@ const docTemplate = `{
         },
         "handlers.ChannelMeta": {
             "type": "object",
-            "required": [
-                "capabilities",
-                "config_schema",
-                "display_name",
-                "type"
-            ],
             "properties": {
                 "capabilities": {
                     "$ref": "#/definitions/channel.ChannelCapabilities"
@@ -5829,9 +4633,6 @@ const docTemplate = `{
         "handlers.CreateContainerRequest": {
             "type": "object",
             "properties": {
-                "image": {
-                    "type": "string"
-                },
                 "snapshotter": {
                     "type": "string"
                 }
@@ -5972,138 +4773,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.FSDeleteResponse": {
-            "type": "object",
-            "properties": {
-                "ok": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "handlers.FSListResponse": {
-            "type": "object",
-            "properties": {
-                "entries": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/handlers.FSRestEntry"
-                    }
-                },
-                "path": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.FSMkdirRequest": {
-            "type": "object",
-            "properties": {
-                "parents": {
-                    "type": "boolean"
-                },
-                "path": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.FSReadResponse": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "mod_time": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "integer"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.FSRestEntry": {
-            "type": "object",
-            "properties": {
-                "is_dir": {
-                    "type": "boolean"
-                },
-                "mod_time": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "integer"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.FSStatResponse": {
-            "type": "object",
-            "properties": {
-                "is_dir": {
-                    "type": "boolean"
-                },
-                "mod_time": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "integer"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.FSUsageResponse": {
-            "type": "object",
-            "properties": {
-                "dir_count": {
-                    "type": "integer"
-                },
-                "file_count": {
-                    "type": "integer"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "total_bytes": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.FSWriteRequest": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "overwrite": {
-                    "type": "boolean"
-                },
-                "path": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.FSWriteResponse": {
-            "type": "object",
-            "properties": {
-                "ok": {
-                    "type": "boolean"
-                }
-            }
-        },
         "handlers.GetContainerResponse": {
             "type": "object",
             "properties": {
@@ -6152,10 +4821,6 @@ const docTemplate = `{
         },
         "handlers.LoginRequest": {
             "type": "object",
-            "required": [
-                "password",
-                "username"
-            ],
             "properties": {
                 "password": {
                     "type": "string"
@@ -6167,15 +4832,6 @@ const docTemplate = `{
         },
         "handlers.LoginResponse": {
             "type": "object",
-            "required": [
-                "access_token",
-                "display_name",
-                "expires_at",
-                "role",
-                "token_type",
-                "user_id",
-                "username"
-            ],
             "properties": {
                 "access_token": {
                     "type": "string"
@@ -6229,7 +4885,7 @@ const docTemplate = `{
         "handlers.MCPStdioResponse": {
             "type": "object",
             "properties": {
-                "session_id": {
+                "connection_id": {
                     "type": "string"
                 },
                 "tools": {
@@ -6323,100 +4979,17 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.memoryAddPayload": {
+        "handlers.listMyIdentitiesResponse": {
             "type": "object",
             "properties": {
-                "embedding_enabled": {
-                    "type": "boolean"
-                },
-                "filters": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "infer": {
-                    "type": "boolean"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "messages": {
+                "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/memory.Message"
+                        "$ref": "#/definitions/identities.ChannelIdentity"
                     }
                 },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "run_id": {
+                "user_id": {
                     "type": "string"
-                }
-            }
-        },
-        "handlers.memoryDeleteAllPayload": {
-            "type": "object",
-            "properties": {
-                "run_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.memoryEmbedUpsertPayload": {
-            "type": "object",
-            "properties": {
-                "filters": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "input": {
-                    "$ref": "#/definitions/memory.EmbedInput"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "model": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "run_id": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.memorySearchPayload": {
-            "type": "object",
-            "properties": {
-                "embedding_enabled": {
-                    "type": "boolean"
-                },
-                "filters": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "limit": {
-                    "type": "integer"
-                },
-                "query": {
-                    "type": "string"
-                },
-                "run_id": {
-                    "type": "string"
-                },
-                "sources": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -6428,69 +5001,32 @@ const docTemplate = `{
                 }
             }
         },
-        "history.CreateRequest": {
+        "identities.ChannelIdentity": {
             "type": "object",
             "properties": {
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": {}
-                    }
+                "channel": {
+                    "type": "string"
                 },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
+                "channel_subject_id": {
+                    "type": "string"
                 },
-                "skills": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "history.ListResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/history.Record"
-                    }
-                }
-            }
-        },
-        "history.Record": {
-            "type": "object",
-            "properties": {
-                "bot_id": {
+                "created_at": {
+                    "type": "string"
+                },
+                "display_name": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": {}
-                    }
-                },
                 "metadata": {
                     "type": "object",
                     "additionalProperties": {}
                 },
-                "session_id": {
+                "updated_at": {
                     "type": "string"
                 },
-                "skills": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "timestamp": {
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -6524,132 +5060,8 @@ const docTemplate = `{
                 }
             }
         },
-        "memory.DeleteResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.EmbedInput": {
-            "type": "object",
-            "properties": {
-                "image_url": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "video_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.EmbedUpsertResponse": {
-            "type": "object",
-            "properties": {
-                "dimensions": {
-                    "type": "integer"
-                },
-                "item": {
-                    "$ref": "#/definitions/memory.MemoryItem"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.MemoryItem": {
-            "type": "object",
-            "properties": {
-                "agentId": {
-                    "type": "string"
-                },
-                "botId": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "hash": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "memory": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "runId": {
-                    "type": "string"
-                },
-                "score": {
-                    "type": "number"
-                },
-                "sessionId": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.Message": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "memory.SearchResponse": {
-            "type": "object",
-            "properties": {
-                "relations": {
-                    "type": "array",
-                    "items": {}
-                },
-                "results": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/memory.MemoryItem"
-                    }
-                }
-            }
-        },
-        "memory.UpdateRequest": {
-            "type": "object",
-            "properties": {
-                "embedding_enabled": {
-                    "type": "boolean"
-                },
-                "memory": {
-                    "type": "string"
-                },
-                "memory_id": {
-                    "type": "string"
-                }
-            }
-        },
         "models.AddRequest": {
             "type": "object",
-            "required": [
-                "llm_provider_id",
-                "model_id",
-                "name",
-                "type"
-            ],
             "properties": {
                 "dimensions": {
                     "type": "integer"
@@ -6698,12 +5110,6 @@ const docTemplate = `{
         },
         "models.GetResponse": {
             "type": "object",
-            "required": [
-                "llm_provider_id",
-                "model_id",
-                "name",
-                "type"
-            ],
             "properties": {
                 "dimensions": {
                     "type": "integer"
@@ -6744,12 +5150,6 @@ const docTemplate = `{
         },
         "models.UpdateRequest": {
             "type": "object",
-            "required": [
-                "llm_provider_id",
-                "model_id",
-                "name",
-                "type"
-            ],
             "properties": {
                 "dimensions": {
                     "type": "integer"
@@ -6830,14 +5230,6 @@ const docTemplate = `{
         },
         "providers.GetResponse": {
             "type": "object",
-            "required": [
-                "base_url",
-                "client_type",
-                "created_at",
-                "id",
-                "name",
-                "updated_at"
-            ],
             "properties": {
                 "api_key": {
                     "description": "masked in response",
@@ -6996,14 +5388,6 @@ const docTemplate = `{
         },
         "settings.Settings": {
             "type": "object",
-            "required": [
-                "allow_guest",
-                "chat_model_id",
-                "embedding_model_id",
-                "language",
-                "max_context_load_time",
-                "memory_model_id"
-            ],
             "properties": {
                 "allow_guest": {
                     "type": "boolean"
@@ -7202,125 +5586,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "users.CreateUserRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "users.ListUsersResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/users.User"
-                    }
-                }
-            }
-        },
-        "users.ResetPasswordRequest": {
-            "type": "object",
-            "properties": {
-                "new_password": {
-                    "type": "string"
-                }
-            }
-        },
-        "users.UpdatePasswordRequest": {
-            "type": "object",
-            "properties": {
-                "current_password": {
-                    "type": "string"
-                },
-                "new_password": {
-                    "type": "string"
-                }
-            }
-        },
-        "users.UpdateProfileRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "display_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "users.UpdateUserRequest": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "role": {
-                    "type": "string"
-                }
-            }
-        },
-        "users.User": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "last_login_at": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         }

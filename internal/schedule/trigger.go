@@ -11,9 +11,10 @@ type TriggerPayload struct {
 	MaxCalls    *int
 	Command     string
 	OwnerUserID string
+	ChatID      string
 }
 
-// Triggerer 负责触发与聊天相关的调度执行。
+// Triggerer triggers schedule execution for chat-related jobs.
 type Triggerer interface {
 	TriggerSchedule(ctx context.Context, botID string, payload TriggerPayload, token string) error
 }

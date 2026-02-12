@@ -107,11 +107,11 @@ import { useRouter } from 'vue-router'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import * as z from 'zod'
-import { useUserStore } from '@/store/user'
+import { useUserStore } from '@/store/User'
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
-import { postAuthLogin } from '@memoh/sdk'
+import { login as loginApi } from '@/composables/api/useAuth'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -130,18 +130,19 @@ const loading = ref(false)
 const login = form.handleSubmit(async (values) => {
   try {
     loading.value = true
-    const { data } = await postAuthLogin({ body: values })
+    const data = await loginApi(values)
     if (data?.access_token && data?.user_id) {
       loginHandle({
         id: data.user_id,
         username: data.username,
         displayName: data.display_name ?? '',
         role: data.role ?? '',
+        avatarUrl: data.avatar_url ?? '',
       }, data.access_token)
     } else {
       throw new Error(t('auth.loginFailed'))
     }
-    router.replace({ path: '/chat' })
+    router.replace({ name: 'Main' })
   } catch {
     toast.error(t('auth.invalidCredentials'), {
       description: t('auth.retryHint'),

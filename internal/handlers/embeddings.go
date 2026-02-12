@@ -101,7 +101,7 @@ func (h *EmbeddingsHandler) Embed(c echo.Context) error {
 			ImageURL: req.Input.ImageURL,
 			VideoURL: req.Input.VideoURL,
 		},
-		UserID: userID,
+		ChannelIdentityID: userID,
 	})
 	if err != nil {
 		message := err.Error()

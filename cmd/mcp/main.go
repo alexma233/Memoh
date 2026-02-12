@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"github.com/memohai/memoh/internal/logger"
-	"github.com/memohai/memoh/internal/mcp"
 	"github.com/memohai/memoh/internal/version"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -19,11 +18,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// File tools (read/write/list/edit) are provided by the agent's MCP tool gateway, not this binary.
 	server := gomcp.NewServer(
 		&gomcp.Implementation{Name: "memoh-mcp", Version: version.GetInfo()},
 		nil,
 	)
-	mcp.RegisterTools(server)
 	err := server.Run(ctx, &gomcp.StdioTransport{})
 	if ctx.Err() != nil {
 		return

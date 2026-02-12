@@ -43,15 +43,15 @@ import {
   Button,
 } from '@memoh/ui'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
-import type { ModelsGetResponse } from '@memoh/sdk'
+import { type ModelInfo } from '@memoh/shared'
 
 defineProps<{
-  model: ModelsGetResponse
+  model: ModelInfo
   deleteLoading: boolean
 }>()
 
 defineEmits<{
-  edit: [model: ModelsGetResponse]
+  edit: [model: ModelInfo]
   delete: [name: string]
 }>()
 </script>

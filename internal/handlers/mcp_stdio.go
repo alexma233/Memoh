@@ -14,6 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	sdkjsonrpc "github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	ctr "github.com/memohai/memoh/internal/containerd"
 	mcptools "github.com/memohai/memoh/internal/mcp"
@@ -28,9 +30,9 @@ type MCPStdioRequest struct {
 }
 
 type MCPStdioResponse struct {
-	SessionID string   `json:"session_id"`
-	URL       string   `json:"url"`
-	Tools     []string `json:"tools,omitempty"`
+	ConnectionID string   `json:"connection_id"`
+	URL          string   `json:"url"`
+	Tools        []string `json:"tools,omitempty"`
 }
 
 type mcpStdioSession struct {
@@ -74,7 +76,7 @@ func (h *ContainerdHandler) CreateMCPStdio(c echo.Context) error {
 	if err := h.validateMCPContainer(ctx, containerID, botID); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if err := h.ensureTaskRunning(ctx, containerID); err != nil {
+	if err := h.ensureContainerAndTask(ctx, containerID, botID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -83,9 +85,9 @@ func (h *ContainerdHandler) CreateMCPStdio(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	tools := h.probeMCPTools(ctx, sess, botID, strings.TrimSpace(req.Name))
-	sessionID := uuid.NewString()
+	connectionID := uuid.NewString()
 	record := &mcpStdioSession{
-		id:          sessionID,
+		id:          connectionID,
 		botID:       botID,
 		containerID: containerID,
 		name:        strings.TrimSpace(req.Name),
@@ -95,19 +97,19 @@ func (h *ContainerdHandler) CreateMCPStdio(c echo.Context) error {
 	}
 	sess.onClose = func() {
 		h.mcpStdioMu.Lock()
-		if current, ok := h.mcpStdioSess[sessionID]; ok && current == record {
-			delete(h.mcpStdioSess, sessionID)
+		if current, ok := h.mcpStdioSess[connectionID]; ok && current == record {
+			delete(h.mcpStdioSess, connectionID)
 		}
 		h.mcpStdioMu.Unlock()
 	}
 	h.mcpStdioMu.Lock()
-	h.mcpStdioSess[sessionID] = record
+	h.mcpStdioSess[connectionID] = record
 	h.mcpStdioMu.Unlock()
 
 	return c.JSON(http.StatusOK, MCPStdioResponse{
-		SessionID: sessionID,
-		URL:       fmt.Sprintf("/bots/%s/mcp-stdio/%s", botID, sessionID),
-		Tools:     tools,
+		ConnectionID: connectionID,
+		URL:          fmt.Sprintf("/bots/%s/mcp-stdio/%s", botID, connectionID),
+		Tools:        tools,
 	})
 }
 
@@ -116,31 +118,31 @@ func (h *ContainerdHandler) CreateMCPStdio(c echo.Context) error {
 // @Description Proxies MCP JSON-RPC requests to a stdio MCP process in the container.
 // @Tags containerd
 // @Param bot_id path string true "Bot ID"
-// @Param session_id path string true "Session ID"
+// @Param connection_id path string true "Connection ID"
 // @Param payload body object true "JSON-RPC request"
 // @Success 200 {object} object "JSON-RPC response: {jsonrpc,id,result|error}"
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /bots/{bot_id}/mcp-stdio/{session_id} [post]
+// @Router /bots/{bot_id}/mcp-stdio/{connection_id} [post]
 func (h *ContainerdHandler) HandleMCPStdio(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
 	if err != nil {
 		return err
 	}
-	sessionID := strings.TrimSpace(c.Param("session_id"))
-	if sessionID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "session_id is required")
+	connectionID := strings.TrimSpace(c.Param("connection_id"))
+	if connectionID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "connection_id is required")
 	}
 	h.mcpStdioMu.Lock()
-	session := h.mcpStdioSess[sessionID]
+	session := h.mcpStdioSess[connectionID]
 	h.mcpStdioMu.Unlock()
 	if session == nil || session.session == nil || session.botID != botID {
-		return echo.NewHTTPError(http.StatusNotFound, "mcp session not found")
+		return echo.NewHTTPError(http.StatusNotFound, "mcp connection not found")
 	}
 	select {
 	case <-session.session.closed:
-		return echo.NewHTTPError(http.StatusNotFound, "mcp session closed")
+		return echo.NewHTTPError(http.StatusNotFound, "mcp connection closed")
 	default:
 	}
 
@@ -188,9 +190,19 @@ func (h *ContainerdHandler) startContainerdMCPCommandSession(ctx context.Context
 		stdin:   execSession.Stdin,
 		stdout:  execSession.Stdout,
 		stderr:  execSession.Stderr,
-		pending: make(map[string]chan mcptools.JSONRPCResponse),
+		pending: make(map[string]chan *sdkjsonrpc.Response),
 		closed:  make(chan struct{}),
 	}
+	transport := &sdkmcp.IOTransport{
+		Reader: sess.stdout,
+		Writer: sess.stdin,
+	}
+	conn, err := transport.Connect(ctx)
+	if err != nil {
+		sess.closeWithError(err)
+		return nil, err
+	}
+	sess.conn = conn
 	h.startMCPStderrLogger(execSession.Stderr, containerID)
 	go sess.readLoop()
 	go func() {
@@ -339,9 +351,19 @@ func (h *ContainerdHandler) startLimaMCPCommandSession(containerID string, req M
 		stdout:  stdout,
 		stderr:  stderr,
 		cmd:     cmd,
-		pending: make(map[string]chan mcptools.JSONRPCResponse),
+		pending: make(map[string]chan *sdkjsonrpc.Response),
 		closed:  make(chan struct{}),
 	}
+	transport := &sdkmcp.IOTransport{
+		Reader: sess.stdout,
+		Writer: sess.stdin,
+	}
+	conn, err := transport.Connect(context.Background())
+	if err != nil {
+		sess.closeWithError(err)
+		return nil, err
+	}
+	sess.conn = conn
 
 	h.startMCPStderrLogger(stderr, containerID)
 	go sess.readLoop()

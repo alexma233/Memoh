@@ -8,22 +8,57 @@ BEGIN
 END
 $$;
 
+-- users: Memoh user principal
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username TEXT NOT NULL,
+  username TEXT,
   email TEXT,
-  password_hash TEXT NOT NULL,
+  password_hash TEXT,
   role user_role NOT NULL DEFAULT 'member',
   display_name TEXT,
   avatar_url TEXT,
-  is_active BOOLEAN NOT NULL DEFAULT true,
   data_root TEXT,
+  last_login_at TIMESTAMPTZ,
+  chat_model_id TEXT,
+  memory_model_id TEXT,
+  embedding_model_id TEXT,
+  max_context_load_time INTEGER NOT NULL DEFAULT 1440,
+  language TEXT NOT NULL DEFAULT 'auto',
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_login_at TIMESTAMPTZ,
   CONSTRAINT users_email_unique UNIQUE (email),
   CONSTRAINT users_username_unique UNIQUE (username)
 );
+
+-- channel_identities: unified inbound identity subject
+CREATE TABLE IF NOT EXISTS channel_identities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  channel_type TEXT NOT NULL,
+  channel_subject_id TEXT NOT NULL,
+  display_name TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT channel_identities_channel_type_subject_unique UNIQUE (channel_type, channel_subject_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_channel_identities_user_id ON channel_identities(user_id);
+
+-- user_channel_bindings: outbound delivery config
+CREATE TABLE IF NOT EXISTS user_channel_bindings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  channel_type TEXT NOT NULL,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT user_channel_bindings_unique UNIQUE (user_id, channel_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_channel_bindings_user_id ON user_channel_bindings(user_id);
 
 CREATE TABLE IF NOT EXISTS llm_providers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,10 +108,18 @@ CREATE TABLE IF NOT EXISTS bots (
   display_name TEXT,
   avatar_url TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
+  status TEXT NOT NULL DEFAULT 'ready',
+  max_context_load_time INTEGER NOT NULL DEFAULT 1440,
+  language TEXT NOT NULL DEFAULT 'auto',
+  allow_guest BOOLEAN NOT NULL DEFAULT false,
+  chat_model_id UUID REFERENCES models(id) ON DELETE SET NULL,
+  memory_model_id UUID REFERENCES models(id) ON DELETE SET NULL,
+  embedding_model_id UUID REFERENCES models(id) ON DELETE SET NULL,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public'))
+  CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
+  CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_bots_owner_user_id ON bots(owner_user_id);
@@ -91,20 +134,6 @@ CREATE TABLE IF NOT EXISTS bot_members (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bot_members_user_id ON bot_members(user_id);
-
-CREATE TABLE IF NOT EXISTS bot_settings (
-  bot_id UUID PRIMARY KEY REFERENCES bots(id) ON DELETE CASCADE,
-  max_context_load_time INTEGER NOT NULL DEFAULT 1440,
-  language TEXT NOT NULL DEFAULT 'auto',
-  allow_guest BOOLEAN NOT NULL DEFAULT false
-);
-
-CREATE TABLE IF NOT EXISTS bot_model_configs (
-  bot_id UUID PRIMARY KEY REFERENCES bots(id) ON DELETE CASCADE,
-  chat_model_id UUID REFERENCES models(id) ON DELETE SET NULL,
-  embedding_model_id UUID REFERENCES models(id) ON DELETE SET NULL,
-  memory_model_id UUID REFERENCES models(id) ON DELETE SET NULL
-);
 
 CREATE TABLE IF NOT EXISTS mcp_connections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -121,45 +150,7 @@ CREATE TABLE IF NOT EXISTS mcp_connections (
 
 CREATE INDEX IF NOT EXISTS idx_mcp_connections_bot_id ON mcp_connections(bot_id);
 
-CREATE TABLE IF NOT EXISTS conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  session_id TEXT NOT NULL,
-  channel_type TEXT NOT NULL,
-  chat_id TEXT,
-  sender_id TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT conversations_session_unique UNIQUE (bot_id, session_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_conversations_bot_id ON conversations(bot_id);
-
-CREATE TABLE IF NOT EXISTS history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  session_id TEXT NOT NULL,
-  messages JSONB NOT NULL,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  skills TEXT[] NOT NULL DEFAULT '{}'::text[],
-  timestamp TIMESTAMPTZ NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_history_bot ON history(bot_id);
-CREATE INDEX IF NOT EXISTS idx_history_session ON history(session_id);
-CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
-
-CREATE TABLE IF NOT EXISTS user_channel_bindings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  channel_type TEXT NOT NULL,
-  config JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT user_channel_bindings_unique UNIQUE (user_id, channel_type)
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_channel_bindings_user_id ON user_channel_bindings(user_id);
+-- Bot history is bot-scoped (one history container per bot).
 
 CREATE TABLE IF NOT EXISTS bot_channel_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -183,26 +174,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_bot_channel_external_identity
 
 CREATE INDEX IF NOT EXISTS idx_bot_channel_bot_id ON bot_channel_configs(bot_id);
 
-CREATE TABLE IF NOT EXISTS contacts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  display_name TEXT,
-  alias TEXT,
-  tags TEXT[] NOT NULL DEFAULT '{}'::text[],
-  status TEXT NOT NULL DEFAULT 'active',
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT contacts_status_check CHECK (status IN ('active', 'blocked', 'pending'))
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_bot_user_unique
-  ON contacts(bot_id, user_id)
-  WHERE user_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_contacts_bot_id ON contacts(bot_id);
-
 CREATE TABLE IF NOT EXISTS bot_preauth_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
@@ -217,37 +188,61 @@ CREATE TABLE IF NOT EXISTS bot_preauth_keys (
 CREATE INDEX IF NOT EXISTS idx_bot_preauth_keys_bot_id ON bot_preauth_keys(bot_id);
 CREATE INDEX IF NOT EXISTS idx_bot_preauth_keys_expires ON bot_preauth_keys(expires_at);
 
-CREATE TABLE IF NOT EXISTS contact_channels (
+-- channel_identity_bind_codes: one-time codes for channel identity->user linking
+CREATE TABLE IF NOT EXISTS channel_identity_bind_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  platform TEXT NOT NULL,
-  external_id TEXT NOT NULL,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  token TEXT NOT NULL,
+  issued_by_user_id UUID NOT NULL REFERENCES users(id),
+  channel_type TEXT,
+  expires_at TIMESTAMPTZ,
+  used_at TIMESTAMPTZ,
+  used_by_channel_identity_id UUID REFERENCES channel_identities(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT contact_channels_unique UNIQUE (bot_id, platform, external_id)
+  CONSTRAINT channel_identity_bind_codes_token_unique UNIQUE (token)
 );
 
-CREATE INDEX IF NOT EXISTS idx_contact_channels_contact_id ON contact_channels(contact_id);
-CREATE INDEX IF NOT EXISTS idx_contact_channels_platform_external ON contact_channels(platform, external_id);
+CREATE INDEX IF NOT EXISTS idx_channel_identity_bind_codes_channel_type ON channel_identity_bind_codes(channel_type);
 
-CREATE TABLE IF NOT EXISTS channel_sessions (
-  session_id TEXT PRIMARY KEY,
+-- bot_channel_routes: route mapping for inbound channel threads to bot history.
+CREATE TABLE IF NOT EXISTS bot_channel_routes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  channel_type TEXT NOT NULL,
   channel_config_id UUID REFERENCES bot_channel_configs(id) ON DELETE SET NULL,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
-  platform TEXT NOT NULL,
-  reply_target TEXT,
-  thread_id TEXT,
+  external_conversation_id TEXT NOT NULL,
+  external_thread_id TEXT,
+  default_reply_target TEXT,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_channel_sessions_bot_id ON channel_sessions(bot_id);
-CREATE INDEX IF NOT EXISTS idx_channel_sessions_user_id ON channel_sessions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bot_channel_routes_unique
+  ON bot_channel_routes (bot_id, channel_type, external_conversation_id, COALESCE(external_thread_id, ''));
+CREATE INDEX IF NOT EXISTS idx_bot_channel_routes_bot ON bot_channel_routes(bot_id);
+
+-- bot_history_messages: unified message history under bot scope.
+CREATE TABLE IF NOT EXISTS bot_history_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  route_id UUID REFERENCES bot_channel_routes(id) ON DELETE SET NULL,
+  sender_channel_identity_id UUID REFERENCES channel_identities(id),
+  sender_account_user_id UUID REFERENCES users(id),
+  channel_type TEXT,
+  source_message_id TEXT,
+  source_reply_to_message_id TEXT,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system', 'tool')),
+  content JSONB NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_bot_created ON bot_history_messages(bot_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_route ON bot_history_messages(route_id);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_source_lookup
+  ON bot_history_messages(channel_type, source_message_id);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_reply_lookup
+  ON bot_history_messages(channel_type, source_reply_to_message_id);
 
 CREATE TABLE IF NOT EXISTS containers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -339,11 +334,3 @@ CREATE TABLE IF NOT EXISTS subagents (
 CREATE INDEX IF NOT EXISTS idx_subagents_bot_id ON subagents(bot_id);
 CREATE INDEX IF NOT EXISTS idx_subagents_deleted ON subagents(deleted);
 
-CREATE TABLE IF NOT EXISTS user_settings (
-  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  chat_model_id TEXT,
-  memory_model_id TEXT,
-  embedding_model_id TEXT,
-  max_context_load_time INTEGER NOT NULL DEFAULT 1440,
-  language TEXT NOT NULL DEFAULT 'auto'
-);

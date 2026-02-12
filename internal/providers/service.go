@@ -7,9 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
-
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -57,7 +55,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (GetResponse, e
 
 // Get retrieves a provider by ID
 func (s *Service) Get(ctx context.Context, id string) (GetResponse, error) {
-	providerID, err := parseUUID(id)
+	providerID, err := db.ParseUUID(id)
 	if err != nil {
 		return GetResponse{}, err
 	}
@@ -114,7 +112,7 @@ func (s *Service) ListByClientType(ctx context.Context, clientType ClientType) (
 
 // Update updates an existing provider
 func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (GetResponse, error) {
-	providerID, err := parseUUID(id)
+	providerID, err := db.ParseUUID(id)
 	if err != nil {
 		return GetResponse{}, err
 	}
@@ -176,7 +174,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Get
 
 // Delete deletes a provider by ID
 func (s *Service) Delete(ctx context.Context, id string) error {
-	providerID, err := parseUUID(id)
+	providerID, err := db.ParseUUID(id)
 	if err != nil {
 		return err
 	}
@@ -219,13 +217,8 @@ func (s *Service) toGetResponse(provider sqlc.LlmProvider) GetResponse {
 	// Mask API key (show only first 8 characters)
 	maskedAPIKey := maskAPIKey(provider.ApiKey)
 
-	// Convert pgtype.UUID to string
-	var id [16]byte
-	copy(id[:], provider.ID.Bytes[:])
-	idUUID := uuid.UUID(id)
-
 	return GetResponse{
-		ID:         idUUID.String(),
+		ID:         provider.ID.String(),
 		Name:       provider.Name,
 		ClientType: provider.ClientType,
 		BaseURL:    provider.BaseUrl,
@@ -234,18 +227,6 @@ func (s *Service) toGetResponse(provider sqlc.LlmProvider) GetResponse {
 		CreatedAt:  provider.CreatedAt.Time,
 		UpdatedAt:  provider.UpdatedAt.Time,
 	}
-}
-
-// parseUUID parses a UUID string
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
 }
 
 // isValidClientType checks if a client type is valid

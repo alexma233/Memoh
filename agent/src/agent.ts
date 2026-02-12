@@ -1,10 +1,9 @@
 import { generateText, ImagePart, LanguageModelUsage, ModelMessage, stepCountIs, streamText, UserModelMessage } from 'ai'
-import { AgentInput, AgentParams, AgentSkill, allActions, HTTPMCPConnection, MCPConnection, Schedule, StdioMCPConnection } from './types'
+import { AgentInput, AgentParams, AgentSkill, allActions, Schedule } from './types'
 import { system, schedule, user, subagentSystem } from './prompts'
 import { AuthFetcher } from './index'
 import { createModel } from './model'
 import { AgentAction } from './types/action'
-import { getTools } from './tools'
 import {
   extractAttachmentsFromText,
   stripAttachmentsFromMessages,
@@ -21,15 +20,13 @@ export const createAgent = ({
   language = 'Same as the user input',
   allowedActions = allActions,
   channels = [],
-  mcpConnections = [],
   skills = [],
   currentChannel = 'Unknown Channel',
   identity = {
     botId: '',
-    sessionId: '',
     containerId: '',
-    contactId: '',
-    contactName: '',
+    channelIdentityId: '',
+    displayName: '',
   },
   auth,
 }: AgentParams, fetch: AuthFetcher) => {
@@ -47,18 +44,6 @@ export const createAgent = ({
     return enabledSkills.map(skill => skill.name)
   }
 
-  const getDefaultMCPConnections = (): MCPConnection[] => {
-    const fs: HTTPMCPConnection = {
-      type: 'http',
-      name: 'fs',
-      url: `${auth.baseUrl}/bots/${identity.botId}/container/fs-mcp`,
-      headers: {
-        'Authorization': `Bearer ${auth.bearer}`,
-      },
-    }
-    return [fs]
-  }
-  
   const loadSystemFiles = async () => {
     if (!auth?.bearer || !identity.botId) {
       return {
@@ -67,18 +52,43 @@ export const createAgent = ({
         toolsContent: '',
       }
     }
-    const fetchFile = async (path: string) => {
-      const response = await fetch(`/bots/${identity.botId}/container/fs/file?path=${encodeURIComponent(path)}`)
-      if (!response.ok) {
-        return ''
+    const readViaMCP = async (path: string): Promise<string> => {
+      const url = `${auth.baseUrl.replace(/\/$/, '')}/bots/${identity.botId}/tools`
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Authorization': `Bearer ${auth.bearer}`,
       }
-      const data = await response.json().catch(() => ({} as { content?: string }))
-      return typeof data?.content === 'string' ? data.content : ''
+      if (identity.channelIdentityId) {
+        headers['X-Memoh-Channel-Identity-Id'] = identity.channelIdentityId
+      }
+      const body = JSON.stringify({
+        jsonrpc: '2.0',
+        id: `read-${path}`,
+        method: 'tools/call',
+        params: { name: 'read', arguments: { path } },
+      })
+      const response = await fetch(url, { method: 'POST', headers, body })
+      if (!response.ok) return ''
+      const data = await response.json().catch(() => ({} as any))
+      const structured = data?.result?.structuredContent ?? data?.result?.content?.[0]?.text
+      if (typeof structured === 'string') {
+        try {
+          const parsed = JSON.parse(structured)
+          return typeof parsed?.content === 'string' ? parsed.content : ''
+        } catch {
+          return structured
+        }
+      }
+      if (typeof structured === 'object' && structured?.content) {
+        return typeof structured.content === 'string' ? structured.content : ''
+      }
+      return ''
     }
     const [identityContent, soulContent, toolsContent] = await Promise.all([
-      fetchFile('IDENTITY.md'),
-      fetchFile('SOUL.md'),
-      fetchFile('TOOLS.md'),
+      readViaMCP('IDENTITY.md'),
+      readViaMCP('SOUL.md'),
+      readViaMCP('TOOLS.md'),
     ])
     return {
       identityContent,
@@ -94,6 +104,7 @@ export const createAgent = ({
       language,
       maxContextLoadTime: activeContextTime,
       channels,
+      currentChannel,
       skills,
       enabledSkills,
       identityContent,
@@ -103,25 +114,32 @@ export const createAgent = ({
   }
 
   const getAgentTools = async () => {
-    const tools = getTools(allowedActions, {
-      fetch,
-      model: modelConfig,
-      brave,
-      identity,
-      enableSkill,
-    })
-    const defaultMCPConnections = getDefaultMCPConnections()
-    const { tools: mcpTools, close: closeMCP } = await getMCPTools([
-      ...defaultMCPConnections,
-      ...mcpConnections,
-    ], {
-      botId: identity.botId,
-      auth,
-      fetch,
-    })
-    Object.assign(tools, mcpTools)
+    const baseUrl = auth.baseUrl.replace(/\/$/, '')
+    const botId = identity.botId.trim()
+    if (!baseUrl || !botId) {
+      return {
+        tools: {},
+        close: async () => {},
+      }
+    }
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${auth.bearer}`,
+    }
+    if (identity.channelIdentityId) {
+      headers['X-Memoh-Channel-Identity-Id'] = identity.channelIdentityId
+    }
+    if (identity.sessionToken) {
+      headers['X-Memoh-Session-Token'] = identity.sessionToken
+    }
+    if (identity.currentPlatform) {
+      headers['X-Memoh-Current-Platform'] = identity.currentPlatform
+    }
+    if (identity.replyTarget) {
+      headers['X-Memoh-Reply-Target'] = identity.replyTarget
+    }
+    const { tools: mcpTools, close: closeMCP } = await getMCPTools(`${baseUrl}/bots/${botId}/tools`, headers)
     return {
-      tools,
+      tools: mcpTools,
       close: closeMCP,
     }
   }
@@ -130,8 +148,8 @@ export const createAgent = ({
     const images = input.attachments.filter(attachment => attachment.type === 'image')
     const files = input.attachments.filter((a): a is ContainerFileAttachment => a.type === 'file')
     const text = user(input.query, {
-      contactId: identity.contactId,
-      contactName: identity.contactName,
+      channelIdentityId: identity.channelIdentityId || identity.contactId || '',
+      displayName: identity.displayName || identity.contactName || 'User',
       channel: currentChannel,
       date: new Date(),
       attachments: files,
@@ -171,7 +189,7 @@ export const createAgent = ({
     const { messages: strippedMessages, attachments: messageAttachments } = stripAttachmentsFromMessages(response.messages)
     const allAttachments = dedupeAttachments([...textAttachments, ...messageAttachments])
     return {
-      messages: [userPrompt, ...strippedMessages],
+      messages: strippedMessages,
       reasoning: reasoning.map(part => part.text),
       usage,
       text: cleanedText,
@@ -258,6 +276,28 @@ export const createAgent = ({
     }
   }
 
+  const resolveStreamErrorMessage = (raw: unknown): string => {
+    if (raw instanceof Error && raw.message.trim()) {
+      return raw.message
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw
+    }
+    if (raw && typeof raw === 'object') {
+      const candidate = raw as { message?: unknown; error?: unknown }
+      if (typeof candidate.message === 'string' && candidate.message.trim()) {
+        return candidate.message
+      }
+      if (typeof candidate.error === 'string' && candidate.error.trim()) {
+        return candidate.error
+      }
+      if (candidate.error instanceof Error && candidate.error.message.trim()) {
+        return candidate.error.message
+      }
+    }
+    return 'Model stream failed'
+  }
+
   async function* stream(input: AgentInput): AsyncGenerator<AgentAction> {
     const userPrompt = generateUserPrompt(input)
     const messages = [...input.messages, userPrompt]
@@ -297,6 +337,9 @@ export const createAgent = ({
       input,
     }
     for await (const chunk of fullStream) {
+      if (chunk.type === 'error') {
+        throw new Error(resolveStreamErrorMessage((chunk as { error?: unknown }).error))
+      }
       switch (chunk.type) {
         case 'reasoning-start': yield {
           type: 'reasoning_start',
@@ -376,7 +419,7 @@ export const createAgent = ({
     const { messages: strippedMessages } = stripAttachmentsFromMessages(result.messages)
     yield {
       type: 'agent_end',
-      messages: [userPrompt, ...strippedMessages],
+      messages: strippedMessages,
       reasoning: result.reasoning,
       usage: result.usage!,
       skills: getEnabledSkills(),

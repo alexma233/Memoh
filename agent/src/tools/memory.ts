@@ -1,9 +1,11 @@
 import { tool } from 'ai'
 import { AuthFetcher } from '..'
+import type { IdentityContext } from '../types'
 import { z } from 'zod'
 
 export type MemoryToolParams = {
   fetch: AuthFetcher
+  identity: IdentityContext
 }
 
 type MemorySearchItem = {
@@ -16,20 +18,26 @@ type MemorySearchItem = {
   }
 }
 
-export const getMemoryTools = ({ fetch }: MemoryToolParams) => {
+export const getMemoryTools = ({ fetch, identity }: MemoryToolParams) => {
   const searchMemory = tool({
     description: 'Search for memories',
     inputSchema: z.object({
       query: z.string().describe('The query to search for memories'),
+      limit: z.number().int().positive().max(50).optional(),
     }),
-    execute: async ({ query }) => {
-      const response = await fetch('/memory/search', {
+    execute: async ({ query, limit }) => {
+      const botId = identity.botId.trim()
+      if (!botId) {
+        throw new Error('botId is required to search memory')
+      }
+      const response = await fetch(`/bots/${botId}/memory/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           query,
+          limit,
         }),
       })
       const data = await response.json()

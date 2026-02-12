@@ -9,26 +9,26 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/memohai/memoh/internal/accounts"
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/identity"
 	"github.com/memohai/memoh/internal/schedule"
-	"github.com/memohai/memoh/internal/users"
 )
 
 type ScheduleHandler struct {
-	service     *schedule.Service
-	botService  *bots.Service
-	userService *users.Service
-	logger      *slog.Logger
+	service        *schedule.Service
+	botService     *bots.Service
+	accountService *accounts.Service
+	logger         *slog.Logger
 }
 
-func NewScheduleHandler(log *slog.Logger, service *schedule.Service, botService *bots.Service, userService *users.Service) *ScheduleHandler {
+func NewScheduleHandler(log *slog.Logger, service *schedule.Service, botService *bots.Service, accountService *accounts.Service) *ScheduleHandler {
 	return &ScheduleHandler{
-		service:     service,
-		botService:  botService,
-		userService: userService,
-		logger:      log.With(slog.String("handler", "schedule")),
+		service:        service,
+		botService:     botService,
+		accountService: accountService,
+		logger:         log.With(slog.String("handler", "schedule")),
 	}
 }
 
@@ -45,7 +45,6 @@ func (h *ScheduleHandler) Register(e *echo.Echo) {
 // @Summary Create schedule
 // @Description Create a schedule for current user
 // @Tags schedule
-// @Param bot_id path string true "Bot ID"
 // @Param payload body schedule.CreateRequest true "Schedule payload"
 // @Success 201 {object} schedule.Schedule
 // @Failure 400 {object} ErrorResponse
@@ -78,7 +77,6 @@ func (h *ScheduleHandler) Create(c echo.Context) error {
 // @Summary List schedules
 // @Description List schedules for current user
 // @Tags schedule
-// @Param bot_id path string true "Bot ID"
 // @Success 200 {object} schedule.ListResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -106,7 +104,6 @@ func (h *ScheduleHandler) List(c echo.Context) error {
 // @Summary Get schedule
 // @Description Get a schedule by ID
 // @Tags schedule
-// @Param bot_id path string true "Bot ID"
 // @Param id path string true "Schedule ID"
 // @Success 200 {object} schedule.Schedule
 // @Failure 400 {object} ErrorResponse
@@ -143,7 +140,6 @@ func (h *ScheduleHandler) Get(c echo.Context) error {
 // @Summary Update schedule
 // @Description Update a schedule by ID
 // @Tags schedule
-// @Param bot_id path string true "Bot ID"
 // @Param id path string true "Schedule ID"
 // @Param payload body schedule.UpdateRequest true "Schedule payload"
 // @Success 200 {object} schedule.Schedule
@@ -188,7 +184,6 @@ func (h *ScheduleHandler) Update(c echo.Context) error {
 // @Summary Delete schedule
 // @Description Delete a schedule by ID
 // @Tags schedule
-// @Param bot_id path string true "Bot ID"
 // @Param id path string true "Schedule ID"
 // @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
@@ -228,21 +223,21 @@ func (h *ScheduleHandler) requireUserID(c echo.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := identity.ValidateUserID(userID); err != nil {
+	if err := identity.ValidateChannelIdentityID(userID); err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	return userID, nil
 }
 
-func (h *ScheduleHandler) authorizeBotAccess(ctx context.Context, actorID, botID string) (bots.Bot, error) {
-	if h.botService == nil || h.userService == nil {
+func (h *ScheduleHandler) authorizeBotAccess(ctx context.Context, userID, botID string) (bots.Bot, error) {
+	if h.botService == nil || h.accountService == nil {
 		return bots.Bot{}, echo.NewHTTPError(http.StatusInternalServerError, "bot services not configured")
 	}
-	isAdmin, err := h.userService.IsAdmin(ctx, actorID)
+	isAdmin, err := h.accountService.IsAdmin(ctx, userID)
 	if err != nil {
 		return bots.Bot{}, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	bot, err := h.botService.AuthorizeAccess(ctx, actorID, botID, isAdmin, bots.AccessPolicy{AllowPublicMember: false})
+	bot, err := h.botService.AuthorizeAccess(ctx, userID, botID, isAdmin, bots.AccessPolicy{AllowPublicMember: false})
 	if err != nil {
 		if errors.Is(err, bots.ErrBotNotFound) {
 			return bots.Bot{}, echo.NewHTTPError(http.StatusNotFound, "bot not found")
