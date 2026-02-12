@@ -58,6 +58,12 @@ services:
       - apparmor:unconfined
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -tln | grep :8080 || exit 1 "]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +82,12 @@ services:
       - ./config.toml:/config.toml:ro
     ports:
       - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -tln | grep :8081 || exit 1 "]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       - server
     restart: unless-stopped
@@ -92,9 +104,17 @@ services:
     container_name: memoh-web
     ports:
       - "80:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
-      - server
-      - agent
+      server:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - memoh-network

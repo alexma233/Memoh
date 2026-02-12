@@ -60,7 +60,7 @@ cd Memoh
 ./deploy.sh
 ```
 
-部署完成后访问 http://localhost。详见 [Docker 部署指南](README_DOCKER.md)。
+部署完成后访问 http://localhost。详见 [部署指南](DEPLOYMENT.md)。
 
 ### 开发环境
 

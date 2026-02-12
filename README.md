@@ -60,7 +60,7 @@ cd Memoh
 ./deploy.sh
 ```
 
-Visit http://localhost after deployment. See [Docker Deployment Guide](README_DOCKER.md) for details.
+Visit http://localhost after deployment. See [Deployment Guide](DEPLOYMENT.md) for details.
 
 ### Development
 
