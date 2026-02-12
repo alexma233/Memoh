@@ -13,6 +13,7 @@ import {
   AgentParams,
   AgentSkill,
   allActions,
+  MCPConnection,
   Schedule,
 } from './types'
 import { system, schedule, user, subagentSystem } from './prompts'
@@ -28,6 +29,7 @@ import {
 import type { ContainerFileAttachment } from './types/attachment'
 import { getMCPTools } from './tools/mcp'
 import { getTools } from './tools'
+import { buildIdentityHeaders } from './utils/headers'
 
 export const createAgent = (
   {
@@ -38,6 +40,7 @@ export const createAgent = (
     allowedActions = allActions,
     channels = [],
     skills = [],
+    mcpConnections = [],
     currentChannel = 'Unknown Channel',
     identity = {
       botId: '',
@@ -143,25 +146,20 @@ export const createAgent = (
         close: async () => {},
       }
     }
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${auth.bearer}`,
-    }
-    if (identity.channelIdentityId) {
-      headers['X-Memoh-Channel-Identity-Id'] = identity.channelIdentityId
-    }
-    if (identity.sessionToken) {
-      headers['X-Memoh-Session-Token'] = identity.sessionToken
-    }
-    if (identity.currentPlatform) {
-      headers['X-Memoh-Current-Platform'] = identity.currentPlatform
-    }
-    if (identity.replyTarget) {
-      headers['X-Memoh-Reply-Target'] = identity.replyTarget
-    }
-    const { tools: mcpTools, close: closeMCP } = await getMCPTools(
-      `${baseUrl}/bots/${botId}/tools`,
-      headers,
-    )
+    const headers = buildIdentityHeaders(identity, auth)
+    const builtins: MCPConnection[] = [
+      {
+        type: 'http',
+        name: 'builtin',
+        url: `${baseUrl}/bots/${botId}/tools`,
+        headers,
+      }
+    ]
+    const { tools: mcpTools, close: closeMCP } = await getMCPTools([...builtins, ...mcpConnections], {
+      auth,
+      fetch,
+      botId,
+    })
     const tools = getTools(allowedActions, { fetch, model: modelConfig, brave, identity, auth, enableSkill })
     return {
       tools: { ...mcpTools, ...tools } as ToolSet,
