@@ -17,10 +17,7 @@
             class="pl-9 w-64"
           />
         </div>
-        <CreateBot
-          v-model:open="dialogOpen"
-          v-model:edit-bot="editingBot"
-        />
+        <CreateBot v-model:open="dialogOpen" />
       </div>
     </div>
 
@@ -33,9 +30,6 @@
         v-for="bot in filteredBots"
         :key="bot.id"
         :bot="bot"
-        :delete-loading="deleteLoading"
-        @edit="handleEdit"
-        @delete="handleDelete"
       />
     </div>
 
@@ -66,28 +60,23 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@memoh/ui'
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import BotCard from './components/bot-card.vue'
 import CreateBot from './components/create-bot.vue'
-import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { getBotsQuery, getBotsQueryKey, deleteBotsByIdMutation } from '@memoh/sdk/colada'
-import type { BotsBot } from '@memoh/sdk'
+import {
+  useBotList,
+  isBotPendingStatus,
+} from '@/composables/api/useBots'
 
 const searchText = ref('')
 const dialogOpen = ref(false)
-const editingBot = ref<BotsBot | null>(null)
 
-const queryCache = useQueryCache()
-const { data: botData, status } = useQuery(getBotsQuery())
-const { mutate: deleteBot, isLoading: deleteLoading } = useMutation({
-  ...deleteBotsByIdMutation(),
-  onSettled: () => queryCache.invalidateQueries({ key: getBotsQueryKey() }),
-})
+const { data: botData, status, invalidate } = useBotList()
 
 const isLoading = computed(() => status.value === 'loading')
 
 const filteredBots = computed(() => {
-  const list = botData.value?.items ?? []
+  const list = botData.value ?? []
   const keyword = searchText.value.trim().toLowerCase()
   if (!keyword) return list
   return list.filter((bot) =>
@@ -97,16 +86,30 @@ const filteredBots = computed(() => {
   )
 })
 
-function handleEdit(bot: BotsBot) {
-  editingBot.value = bot
-  dialogOpen.value = true
-}
+const hasPendingBots = computed(() => (botData.value ?? []).some((bot) => isBotPendingStatus(bot.status)))
 
-async function handleDelete(id: string) {
-  try {
-    await deleteBot({ path: { id } })
-  } catch {
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+watch(hasPendingBots, (pending) => {
+  if (pending) {
+    if (pollTimer == null) {
+      pollTimer = setInterval(() => {
+        void invalidate()
+      }, 2000)
+    }
     return
   }
-}
+  if (pollTimer != null) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (pollTimer != null) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+})
+
 </script>

@@ -1,41 +1,50 @@
-import { fetchApi } from '@/utils/request'
+import {
+  getBots, getBotsById, postBots, deleteBotsById, putBotsById,
+  getBotsByIdChecks, getBotsByBotIdContainer, postBotsByBotIdContainer,
+  deleteBotsByBotIdContainer, postBotsByBotIdContainerStart,
+  postBotsByBotIdContainerStop, getBotsByBotIdContainerSnapshots,
+  postBotsByBotIdContainerSnapshots,
+} from '@memoh/sdk'
+import type {
+  BotsBot, BotsListBotsResponse, BotsCreateBotRequest, BotsUpdateBotRequest,
+  BotsBotCheck, BotsListChecksResponse,
+  HandlersGetContainerResponse, HandlersCreateContainerRequest,
+  HandlersCreateContainerResponse, HandlersListSnapshotsResponse,
+  HandlersCreateSnapshotRequest, HandlersCreateSnapshotResponse,
+} from '@memoh/sdk'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import type { Ref } from 'vue'
 
-// ---- Types ----
+// ---- Types (re-export with aliases for backward compat) ----
 
-export interface BotInfo {
-  id: string
-  display_name: string
-  avatar_url: string
-  type: string
-  is_active: boolean
-  owner_user_id?: string
-  metadata: Record<string, unknown>
-  created_at: string
-  updated_at: string
+export type BotStatus = 'creating' | 'ready' | 'deleting'
+export type BotCheckState = 'ok' | 'issue' | 'unknown'
+
+export type BotInfo = BotsBot
+export type ListBotsResponse = BotsListBotsResponse
+export type CreateBotRequest = BotsCreateBotRequest
+export type UpdateBotRequest = BotsUpdateBotRequest
+export type BotCheck = BotsBotCheck
+export type BotCheckListResponse = BotsListChecksResponse
+export type BotContainerInfo = HandlersGetContainerResponse
+export type CreateBotContainerRequest = HandlersCreateContainerRequest
+export type CreateBotContainerResponse = HandlersCreateContainerResponse
+export type BotContainerSnapshotListResponse = HandlersListSnapshotsResponse
+export type CreateBotSnapshotRequest = HandlersCreateSnapshotRequest
+export type CreateBotSnapshotResponse = HandlersCreateSnapshotResponse
+
+export const BOT_PENDING_STATUSES: readonly BotStatus[] = ['creating', 'deleting']
+
+export function isBotPendingStatus(status: string | undefined | null): boolean {
+  return BOT_PENDING_STATUSES.includes((status ?? 'ready') as BotStatus)
 }
 
-export interface ListBotsResponse {
-  items: BotInfo[]
+export interface ContainerActionResponse {
+  started?: boolean
+  stopped?: boolean
 }
 
-export interface CreateBotRequest {
-  display_name: string
-  avatar_url?: string
-  type?: string
-  is_active?: boolean
-  metadata?: Record<string, unknown>
-}
-
-export interface UpdateBotRequest {
-  display_name?: string
-  avatar_url?: string
-  is_active?: boolean
-  metadata?: Record<string, unknown>
-}
-
-// ---- Query: 获取 Bot 列表 ----
+// ---- Query: list bots ----
 
 export function useBotList() {
   const queryCache = useQueryCache()
@@ -43,8 +52,8 @@ export function useBotList() {
   const query = useQuery({
     key: ['bots'],
     query: async (): Promise<BotInfo[]> => {
-      const res = await fetchApi<ListBotsResponse>('/bots')
-      return res.items ?? []
+      const { data } = await getBots({ throwOnError: true })
+      return data.items ?? []
     },
   })
 
@@ -54,12 +63,18 @@ export function useBotList() {
   }
 }
 
-// ---- Query: 获取单个 Bot 详情 ----
+// ---- Query: bot detail ----
 
 export function useBotDetail(botId: Ref<string>) {
   return useQuery({
     key: () => ['bot', botId.value],
-    query: () => fetchApi<BotInfo>(`/bots/${botId.value}`),
+    query: async () => {
+      const { data } = await getBotsById({
+        path: { id: botId.value },
+        throwOnError: true,
+      })
+      return data
+    },
     enabled: () => !!botId.value,
   })
 }
@@ -69,10 +84,10 @@ export function useBotDetail(botId: Ref<string>) {
 export function useCreateBot() {
   const queryCache = useQueryCache()
   return useMutation({
-    mutation: (data: CreateBotRequest) => fetchApi<BotInfo>('/bots', {
-      method: 'POST',
-      body: data,
-    }),
+    mutation: async (body: CreateBotRequest) => {
+      const { data } = await postBots({ body, throwOnError: true })
+      return data
+    },
     onSettled: () => queryCache.invalidateQueries({ key: ['bots'] }),
   })
 }
@@ -80,9 +95,9 @@ export function useCreateBot() {
 export function useDeleteBot() {
   const queryCache = useQueryCache()
   return useMutation({
-    mutation: (botId: string) => fetchApi(`/bots/${botId}`, {
-      method: 'DELETE',
-    }),
+    mutation: async (botId: string) => {
+      await deleteBotsById({ path: { id: botId }, throwOnError: true })
+    },
     onSettled: () => queryCache.invalidateQueries({ key: ['bots'] }),
   })
 }
@@ -90,10 +105,92 @@ export function useDeleteBot() {
 export function useUpdateBot() {
   const queryCache = useQueryCache()
   return useMutation({
-    mutation: ({ id, ...data }: UpdateBotRequest & { id: string }) => fetchApi<BotInfo>(`/bots/${id}`, {
-      method: 'PUT',
-      body: data,
-    }),
-    onSettled: () => queryCache.invalidateQueries({ key: ['bots'] }),
+    mutation: async ({ id, ...body }: UpdateBotRequest & { id: string }) => {
+      const { data } = await putBotsById({
+        path: { id },
+        body,
+        throwOnError: true,
+      })
+      return data
+    },
+    onSettled: () => {
+      queryCache.invalidateQueries({ key: ['bots'] })
+      queryCache.invalidateQueries({ key: ['bot'] })
+    },
   })
+}
+
+export async function fetchBotChecks(botId: string): Promise<BotCheck[]> {
+  const { data } = await getBotsByIdChecks({
+    path: { id: botId },
+    throwOnError: true,
+  })
+  return data.items ?? []
+}
+
+export async function fetchBotContainer(botId: string): Promise<BotContainerInfo> {
+  const { data } = await getBotsByBotIdContainer({
+    path: { bot_id: botId },
+    throwOnError: true,
+  })
+  return data
+}
+
+export async function createBotContainer(
+  botId: string,
+  payload: CreateBotContainerRequest = {},
+): Promise<CreateBotContainerResponse> {
+  const { data } = await postBotsByBotIdContainer({
+    path: { bot_id: botId },
+    body: payload,
+    throwOnError: true,
+  })
+  return data
+}
+
+export async function deleteBotContainer(botId: string): Promise<void> {
+  await deleteBotsByBotIdContainer({
+    path: { bot_id: botId },
+    throwOnError: true,
+  })
+}
+
+export async function startBotContainer(botId: string): Promise<ContainerActionResponse> {
+  const { data } = await postBotsByBotIdContainerStart({
+    path: { bot_id: botId },
+    throwOnError: true,
+  })
+  return data as ContainerActionResponse
+}
+
+export async function stopBotContainer(botId: string): Promise<ContainerActionResponse> {
+  const { data } = await postBotsByBotIdContainerStop({
+    path: { bot_id: botId },
+    throwOnError: true,
+  })
+  return data as ContainerActionResponse
+}
+
+export async function listBotContainerSnapshots(
+  botId: string,
+  snapshotter?: string,
+): Promise<BotContainerSnapshotListResponse> {
+  const { data } = await getBotsByBotIdContainerSnapshots({
+    path: { bot_id: botId },
+    query: snapshotter?.trim() ? { snapshotter: snapshotter.trim() } : undefined,
+    throwOnError: true,
+  })
+  return data
+}
+
+export async function createBotContainerSnapshot(
+  botId: string,
+  payload: CreateBotSnapshotRequest,
+): Promise<CreateBotSnapshotResponse> {
+  const { data } = await postBotsByBotIdContainerSnapshots({
+    path: { bot_id: botId },
+    body: payload,
+    throwOnError: true,
+  })
+  return data
 }

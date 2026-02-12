@@ -11,15 +11,15 @@ import (
 
 	"github.com/memohai/memoh/internal/accounts"
 	"github.com/memohai/memoh/internal/auth"
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/identity"
 	"github.com/memohai/memoh/internal/memory"
 )
 
-// MemoryHandler handles memory CRUD operations scoped by chat.
+// MemoryHandler handles memory CRUD operations scoped by conversation.
 type MemoryHandler struct {
 	service        *memory.Service
-	chatService    *chat.Service
+	chatService    *conversation.Service
 	accountService *accounts.Service
 	logger         *slog.Logger
 }
@@ -50,8 +50,10 @@ type namespaceScope struct {
 	ScopeID   string
 }
 
+const sharedMemoryNamespace = "bot"
+
 // NewMemoryHandler creates a MemoryHandler.
-func NewMemoryHandler(log *slog.Logger, service *memory.Service, chatService *chat.Service, accountService *accounts.Service) *MemoryHandler {
+func NewMemoryHandler(log *slog.Logger, service *memory.Service, chatService *conversation.Service, accountService *accounts.Service) *MemoryHandler {
 	return &MemoryHandler{
 		service:        service,
 		chatService:    chatService,
@@ -62,7 +64,7 @@ func NewMemoryHandler(log *slog.Logger, service *memory.Service, chatService *ch
 
 // Register registers chat-level memory routes.
 func (h *MemoryHandler) Register(e *echo.Echo) {
-	chatGroup := e.Group("/chats/:chat_id/memory")
+	chatGroup := e.Group("/bots/:bot_id/memory")
 	chatGroup.POST("", h.ChatAdd)
 	chatGroup.POST("/search", h.ChatSearch)
 	chatGroup.GET("", h.ChatGetAll)
@@ -78,7 +80,7 @@ func (h *MemoryHandler) checkService() error {
 
 // --- Chat-level memory endpoints ---
 
-// ChatAdd adds memory to a specific namespace (validated against chat_settings).
+// ChatAdd adds memory into the bot-shared namespace.
 func (h *MemoryHandler) ChatAdd(c echo.Context) error {
 	if err := h.checkService(); err != nil {
 		return err
@@ -87,11 +89,11 @@ func (h *MemoryHandler) ChatAdd(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	chatID := strings.TrimSpace(c.Param("chat_id"))
-	if chatID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "chat_id is required")
+	containerID, err := h.resolveBotContainerID(c)
+	if err != nil {
+		return err
 	}
-	if err := h.requireChatParticipant(c.Request().Context(), chatID, channelIdentityID); err != nil {
+	if err := h.requireChatParticipant(c.Request().Context(), containerID, channelIdentityID); err != nil {
 		return err
 	}
 
@@ -100,13 +102,13 @@ func (h *MemoryHandler) ChatAdd(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	namespace := strings.TrimSpace(payload.Namespace)
-	if namespace == "" {
-		namespace = "chat"
+	namespace, err := normalizeSharedMemoryNamespace(payload.Namespace)
+	if err != nil {
+		return err
 	}
 
-	// Resolve correct scopeId/botId and validate namespace is enabled.
-	scopeID, botID, err := h.resolveWriteScope(c.Request().Context(), chatID, channelIdentityID, namespace)
+	// Resolve bot scope for shared memory.
+	scopeID, botID, err := h.resolveWriteScope(c.Request().Context(), containerID)
 	if err != nil {
 		return err
 	}
@@ -129,7 +131,7 @@ func (h *MemoryHandler) ChatAdd(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// ChatSearch searches memory across all enabled namespaces per chat_settings.
+// ChatSearch searches memory in the bot-shared namespace.
 func (h *MemoryHandler) ChatSearch(c echo.Context) error {
 	if err := h.checkService(); err != nil {
 		return err
@@ -138,11 +140,11 @@ func (h *MemoryHandler) ChatSearch(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	chatID := strings.TrimSpace(c.Param("chat_id"))
-	if chatID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "chat_id is required")
+	containerID, err := h.resolveBotContainerID(c)
+	if err != nil {
+		return err
 	}
-	if err := h.requireChatParticipant(c.Request().Context(), chatID, channelIdentityID); err != nil {
+	if err := h.requireChatParticipant(c.Request().Context(), containerID, channelIdentityID); err != nil {
 		return err
 	}
 
@@ -151,17 +153,17 @@ func (h *MemoryHandler) ChatSearch(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	scopes, err := h.resolveEnabledScopes(c.Request().Context(), chatID, channelIdentityID)
+	scopes, err := h.resolveEnabledScopes(c.Request().Context(), containerID)
 	if err != nil {
 		return err
 	}
-	chatObj, err := h.chatService.Get(c.Request().Context(), chatID)
+	chatObj, err := h.chatService.Get(c.Request().Context(), containerID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "chat not found")
 	}
 	botID := strings.TrimSpace(chatObj.BotID)
 
-	// Search across all enabled namespaces and merge results.
+	// Search shared namespace and merge results.
 	var allResults []memory.MemoryItem
 	for _, scope := range scopes {
 		filters := buildNamespaceFilters(scope.Namespace, scope.ScopeID, payload.Filters)
@@ -197,7 +199,7 @@ func (h *MemoryHandler) ChatSearch(c echo.Context) error {
 	return c.JSON(http.StatusOK, memory.SearchResponse{Results: allResults})
 }
 
-// ChatGetAll lists all memories across enabled namespaces.
+// ChatGetAll lists all memories in the bot-shared namespace.
 func (h *MemoryHandler) ChatGetAll(c echo.Context) error {
 	if err := h.checkService(); err != nil {
 		return err
@@ -206,15 +208,15 @@ func (h *MemoryHandler) ChatGetAll(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	chatID := strings.TrimSpace(c.Param("chat_id"))
-	if chatID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "chat_id is required")
+	containerID, err := h.resolveBotContainerID(c)
+	if err != nil {
+		return err
 	}
-	if err := h.requireChatParticipant(c.Request().Context(), chatID, channelIdentityID); err != nil {
+	if err := h.requireChatParticipant(c.Request().Context(), containerID, channelIdentityID); err != nil {
 		return err
 	}
 
-	scopes, err := h.resolveEnabledScopes(c.Request().Context(), chatID, channelIdentityID)
+	scopes, err := h.resolveEnabledScopes(c.Request().Context(), containerID)
 	if err != nil {
 		return err
 	}
@@ -236,7 +238,7 @@ func (h *MemoryHandler) ChatGetAll(c echo.Context) error {
 	return c.JSON(http.StatusOK, memory.SearchResponse{Results: allResults})
 }
 
-// ChatDeleteAll deletes all memories across enabled namespaces.
+// ChatDeleteAll deletes all memories in the bot-shared namespace.
 func (h *MemoryHandler) ChatDeleteAll(c echo.Context) error {
 	if err := h.checkService(); err != nil {
 		return err
@@ -245,15 +247,15 @@ func (h *MemoryHandler) ChatDeleteAll(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	chatID := strings.TrimSpace(c.Param("chat_id"))
-	if chatID == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "chat_id is required")
+	containerID, err := h.resolveBotContainerID(c)
+	if err != nil {
+		return err
 	}
-	if err := h.requireChatParticipant(c.Request().Context(), chatID, channelIdentityID); err != nil {
+	if err := h.requireChatParticipant(c.Request().Context(), containerID, channelIdentityID); err != nil {
 		return err
 	}
 
-	scopes, err := h.resolveEnabledScopes(c.Request().Context(), chatID, channelIdentityID)
+	scopes, err := h.resolveEnabledScopes(c.Request().Context(), containerID)
 	if err != nil {
 		return err
 	}
@@ -271,8 +273,8 @@ func (h *MemoryHandler) ChatDeleteAll(c echo.Context) error {
 
 // --- helpers ---
 
-// resolveEnabledScopes returns all namespace scopes enabled by chat_settings.
-func (h *MemoryHandler) resolveEnabledScopes(ctx context.Context, chatID, channelIdentityID string) ([]namespaceScope, error) {
+// resolveEnabledScopes returns the bot-shared namespace scope for the conversation.
+func (h *MemoryHandler) resolveEnabledScopes(ctx context.Context, chatID string) ([]namespaceScope, error) {
 	if h.chatService == nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "chat service not configured")
 	}
@@ -280,29 +282,18 @@ func (h *MemoryHandler) resolveEnabledScopes(ctx context.Context, chatID, channe
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "chat not found")
 	}
-	settings, err := h.chatService.GetSettings(ctx, chatID)
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	botID := strings.TrimSpace(chatObj.BotID)
+	if botID == "" {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "chat bot id is empty")
 	}
-
-	var scopes []namespaceScope
-	if settings.EnableChatMemory {
-		scopes = append(scopes, namespaceScope{Namespace: "chat", ScopeID: chatID})
-	}
-	if settings.EnablePrivateMemory && strings.TrimSpace(channelIdentityID) != "" {
-		scopes = append(scopes, namespaceScope{Namespace: "private", ScopeID: channelIdentityID})
-	}
-	if settings.EnablePublicMemory {
-		scopes = append(scopes, namespaceScope{Namespace: "public", ScopeID: chatObj.BotID})
-	}
-	if len(scopes) == 0 {
-		scopes = append(scopes, namespaceScope{Namespace: "chat", ScopeID: chatID})
-	}
-	return scopes, nil
+	return []namespaceScope{{
+		Namespace: sharedMemoryNamespace,
+		ScopeID:   botID,
+	}}, nil
 }
 
-// resolveWriteScope validates namespace and returns (scopeId, botId).
-func (h *MemoryHandler) resolveWriteScope(ctx context.Context, chatID, channelIdentityID, namespace string) (string, string, error) {
+// resolveWriteScope returns (scopeID, botID) for shared bot memory.
+func (h *MemoryHandler) resolveWriteScope(ctx context.Context, chatID string) (string, string, error) {
 	if h.chatService == nil {
 		return "", "", echo.NewHTTPError(http.StatusInternalServerError, "chat service not configured")
 	}
@@ -310,33 +301,28 @@ func (h *MemoryHandler) resolveWriteScope(ctx context.Context, chatID, channelId
 	if err != nil {
 		return "", "", echo.NewHTTPError(http.StatusNotFound, "chat not found")
 	}
-	settings, err := h.chatService.GetSettings(ctx, chatID)
-	if err != nil {
-		return "", "", echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	botID := strings.TrimSpace(chatObj.BotID)
+	if botID == "" {
+		return "", "", echo.NewHTTPError(http.StatusInternalServerError, "bot id is empty")
 	}
+	return botID, botID, nil
+}
 
-	switch namespace {
-	case "chat":
-		if !settings.EnableChatMemory {
-			return "", "", echo.NewHTTPError(http.StatusForbidden, "chat memory is disabled for this chat")
-		}
-		return chatID, chatObj.BotID, nil
-	case "private":
-		if !settings.EnablePrivateMemory {
-			return "", "", echo.NewHTTPError(http.StatusForbidden, "private memory is disabled for this chat")
-		}
-		if strings.TrimSpace(channelIdentityID) == "" {
-			return "", "", echo.NewHTTPError(http.StatusBadRequest, "channel_identity_id required for private namespace")
-		}
-		return channelIdentityID, chatObj.BotID, nil
-	case "public":
-		if !settings.EnablePublicMemory {
-			return "", "", echo.NewHTTPError(http.StatusForbidden, "public memory is disabled for this chat")
-		}
-		return chatObj.BotID, chatObj.BotID, nil
+func normalizeSharedMemoryNamespace(raw string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", sharedMemoryNamespace:
+		return sharedMemoryNamespace, nil
 	default:
-		return "", "", echo.NewHTTPError(http.StatusBadRequest, "invalid namespace: "+namespace)
+		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid namespace: "+raw)
 	}
+}
+
+func (h *MemoryHandler) resolveBotContainerID(c echo.Context) (string, error) {
+	botID := strings.TrimSpace(c.Param("bot_id"))
+	if botID == "" {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "bot_id is required")
+	}
+	return botID, nil
 }
 
 func buildNamespaceFilters(namespace, scopeID string, extra map[string]any) map[string]any {

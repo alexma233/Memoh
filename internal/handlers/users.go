@@ -14,42 +14,42 @@ import (
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channelidentities"
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/channel/identities"
+	"github.com/memohai/memoh/internal/channel/route"
 	"github.com/memohai/memoh/internal/identity"
 )
 
 // UsersHandler manages user/account CRUD and bot operations via REST API.
 type UsersHandler struct {
-	service        *accounts.Service
-	channelIdentityService *channelidentities.Service
-	botService     *bots.Service
-	chatService    *chat.Service
-	channelService *channel.Service
-	channelManager *channel.Manager
-	registry       *channel.Registry
-	logger         *slog.Logger
+	service                *accounts.Service
+	channelIdentityService *identities.Service
+	botService             *bots.Service
+	routeService           route.Service
+	channelService         *channel.Service
+	channelManager         *channel.Manager
+	registry               *channel.Registry
+	logger                 *slog.Logger
 }
 
 type listMyIdentitiesResponse struct {
 	UserID string                              `json:"user_id"`
-	Items  []channelidentities.ChannelIdentity `json:"items"`
+	Items  []identities.ChannelIdentity `json:"items"`
 }
 
 // NewUsersHandler creates a UsersHandler with channel identity support.
-func NewUsersHandler(log *slog.Logger, service *accounts.Service, channelIdentityService *channelidentities.Service, botService *bots.Service, chatService *chat.Service, channelService *channel.Service, channelManager *channel.Manager, registry *channel.Registry) *UsersHandler {
+func NewUsersHandler(log *slog.Logger, service *accounts.Service, channelIdentityService *identities.Service, botService *bots.Service, routeService route.Service, channelService *channel.Service, channelManager *channel.Manager, registry *channel.Registry) *UsersHandler {
 	if log == nil {
 		log = slog.Default()
 	}
 	return &UsersHandler{
-		service:        service,
+		service:                service,
 		channelIdentityService: channelIdentityService,
-		botService:     botService,
-		chatService:    chatService,
-		channelService: channelService,
-		channelManager: channelManager,
-		registry:       registry,
-		logger:         log.With(slog.String("handler", "users")),
+		botService:             botService,
+		routeService:           routeService,
+		channelService:         channelService,
+		channelManager:         channelManager,
+		registry:               registry,
+		logger:                 log.With(slog.String("handler", "users")),
 	}
 }
 
@@ -69,6 +69,7 @@ func (h *UsersHandler) Register(e *echo.Echo) {
 	botGroup.POST("", h.CreateBot)
 	botGroup.GET("", h.ListBots)
 	botGroup.GET("/:id", h.GetBot)
+	botGroup.GET("/:id/checks", h.ListBotChecks)
 	botGroup.PUT("/:id", h.UpdateBot)
 	botGroup.PUT("/:id/owner", h.TransferBotOwner)
 	botGroup.DELETE("/:id", h.DeleteBot)
@@ -408,18 +409,35 @@ func (h *UsersHandler) CreateBot(c echo.Context) error {
 		ownerID = raw
 		ownerFromToken = false
 	}
-	if ownerFromToken && h.channelIdentityService != nil {
-		linkedUserID, err := h.channelIdentityService.GetLinkedUserID(c.Request().Context(), ownerID)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-		if strings.TrimSpace(linkedUserID) != "" {
-			ownerID = linkedUserID
+	if ownerFromToken {
+		if _, err := h.service.Get(c.Request().Context(), ownerID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Backward-compatible token path: token user_id might be a channel identity ID.
+				// Try to resolve to linked user first; if still missing, force re-login.
+				linkedUserID := ""
+				if h.channelIdentityService != nil {
+					linkedUserID, err = h.channelIdentityService.GetLinkedUserID(c.Request().Context(), ownerID)
+					if err != nil {
+						return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+					}
+				}
+				linkedUserID = strings.TrimSpace(linkedUserID)
+				if linkedUserID != "" {
+					ownerID = linkedUserID
+				} else {
+					return echo.NewHTTPError(http.StatusUnauthorized, "owner user not found, please login again")
+				}
+			} else {
+				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			}
 		}
 	}
 	resp, err := h.botService.Create(c.Request().Context(), ownerID, req)
 	if err != nil {
 		if errors.Is(err, bots.ErrOwnerUserNotFound) {
+			if ownerFromToken {
+				return echo.NewHTTPError(http.StatusUnauthorized, "owner user not found, please login again")
+			}
 			return echo.NewHTTPError(http.StatusBadRequest, "owner user not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -489,6 +507,39 @@ func (h *UsersHandler) GetBot(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, bot)
+}
+
+// ListBotChecks godoc
+// @Summary List bot runtime checks
+// @Description Evaluate bot attached resource checks in runtime
+// @Tags bots
+// @Param id path string true "Bot ID"
+// @Success 200 {object} bots.ListChecksResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /bots/{id}/checks [get]
+func (h *UsersHandler) ListBotChecks(c echo.Context) error {
+	channelIdentityID, err := h.requireChannelIdentityID(c)
+	if err != nil {
+		return err
+	}
+	botID := strings.TrimSpace(c.Param("id"))
+	if botID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "bot id is required")
+	}
+	if _, err := h.authorizeBotAccess(c.Request().Context(), channelIdentityID, botID); err != nil {
+		return err
+	}
+	items, err := h.botService.ListChecks(c.Request().Context(), botID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "bot not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, bots.ListChecksResponse{Items: items})
 }
 
 // UpdateBot godoc
@@ -576,7 +627,7 @@ func (h *UsersHandler) TransferBotOwner(c echo.Context) error {
 // @Description Delete a bot user (owner/admin only)
 // @Tags bots
 // @Param id path string true "Bot ID"
-// @Success 204 "No Content"
+// @Success 202 {object} map[string]string
 // @Failure 400 {object} ErrorResponse
 // @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
@@ -600,7 +651,10 @@ func (h *UsersHandler) DeleteBot(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.NoContent(http.StatusNoContent)
+	return c.JSON(http.StatusAccepted, map[string]string{
+		"id":     botID,
+		"status": bots.BotStatusDeleting,
+	})
 }
 
 // ListBotMembers godoc
@@ -857,10 +911,10 @@ func (h *UsersHandler) SendBotMessageSession(c echo.Context) error {
 	if chatToken.BotID != botID {
 		return echo.NewHTTPError(http.StatusForbidden, "token bot mismatch")
 	}
-	if h.channelManager == nil || h.chatService == nil {
+	if h.channelManager == nil || h.routeService == nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "services not configured")
 	}
-	route, err := h.chatService.GetRouteByID(c.Request().Context(), chatToken.RouteID)
+	route, err := h.routeService.GetByID(c.Request().Context(), chatToken.RouteID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "route not found")
 	}

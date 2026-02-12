@@ -42,8 +42,10 @@
       v-if="botId"
       class="flex-1 h-0 [&:has(p)]:block! [&:has(p)+section_.logo-title]:hidden [&:has(p)+section]:mt-0! hidden"
     >
-      <ScrollArea class="max-h-full h-full w-full rounded-md p-4 **:focus-visible:ring-0!">
-        <ChatList />
+      <ScrollArea class="max-h-full h-full w-full min-w-0 rounded-md p-4 **:focus-visible:ring-0!">
+        <div class="pr-6 min-w-0">
+          <ChatList />
+        </div>
       </ScrollArea>
     </section>
 
@@ -65,7 +67,7 @@
         class="pb-16 pt-4"
         :placeholder="activeChatReadOnly ? $t('chat.readonlyPlaceholder') : $t('chat.inputPlaceholder')"
         :disabled="activeChatReadOnly"
-        @keydown.enter.prevent="send"
+        @keydown.enter.exact="onEnterKeydown"
       />
 
       <section class="absolute bottom-0 h-14 px-2 inset-x-0 flex items-center">
@@ -76,7 +78,7 @@
           @click="send"
         >
           <template v-if="!loading">
-            {{ $t('chat.startChat') }}
+            {{ $t('chat.send') }}
             <FontAwesomeIcon :icon="['fas', 'paper-plane']" />
           </template>
           <LoadingDots v-else />
@@ -139,6 +141,12 @@ provide('chatSay', chatSay)
 onMounted(() => {
   void chatStore.initialize().catch(() => undefined)
 })
+
+function onEnterKeydown(e: KeyboardEvent) {
+  if (e.isComposing) return
+  e.preventDefault()
+  send()
+}
 
 function send() {
   if (!curInputSay.value.trim()) return

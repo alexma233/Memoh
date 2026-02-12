@@ -4,13 +4,11 @@ import { AgentAttachment } from './attachment'
 
 export interface IdentityContext {
   botId: string
-  sessionId: string
   containerId: string
 
   channelIdentityId: string
   displayName: string
 
-  // Deprecated compatibility fields kept optional for older callers.
   contactId?: string
   contactName?: string
   contactAlias?: string

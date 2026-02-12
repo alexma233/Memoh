@@ -26,11 +26,11 @@ export const getMemoryTools = ({ fetch, identity }: MemoryToolParams) => {
       limit: z.number().int().positive().max(50).optional(),
     }),
     execute: async ({ query, limit }) => {
-      const chatId = identity.sessionId.trim()
-      if (!chatId) {
-        throw new Error('sessionId is required to search memory')
+      const botId = identity.botId.trim()
+      if (!botId) {
+        throw new Error('botId is required to search memory')
       }
-      const response = await fetch(`/chats/${chatId}/memory/search`, {
+      const response = await fetch(`/bots/${botId}/memory/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

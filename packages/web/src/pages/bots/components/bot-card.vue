@@ -1,66 +1,55 @@
 <template>
   <Card
-    class="group relative transition-shadow hover:shadow-md cursor-pointer"
-    @click="router.push({ name: 'bot-detail', params: { botId: bot.id } })"
+    class="group relative transition-shadow"
+    :class="isPending ? 'opacity-80 cursor-not-allowed' : 'hover:shadow-md cursor-pointer'"
+    @click="onOpenDetail"
   >
-    <CardHeader class="flex flex-row items-start gap-4 space-y-0">
-      <Avatar class="size-12 shrink-0">
+    <CardHeader class="flex flex-row items-start gap-3 space-y-0 pb-2">
+      <Avatar class="size-11 shrink-0">
         <AvatarImage
           v-if="bot.avatar_url"
           :src="bot.avatar_url"
           :alt="bot.display_name"
         />
-        <AvatarFallback class="text-lg">
+        <AvatarFallback class="text-base">
           {{ avatarFallback }}
         </AvatarFallback>
       </Avatar>
-      <div class="flex-1 min-w-0">
-        <CardTitle class="text-base truncate">
-          {{ bot.display_name || bot.id }}
-        </CardTitle>
-        <CardDescription class="mt-1 flex items-center gap-2">
+      <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+        <div class="flex items-center justify-between gap-2">
+          <CardTitle class="text-base truncate">
+            {{ bot.display_name || bot.id }}
+          </CardTitle>
           <Badge
-            :variant="bot.is_active ? 'default' : 'secondary'"
-            class="text-xs"
+            :variant="statusVariant"
+            class="shrink-0 text-xs"
+            :title="hasIssue ? issueTitle : undefined"
           >
-            {{ bot.is_active ? $t('bots.active') : $t('bots.inactive') }}
+            <FontAwesomeIcon
+              v-if="isPending"
+              :icon="['fas', 'spinner']"
+              class="mr-1 size-3 animate-spin"
+            />
+            {{ statusLabel }}
           </Badge>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
           <span
             v-if="bot.type"
-            class="text-xs text-muted-foreground"
+            class="truncate"
           >
-            {{ bot.type }}
+            {{ botTypeLabel }}
           </span>
-        </CardDescription>
+          <span
+            v-if="bot.type && formattedDate"
+            class="text-muted-foreground/60"
+          >·</span>
+          <span v-if="formattedDate">
+            {{ $t('bots.createdAt') }} {{ formattedDate }}
+          </span>
+        </div>
       </div>
     </CardHeader>
-    <CardFooter class="pt-0 flex items-center justify-between text-xs text-muted-foreground">
-      <span>{{ $t('bots.createdAt') }} {{ formattedDate }}</span>
-      <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          variant="ghost"
-          size="sm"
-          @click.stop="$emit('edit', bot)"
-        >
-          <FontAwesomeIcon :icon="['fas', 'pen-to-square']" />
-        </Button>
-        <ConfirmPopover
-          :message="$t('bots.deleteConfirm')"
-          :loading="deleteLoading"
-          @confirm="$emit('delete', bot.id)"
-        >
-          <template #trigger>
-            <Button
-              variant="ghost"
-              size="sm"
-              @click.stop
-            >
-              <FontAwesomeIcon :icon="['far', 'trash-can']" />
-            </Button>
-          </template>
-        </ConfirmPopover>
-      </div>
-    </CardFooter>
   </Card>
 </template>
 
@@ -69,29 +58,21 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardFooter,
   Avatar,
   AvatarImage,
   AvatarFallback,
   Badge,
-  Button,
 } from '@memoh/ui'
-import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import type { BotsBot } from '@memoh/sdk'
+import type { BotInfo } from '@/composables/api/useBots'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const props = defineProps<{
-  bot: BotsBot
-  deleteLoading: boolean
-}>()
-
-defineEmits<{
-  edit: [bot: BotsBot]
-  delete: [id: string]
+  bot: BotInfo
 }>()
 
 const avatarFallback = computed(() => {
@@ -103,4 +84,38 @@ const formattedDate = computed(() => {
   if (!props.bot.created_at) return ''
   return new Date(props.bot.created_at).toLocaleDateString()
 })
+
+const isCreating = computed(() => props.bot.status === 'creating')
+const isDeleting = computed(() => props.bot.status === 'deleting')
+const isPending = computed(() => isCreating.value || isDeleting.value)
+const hasIssue = computed(() => props.bot.check_state === 'issue')
+const issueTitle = computed(() => {
+  const count = Number(props.bot.check_issue_count ?? 0)
+  if (count <= 0) return t('bots.checks.hasIssue')
+  return t('bots.checks.issueCount', { count })
+})
+
+const statusVariant = computed<'default' | 'secondary' | 'destructive'>(() => {
+  if (isPending.value) return 'secondary'
+  if (hasIssue.value) return 'destructive'
+  return props.bot.is_active ? 'default' : 'secondary'
+})
+
+const statusLabel = computed(() => {
+  if (isCreating.value) return t('bots.lifecycle.creating')
+  if (isDeleting.value) return t('bots.lifecycle.deleting')
+  if (hasIssue.value) return issueTitle.value
+  return props.bot.is_active ? t('bots.active') : t('bots.inactive')
+})
+
+const botTypeLabel = computed(() => {
+  const type = props.bot.type
+  if (type === 'personal' || type === 'public') return t('bots.types.' + type)
+  return type ?? ''
+})
+
+function onOpenDetail() {
+  if (isPending.value) return
+  router.push({ name: 'bot-detail', params: { botId: props.bot.id } })
+}
 </script>

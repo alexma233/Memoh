@@ -24,7 +24,6 @@ export const createAgent = ({
   currentChannel = 'Unknown Channel',
   identity = {
     botId: '',
-    sessionId: '',
     containerId: '',
     channelIdentityId: '',
     displayName: '',
@@ -53,18 +52,43 @@ export const createAgent = ({
         toolsContent: '',
       }
     }
-    const fetchFile = async (path: string) => {
-      const response = await fetch(`/bots/${identity.botId}/container/fs/file?path=${encodeURIComponent(path)}`)
-      if (!response.ok) {
-        return ''
+    const readViaMCP = async (path: string): Promise<string> => {
+      const url = `${auth.baseUrl.replace(/\/$/, '')}/bots/${identity.botId}/tools`
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Authorization': `Bearer ${auth.bearer}`,
       }
-      const data = await response.json().catch(() => ({} as { content?: string }))
-      return typeof data?.content === 'string' ? data.content : ''
+      if (identity.channelIdentityId) {
+        headers['X-Memoh-Channel-Identity-Id'] = identity.channelIdentityId
+      }
+      const body = JSON.stringify({
+        jsonrpc: '2.0',
+        id: `read-${path}`,
+        method: 'tools/call',
+        params: { name: 'read', arguments: { path } },
+      })
+      const response = await fetch(url, { method: 'POST', headers, body })
+      if (!response.ok) return ''
+      const data = await response.json().catch(() => ({} as any))
+      const structured = data?.result?.structuredContent ?? data?.result?.content?.[0]?.text
+      if (typeof structured === 'string') {
+        try {
+          const parsed = JSON.parse(structured)
+          return typeof parsed?.content === 'string' ? parsed.content : ''
+        } catch {
+          return structured
+        }
+      }
+      if (typeof structured === 'object' && structured?.content) {
+        return typeof structured.content === 'string' ? structured.content : ''
+      }
+      return ''
     }
     const [identityContent, soulContent, toolsContent] = await Promise.all([
-      fetchFile('IDENTITY.md'),
-      fetchFile('SOUL.md'),
-      fetchFile('TOOLS.md'),
+      readViaMCP('IDENTITY.md'),
+      readViaMCP('SOUL.md'),
+      readViaMCP('TOOLS.md'),
     ])
     return {
       identityContent,
@@ -80,6 +104,7 @@ export const createAgent = ({
       language,
       maxContextLoadTime: activeContextTime,
       channels,
+      currentChannel,
       skills,
       enabledSkills,
       identityContent,
@@ -100,9 +125,6 @@ export const createAgent = ({
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${auth.bearer}`,
     }
-    if (identity.sessionId) {
-      headers['X-Memoh-Chat-Id'] = identity.sessionId
-    }
     if (identity.channelIdentityId) {
       headers['X-Memoh-Channel-Identity-Id'] = identity.channelIdentityId
     }
@@ -114,9 +136,6 @@ export const createAgent = ({
     }
     if (identity.replyTarget) {
       headers['X-Memoh-Reply-Target'] = identity.replyTarget
-    }
-    if (identity.displayName) {
-      headers['X-Memoh-Display-Name'] = identity.displayName
     }
     const { tools: mcpTools, close: closeMCP } = await getMCPTools(`${baseUrl}/bots/${botId}/tools`, headers)
     return {
@@ -257,6 +276,28 @@ export const createAgent = ({
     }
   }
 
+  const resolveStreamErrorMessage = (raw: unknown): string => {
+    if (raw instanceof Error && raw.message.trim()) {
+      return raw.message
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw
+    }
+    if (raw && typeof raw === 'object') {
+      const candidate = raw as { message?: unknown; error?: unknown }
+      if (typeof candidate.message === 'string' && candidate.message.trim()) {
+        return candidate.message
+      }
+      if (typeof candidate.error === 'string' && candidate.error.trim()) {
+        return candidate.error
+      }
+      if (candidate.error instanceof Error && candidate.error.message.trim()) {
+        return candidate.error.message
+      }
+    }
+    return 'Model stream failed'
+  }
+
   async function* stream(input: AgentInput): AsyncGenerator<AgentAction> {
     const userPrompt = generateUserPrompt(input)
     const messages = [...input.messages, userPrompt]
@@ -296,6 +337,9 @@ export const createAgent = ({
       input,
     }
     for await (const chunk of fullStream) {
+      if (chunk.type === 'error') {
+        throw new Error(resolveStreamErrorMessage((chunk as { error?: unknown }).error))
+      }
       switch (chunk.type) {
         case 'reasoning-start': yield {
           type: 'reasoning_start',

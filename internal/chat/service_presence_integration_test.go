@@ -1,4 +1,4 @@
-package chat_test
+package conversation_test
 
 import (
 	"context"
@@ -13,15 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/memohai/memoh/internal/channelidentities"
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/channel/identities"
+	conversation "github.com/memohai/memoh/internal/chat"
 	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
 type chatPresenceFixture struct {
-	chatSvc            *chat.Service
-	channelIdentitySvc *channelidentities.Service
+	chatSvc            *conversation.Service
+	channelIdentitySvc *identities.Service
 	queries            *sqlc.Queries
 	cleanup            func()
 }
@@ -48,8 +48,8 @@ func setupChatPresenceIntegrationTest(t *testing.T) chatPresenceFixture {
 	queries := sqlc.New(pool)
 
 	return chatPresenceFixture{
-		chatSvc:            chat.NewService(logger, queries),
-		channelIdentitySvc: channelidentities.NewService(logger, queries),
+		chatSvc:            conversation.NewService(logger, queries),
+		channelIdentitySvc: identities.NewService(logger, queries),
 		queries:            queries,
 		cleanup:            func() { pool.Close() },
 	}
@@ -63,7 +63,7 @@ func createUserForChatPresence(ctx context.Context, queries *sqlc.Queries) (stri
 	if err != nil {
 		return "", err
 	}
-	return db.UUIDToString(row.ID), nil
+	return row.ID.String(), nil
 }
 
 func createBotForChatPresence(ctx context.Context, queries *sqlc.Queries, ownerUserID string) (string, error) {
@@ -85,7 +85,7 @@ func createBotForChatPresence(ctx context.Context, queries *sqlc.Queries, ownerU
 	if err != nil {
 		return "", err
 	}
-	return db.UUIDToString(row.ID), nil
+	return row.ID.String(), nil
 }
 
 func setupObservedChatScenario(t *testing.T) (chatPresenceFixture, string, string, string, string) {
@@ -110,8 +110,8 @@ func setupObservedChatScenario(t *testing.T) (chatPresenceFixture, string, strin
 		t.Fatalf("create bot failed: %v", err)
 	}
 
-	createdChat, err := fixture.chatSvc.Create(ctx, botID, ownerUserID, chat.CreateChatRequest{
-		Kind:  chat.KindGroup,
+	createdChat, err := fixture.chatSvc.Create(ctx, botID, ownerUserID, conversation.CreateRequest{
+		Kind:  conversation.KindGroup,
 		Title: "presence-observed",
 	})
 	if err != nil {
@@ -132,13 +132,13 @@ func setupObservedChatScenario(t *testing.T) (chatPresenceFixture, string, strin
 
 	_, err = fixture.chatSvc.PersistMessage(
 		ctx,
-		createdChat.ID,
 		botID,
 		"",
 		observedChannelIdentity.ID,
 		"",
 		"feishu",
 		fmt.Sprintf("ext-msg-%d", time.Now().UnixNano()),
+		"",
 		"user",
 		[]byte(`{"content":"hello from observed channelIdentity"}`),
 		nil,
@@ -176,7 +176,7 @@ func TestObservedChatVisibleAfterBindWithoutBackfill(t *testing.T) {
 		t.Fatalf("expected observed chat visible after bind, got %d chats", len(afterBind))
 	}
 
-	var target *chat.ChatListItem
+	var target *conversation.ChatListItem
 	for i := range afterBind {
 		if afterBind[i].ID == chatID {
 			target = &afterBind[i]
@@ -186,8 +186,8 @@ func TestObservedChatVisibleAfterBindWithoutBackfill(t *testing.T) {
 	if target == nil {
 		t.Fatalf("expected chat %s in visible list after bind", chatID)
 	}
-	if target.AccessMode != chat.AccessModeChannelIdentityObserved {
-		t.Fatalf("expected access_mode=%s, got %s", chat.AccessModeChannelIdentityObserved, target.AccessMode)
+	if target.AccessMode != conversation.AccessModeChannelIdentityObserved {
+		t.Fatalf("expected access_mode=%s, got %s", conversation.AccessModeChannelIdentityObserved, target.AccessMode)
 	}
 	if target.ParticipantRole != "" {
 		t.Fatalf("expected empty participant_role for observed chat, got %s", target.ParticipantRole)
@@ -210,8 +210,8 @@ func TestObservedAccessReadableButNotParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get read access failed: %v", err)
 	}
-	if access.AccessMode != chat.AccessModeChannelIdentityObserved {
-		t.Fatalf("expected read access %s, got %s", chat.AccessModeChannelIdentityObserved, access.AccessMode)
+	if access.AccessMode != conversation.AccessModeChannelIdentityObserved {
+		t.Fatalf("expected read access %s, got %s", conversation.AccessModeChannelIdentityObserved, access.AccessMode)
 	}
 
 	messages, err := fixture.chatSvc.ListMessages(ctx, chatID)
@@ -223,7 +223,7 @@ func TestObservedAccessReadableButNotParticipant(t *testing.T) {
 	}
 
 	_, err = fixture.chatSvc.GetParticipant(ctx, chatID, observerUserID)
-	if !errors.Is(err, chat.ErrNotParticipant) {
+	if !errors.Is(err, conversation.ErrNotParticipant) {
 		t.Fatalf("expected ErrNotParticipant for observed user, got %v", err)
 	}
 	ok, err := fixture.chatSvc.IsParticipant(ctx, chatID, observerUserID)
@@ -238,7 +238,7 @@ func TestObservedAccessReadableButNotParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list visible chats failed: %v", err)
 	}
-	if len(visibleChats) == 0 || visibleChats[0].AccessMode != chat.AccessModeChannelIdentityObserved {
+	if len(visibleChats) == 0 || visibleChats[0].AccessMode != conversation.AccessModeChannelIdentityObserved {
 		t.Fatal("expected observed list entry with channel_identity_observed access mode")
 	}
 }

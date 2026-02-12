@@ -78,9 +78,12 @@ export const chatModule = new Elysia({ prefix: '/chat' })
       }
     } catch (error) {
       console.error(error)
+      const message = error instanceof Error && error.message.trim()
+        ? error.message
+        : 'Internal server error'
       yield sse(JSON.stringify({
         type: 'error',
-        message: 'Internal server error',
+        message,
       }))
     }
   }, {

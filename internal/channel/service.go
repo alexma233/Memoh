@@ -132,9 +132,9 @@ func (s *Service) UpsertChannelIdentityConfig(ctx context.Context, channelIdenti
 		return ChannelIdentityBinding{}, err
 	}
 	row, err := s.queries.UpsertUserChannelBinding(ctx, sqlc.UpsertUserChannelBindingParams{
-		UserID:   pgChannelIdentityID,
-		Platform: channelType.String(),
-		Config:   payload,
+		UserID:      pgChannelIdentityID,
+		ChannelType: channelType.String(),
+		Config:      payload,
 	})
 	if err != nil {
 		return ChannelIdentityBinding{}, err
@@ -211,8 +211,8 @@ func (s *Service) GetChannelIdentityConfig(ctx context.Context, channelIdentityI
 		return ChannelIdentityBinding{}, err
 	}
 	row, err := s.queries.GetUserChannelBinding(ctx, sqlc.GetUserChannelBindingParams{
-		UserID:   pgChannelIdentityID,
-		Platform: channelType.String(),
+		UserID:      pgChannelIdentityID,
+		ChannelType: channelType.String(),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -225,9 +225,9 @@ func (s *Service) GetChannelIdentityConfig(ctx context.Context, channelIdentityI
 		return ChannelIdentityBinding{}, err
 	}
 	return ChannelIdentityBinding{
-		ID:                db.UUIDToString(row.ID),
-		ChannelType:       ChannelType(row.Platform),
-		ChannelIdentityID: db.UUIDToString(row.UserID),
+		ID:                row.ID.String(),
+		ChannelType:       ChannelType(row.ChannelType),
+		ChannelIdentityID: row.UserID.String(),
 		Config:            config,
 		CreatedAt:         db.TimeFromPg(row.CreatedAt),
 		UpdatedAt:         db.TimeFromPg(row.UpdatedAt),
@@ -293,8 +293,8 @@ func normalizeChannelConfig(row sqlc.BotChannelConfig) (ChannelConfig, error) {
 		externalIdentity = strings.TrimSpace(row.ExternalIdentity.String)
 	}
 	return ChannelConfig{
-		ID:               db.UUIDToString(row.ID),
-		BotID:            db.UUIDToString(row.BotID),
+		ID:               row.ID.String(),
+		BotID:            row.BotID.String(),
 		ChannelType:      ChannelType(row.ChannelType),
 		Credentials:      credentials,
 		ExternalIdentity: externalIdentity,
@@ -313,9 +313,9 @@ func normalizeChannelIdentityBinding(row sqlc.UserChannelBinding) (ChannelIdenti
 		return ChannelIdentityBinding{}, err
 	}
 	return ChannelIdentityBinding{
-		ID:                db.UUIDToString(row.ID),
-		ChannelType:       ChannelType(row.Platform),
-		ChannelIdentityID: db.UUIDToString(row.UserID),
+		ID:                row.ID.String(),
+		ChannelType:       ChannelType(row.ChannelType),
+		ChannelIdentityID: row.UserID.String(),
 		Config:            config,
 		CreatedAt:         db.TimeFromPg(row.CreatedAt),
 		UpdatedAt:         db.TimeFromPg(row.UpdatedAt),

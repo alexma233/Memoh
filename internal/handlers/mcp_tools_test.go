@@ -109,7 +109,6 @@ func TestHandleMCPToolsWithGatewayAcceptCompatibility(t *testing.T) {
 	listReq := httptest.NewRequest(http.MethodPost, "/bots/bot-1/tools", strings.NewReader(`{"jsonrpc":"2.0","id":"1","method":"tools/list"}`))
 	listReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	listReq.Header.Set("Accept", "application/json")
-	listReq.Header.Set("X-Memoh-Chat-Id", "chat-1")
 	listReq.Header.Set("X-Memoh-Channel-Identity-Id", "user-1")
 	listRec := httptest.NewRecorder()
 	listCtx := e.NewContext(listReq, listRec)
@@ -137,7 +136,6 @@ func TestHandleMCPToolsWithGatewayAcceptCompatibility(t *testing.T) {
 	callReq := httptest.NewRequest(http.MethodPost, "/bots/bot-1/tools", strings.NewReader(`{"jsonrpc":"2.0","id":"2","method":"tools/call","params":{"name":"echo_tool","arguments":{"input":"hello"}}}`))
 	callReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	callReq.Header.Set("Accept", "application/json")
-	callReq.Header.Set("X-Memoh-Chat-Id", "chat-1")
 	callReq.Header.Set("X-Memoh-Channel-Identity-Id", "user-1")
 	callRec := httptest.NewRecorder()
 	callCtx := e.NewContext(callReq, callRec)
@@ -158,7 +156,7 @@ func TestHandleMCPToolsWithGatewayAcceptCompatibility(t *testing.T) {
 	if echoValue := strings.TrimSpace(mcpgw.StringArg(structured, "echo")); echoValue != "hello" {
 		t.Fatalf("unexpected echo value: %#v", structured["echo"])
 	}
-	if strings.TrimSpace(mcpgw.StringArg(structured, "chat_id")) != "chat-1" {
+	if strings.TrimSpace(mcpgw.StringArg(structured, "chat_id")) != "bot-1" {
 		t.Fatalf("unexpected chat id: %#v", structured["chat_id"])
 	}
 	if strings.TrimSpace(mcpgw.StringArg(structured, "channel_identity_id")) != "user-1" {

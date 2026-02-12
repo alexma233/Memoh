@@ -15,7 +15,7 @@ const clearChannelIdentityLinkedUser = `-- name: ClearChannelIdentityLinkedUser 
 UPDATE channel_identities
 SET user_id = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+RETURNING id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 `
 
 func (q *Queries) ClearChannelIdentityLinkedUser(ctx context.Context, id pgtype.UUID) (ChannelIdentity, error) {
@@ -24,7 +24,7 @@ func (q *Queries) ClearChannelIdentityLinkedUser(ctx context.Context, id pgtype.
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,
@@ -35,14 +35,14 @@ func (q *Queries) ClearChannelIdentityLinkedUser(ctx context.Context, id pgtype.
 }
 
 const createChannelIdentity = `-- name: CreateChannelIdentity :one
-INSERT INTO channel_identities (user_id, channel, channel_subject_id, display_name, metadata)
+INSERT INTO channel_identities (user_id, channel_type, channel_subject_id, display_name, metadata)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+RETURNING id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 `
 
 type CreateChannelIdentityParams struct {
 	UserID           pgtype.UUID `json:"user_id"`
-	Channel          string      `json:"channel"`
+	ChannelType      string      `json:"channel_type"`
 	ChannelSubjectID string      `json:"channel_subject_id"`
 	DisplayName      pgtype.Text `json:"display_name"`
 	Metadata         []byte      `json:"metadata"`
@@ -51,7 +51,7 @@ type CreateChannelIdentityParams struct {
 func (q *Queries) CreateChannelIdentity(ctx context.Context, arg CreateChannelIdentityParams) (ChannelIdentity, error) {
 	row := q.db.QueryRow(ctx, createChannelIdentity,
 		arg.UserID,
-		arg.Channel,
+		arg.ChannelType,
 		arg.ChannelSubjectID,
 		arg.DisplayName,
 		arg.Metadata,
@@ -60,7 +60,7 @@ func (q *Queries) CreateChannelIdentity(ctx context.Context, arg CreateChannelId
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,
@@ -71,23 +71,23 @@ func (q *Queries) CreateChannelIdentity(ctx context.Context, arg CreateChannelId
 }
 
 const getChannelIdentityByChannelSubject = `-- name: GetChannelIdentityByChannelSubject :one
-SELECT id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+SELECT id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 FROM channel_identities
-WHERE channel = $1 AND channel_subject_id = $2
+WHERE channel_type = $1 AND channel_subject_id = $2
 `
 
 type GetChannelIdentityByChannelSubjectParams struct {
-	Channel          string `json:"channel"`
+	ChannelType      string `json:"channel_type"`
 	ChannelSubjectID string `json:"channel_subject_id"`
 }
 
 func (q *Queries) GetChannelIdentityByChannelSubject(ctx context.Context, arg GetChannelIdentityByChannelSubjectParams) (ChannelIdentity, error) {
-	row := q.db.QueryRow(ctx, getChannelIdentityByChannelSubject, arg.Channel, arg.ChannelSubjectID)
+	row := q.db.QueryRow(ctx, getChannelIdentityByChannelSubject, arg.ChannelType, arg.ChannelSubjectID)
 	var i ChannelIdentity
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,
@@ -98,7 +98,7 @@ func (q *Queries) GetChannelIdentityByChannelSubject(ctx context.Context, arg Ge
 }
 
 const getChannelIdentityByID = `-- name: GetChannelIdentityByID :one
-SELECT id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+SELECT id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 FROM channel_identities
 WHERE id = $1
 `
@@ -109,7 +109,7 @@ func (q *Queries) GetChannelIdentityByID(ctx context.Context, id pgtype.UUID) (C
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,
@@ -120,7 +120,7 @@ func (q *Queries) GetChannelIdentityByID(ctx context.Context, id pgtype.UUID) (C
 }
 
 const getChannelIdentityByIDForUpdate = `-- name: GetChannelIdentityByIDForUpdate :one
-SELECT id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+SELECT id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 FROM channel_identities
 WHERE id = $1
 FOR UPDATE
@@ -132,7 +132,7 @@ func (q *Queries) GetChannelIdentityByIDForUpdate(ctx context.Context, id pgtype
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,
@@ -143,7 +143,7 @@ func (q *Queries) GetChannelIdentityByIDForUpdate(ctx context.Context, id pgtype
 }
 
 const listChannelIdentitiesByUserID = `-- name: ListChannelIdentitiesByUserID :many
-SELECT id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+SELECT id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 FROM channel_identities
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -161,7 +161,7 @@ func (q *Queries) ListChannelIdentitiesByUserID(ctx context.Context, userID pgty
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.Channel,
+			&i.ChannelType,
 			&i.ChannelSubjectID,
 			&i.DisplayName,
 			&i.Metadata,
@@ -182,7 +182,7 @@ const setChannelIdentityLinkedUser = `-- name: SetChannelIdentityLinkedUser :one
 UPDATE channel_identities
 SET user_id = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+RETURNING id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 `
 
 type SetChannelIdentityLinkedUserParams struct {
@@ -196,7 +196,7 @@ func (q *Queries) SetChannelIdentityLinkedUser(ctx context.Context, arg SetChann
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,
@@ -207,20 +207,20 @@ func (q *Queries) SetChannelIdentityLinkedUser(ctx context.Context, arg SetChann
 }
 
 const upsertChannelIdentityByChannelSubject = `-- name: UpsertChannelIdentityByChannelSubject :one
-INSERT INTO channel_identities (user_id, channel, channel_subject_id, display_name, metadata)
+INSERT INTO channel_identities (user_id, channel_type, channel_subject_id, display_name, metadata)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (channel, channel_subject_id)
+ON CONFLICT (channel_type, channel_subject_id)
 DO UPDATE SET
-  display_name = EXCLUDED.display_name,
+  display_name = COALESCE(NULLIF(EXCLUDED.display_name, ''), channel_identities.display_name),
   metadata = EXCLUDED.metadata,
   user_id = COALESCE(channel_identities.user_id, EXCLUDED.user_id),
   updated_at = now()
-RETURNING id, user_id, channel, channel_subject_id, display_name, metadata, created_at, updated_at
+RETURNING id, user_id, channel_type, channel_subject_id, display_name, metadata, created_at, updated_at
 `
 
 type UpsertChannelIdentityByChannelSubjectParams struct {
 	UserID           pgtype.UUID `json:"user_id"`
-	Channel          string      `json:"channel"`
+	ChannelType      string      `json:"channel_type"`
 	ChannelSubjectID string      `json:"channel_subject_id"`
 	DisplayName      pgtype.Text `json:"display_name"`
 	Metadata         []byte      `json:"metadata"`
@@ -229,7 +229,7 @@ type UpsertChannelIdentityByChannelSubjectParams struct {
 func (q *Queries) UpsertChannelIdentityByChannelSubject(ctx context.Context, arg UpsertChannelIdentityByChannelSubjectParams) (ChannelIdentity, error) {
 	row := q.db.QueryRow(ctx, upsertChannelIdentityByChannelSubject,
 		arg.UserID,
-		arg.Channel,
+		arg.ChannelType,
 		arg.ChannelSubjectID,
 		arg.DisplayName,
 		arg.Metadata,
@@ -238,7 +238,7 @@ func (q *Queries) UpsertChannelIdentityByChannelSubject(ctx context.Context, arg
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Channel,
+		&i.ChannelType,
 		&i.ChannelSubjectID,
 		&i.DisplayName,
 		&i.Metadata,

@@ -1,4 +1,4 @@
-package chat
+package conversation
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -41,7 +42,7 @@ func NewService(log *slog.Logger, queries *sqlc.Queries) *Service {
 // --- Chat CRUD ---
 
 // Create creates a new chat and adds the creator as owner.
-func (s *Service) Create(ctx context.Context, botID, channelIdentityID string, req CreateChatRequest) (Chat, error) {
+func (s *Service) Create(ctx context.Context, botID, channelIdentityID string, req CreateRequest) (Chat, error) {
 	kind := strings.TrimSpace(req.Kind)
 	if kind == "" {
 		kind = KindDirect
@@ -79,7 +80,7 @@ func (s *Service) Create(ctx context.Context, botID, channelIdentityID string, r
 		BotID:           pgBotID,
 		Kind:            kind,
 		ParentChatID:    pgParent,
-		Title:           toPgText(req.Title),
+		Title:           strings.TrimSpace(req.Title),
 		CreatedByUserID: pgChannelIdentityID,
 		Metadata:        metadata,
 	})
@@ -98,29 +99,17 @@ func (s *Service) Create(ctx context.Context, botID, channelIdentityID string, r
 		}
 	}
 
-	// Create default settings based on kind.
-	enablePrivate := kind != KindGroup
-	if _, err := s.queries.UpsertChatSettings(ctx, sqlc.UpsertChatSettingsParams{
-		ID:                  row.ID,
-		EnableChatMemory:    true,
-		EnablePrivateMemory: enablePrivate,
-		EnablePublicMemory:  false,
-		SettingsMetadata:    []byte("{}"),
-	}); err != nil {
-		return Chat{}, fmt.Errorf("create default settings: %w", err)
-	}
-
 	// For threads, copy participants from parent.
 	if kind == KindThread && pgParent.Valid {
 		if err := s.queries.CopyParticipantsToChat(ctx, sqlc.CopyParticipantsToChatParams{
-			ChatID:   pgParent,
-			ChatID_2: row.ID,
+			ChatID:  pgParent,
+			ChatID2: row.ID,
 		}); err != nil {
 			s.logger.Warn("copy parent participants failed", slog.Any("error", err))
 		}
 	}
 
-	return toChat(row), nil
+	return toChatFromCreate(row), nil
 }
 
 // Get returns a chat by ID.
@@ -136,7 +125,7 @@ func (s *Service) Get(ctx context.Context, chatID string) (Chat, error) {
 		}
 		return Chat{}, err
 	}
-	return toChat(row), nil
+	return toChatFromGet(row), nil
 }
 
 // GetReadAccess resolves whether a user can read a chat.
@@ -202,7 +191,7 @@ func (s *Service) ListThreads(ctx context.Context, parentChatID string) ([]Chat,
 	}
 	chats := make([]Chat, 0, len(rows))
 	for _, row := range rows {
-		chats = append(chats, toChat(row))
+		chats = append(chats, toChatFromThread(row))
 	}
 	return chats, nil
 }
@@ -239,7 +228,7 @@ func (s *Service) AddParticipant(ctx context.Context, chatID, channelIdentityID,
 	if err != nil {
 		return Participant{}, err
 	}
-	return toParticipant(row), nil
+	return toParticipantFromAdd(row), nil
 }
 
 // GetParticipant returns a participant record.
@@ -262,7 +251,7 @@ func (s *Service) GetParticipant(ctx context.Context, chatID, channelIdentityID 
 		}
 		return Participant{}, err
 	}
-	return toParticipant(row), nil
+	return toParticipantFromGet(row), nil
 }
 
 // IsParticipant checks whether a user identity is a participant in a chat.
@@ -286,7 +275,7 @@ func (s *Service) ListParticipants(ctx context.Context, chatID string) ([]Partic
 	}
 	participants := make([]Participant, 0, len(rows))
 	for _, row := range rows {
-		participants = append(participants, toParticipant(row))
+		participants = append(participants, toParticipantFromList(row))
 	}
 	return participants, nil
 }
@@ -312,27 +301,17 @@ func (s *Service) RemoveParticipant(ctx context.Context, chatID, channelIdentity
 // GetSettings returns settings for a chat. Returns defaults if not found.
 func (s *Service) GetSettings(ctx context.Context, chatID string) (Settings, error) {
 	pgID, err := parseUUID(chatID)
-	var current Settings
 	if err != nil {
-		current = defaultSettings(chatID)
-		return current, nil
+		return defaultSettings(chatID), nil
 	}
 	row, err := s.queries.GetChatSettings(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			current = defaultSettings(chatID)
-			if s.isGroupChat(ctx, chatID) {
-				current.EnablePrivateMemory = false
-			}
-			return current, nil
+			return defaultSettings(chatID), nil
 		}
 		return Settings{}, err
 	}
-	current = toSettingsFromRead(row)
-	if s.isGroupChat(ctx, chatID) {
-		current.EnablePrivateMemory = false
-	}
-	return current, nil
+	return toSettingsFromRead(row), nil
 }
 
 // UpdateSettings updates chat settings.
@@ -341,22 +320,8 @@ func (s *Service) UpdateSettings(ctx context.Context, chatID string, req UpdateS
 	if err != nil {
 		return Settings{}, err
 	}
-	isGroup := s.isGroupChat(ctx, chatID)
-	if req.EnableChatMemory != nil {
-		current.EnableChatMemory = *req.EnableChatMemory
-	}
-	if req.EnablePrivateMemory != nil {
-		current.EnablePrivateMemory = *req.EnablePrivateMemory
-	}
-	if req.EnablePublicMemory != nil {
-		current.EnablePublicMemory = *req.EnablePublicMemory
-	}
 	if req.ModelID != nil {
 		current.ModelID = *req.ModelID
-	}
-	if isGroup {
-		// Group chats are shared contexts, so private memory stays disabled.
-		current.EnablePrivateMemory = false
 	}
 
 	pgID, err := parseUUID(chatID)
@@ -364,12 +329,8 @@ func (s *Service) UpdateSettings(ctx context.Context, chatID string, req UpdateS
 		return Settings{}, err
 	}
 	row, err := s.queries.UpsertChatSettings(ctx, sqlc.UpsertChatSettingsParams{
-		ID:                  pgID,
-		EnableChatMemory:    current.EnableChatMemory,
-		EnablePrivateMemory: current.EnablePrivateMemory,
-		EnablePublicMemory:  current.EnablePublicMemory,
-		ModelID:             toPgText(current.ModelID),
-		SettingsMetadata:    []byte("{}"),
+		ID:      pgID,
+		ModelID: toPgText(current.ModelID),
 	})
 	if err != nil {
 		return Settings{}, err
@@ -413,7 +374,7 @@ func (s *Service) CreateRoute(ctx context.Context, chatID string, r Route) (Rout
 	if err != nil {
 		return Route{}, fmt.Errorf("create route: %w", err)
 	}
-	return toRoute(row), nil
+	return toRouteFromCreate(row), nil
 }
 
 // FindRoute looks up a route by (bot_id, platform, conversation_id, thread_id).
@@ -431,7 +392,7 @@ func (s *Service) FindRoute(ctx context.Context, botID, platform, conversationID
 	if err != nil {
 		return Route{}, err
 	}
-	return toRoute(row), nil
+	return toRouteFromFind(row), nil
 }
 
 // GetRouteByID returns a single route by its ID.
@@ -444,7 +405,7 @@ func (s *Service) GetRouteByID(ctx context.Context, routeID string) (Route, erro
 	if err != nil {
 		return Route{}, err
 	}
-	return toRoute(row), nil
+	return toRouteFromGet(row), nil
 }
 
 // ListRoutes lists all routes for a chat.
@@ -459,7 +420,7 @@ func (s *Service) ListRoutes(ctx context.Context, chatID string) ([]Route, error
 	}
 	routes := make([]Route, 0, len(rows))
 	for _, row := range rows {
-		routes = append(routes, toRoute(row))
+		routes = append(routes, toRouteFromList(row))
 	}
 	return routes, nil
 }
@@ -532,7 +493,7 @@ func (s *Service) ResolveChat(ctx context.Context, botID, platform, conversation
 		}
 	}
 
-	c, err := s.Create(ctx, botID, creatorChannelIdentityID, CreateChatRequest{
+	c, err := s.Create(ctx, botID, creatorChannelIdentityID, CreateRequest{
 		Kind:         kind,
 		ParentChatID: parentChatID,
 	})
@@ -562,12 +523,8 @@ func (s *Service) ResolveChat(ctx context.Context, botID, platform, conversation
 
 // --- Messages ---
 
-// PersistMessage writes a single message to chat_messages.
-func (s *Service) PersistMessage(ctx context.Context, chatID, botID, routeID, senderChannelIdentityID, senderUserID, platform, externalMessageID, role string, content json.RawMessage, metadata map[string]any) (Message, error) {
-	pgChatID, err := parseUUID(chatID)
-	if err != nil {
-		return Message{}, err
-	}
+// PersistMessage writes a single message to bot_history_messages.
+func (s *Service) PersistMessage(ctx context.Context, botID, routeID, senderChannelIdentityID, senderUserID, platform, externalMessageID, sourceReplyToMessageID, role string, content json.RawMessage, metadata map[string]any) (Message, error) {
 	pgBotID, err := parseUUID(botID)
 	if err != nil {
 		return Message{}, err
@@ -601,14 +558,14 @@ func (s *Service) PersistMessage(ctx context.Context, chatID, botID, routeID, se
 		content = []byte("{}")
 	}
 
-	row, err := s.queries.CreateChatMessage(ctx, sqlc.CreateChatMessageParams{
-		ChatID:                  pgChatID,
+	row, err := s.queries.CreateMessage(ctx, sqlc.CreateMessageParams{
 		BotID:                   pgBotID,
 		RouteID:                 pgRouteID,
 		SenderChannelIdentityID: pgSender,
 		SenderUserID:            pgSenderUser,
 		Platform:                toPgText(platform),
 		ExternalMessageID:       toPgText(externalMessageID),
+		SourceReplyToMessageID:  toPgText(sourceReplyToMessageID),
 		Role:                    role,
 		Content:                 content,
 		Metadata:                metaBytes,
@@ -616,96 +573,129 @@ func (s *Service) PersistMessage(ctx context.Context, chatID, botID, routeID, se
 	if err != nil {
 		return Message{}, err
 	}
-	if pgSender.Valid {
-		if err := s.queries.UpsertChatChannelIdentityPresence(ctx, sqlc.UpsertChatChannelIdentityPresenceParams{
-			ChatID:            pgChatID,
-			ChannelIdentityID: pgSender,
-		}); err != nil && s.logger != nil {
-			// Presence is a derived cache. Keep message persistence successful even if cache update fails.
-			s.logger.Warn("upsert chat channel identity presence failed", slog.Any("error", err))
-		}
-	}
-	return toMessage(row), nil
+	return toMessageFromCreate(row), nil
 }
 
-// ListMessages returns all messages for a chat.
-func (s *Service) ListMessages(ctx context.Context, chatID string) ([]Message, error) {
-	pgID, err := parseUUID(chatID)
+// ListMessages returns all messages for a bot.
+func (s *Service) ListMessages(ctx context.Context, botID string) ([]Message, error) {
+	pgID, err := parseUUID(botID)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListChatMessages(ctx, pgID)
+	rows, err := s.queries.ListMessages(ctx, pgID)
 	if err != nil {
 		return nil, err
 	}
-	return toMessages(rows), nil
+	return toMessagesFromList(rows), nil
 }
 
-// ListMessagesSince returns messages since a given time.
-func (s *Service) ListMessagesSince(ctx context.Context, chatID string, since time.Time) ([]Message, error) {
-	pgID, err := parseUUID(chatID)
+// ListMessagesSince returns bot messages since a given time.
+func (s *Service) ListMessagesSince(ctx context.Context, botID string, since time.Time) ([]Message, error) {
+	pgID, err := parseUUID(botID)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListChatMessagesSince(ctx, sqlc.ListChatMessagesSinceParams{
-		ChatID:    pgID,
+	rows, err := s.queries.ListMessagesSince(ctx, sqlc.ListMessagesSinceParams{
+		BotID:     pgID,
 		CreatedAt: pgtype.Timestamptz{Time: since, Valid: true},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return toMessages(rows), nil
+	return toMessagesFromSince(rows), nil
 }
 
-// ListMessagesLatest returns the latest N messages (most recent first).
-func (s *Service) ListMessagesLatest(ctx context.Context, chatID string, limit int32) ([]Message, error) {
-	pgID, err := parseUUID(chatID)
+// ListMessagesLatest returns the latest N bot messages (most recent first).
+func (s *Service) ListMessagesLatest(ctx context.Context, botID string, limit int32) ([]Message, error) {
+	pgID, err := parseUUID(botID)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.queries.ListChatMessagesLatest(ctx, sqlc.ListChatMessagesLatestParams{
-		ChatID: pgID,
-		Limit:  limit,
+	rows, err := s.queries.ListMessagesLatest(ctx, sqlc.ListMessagesLatestParams{
+		BotID:    pgID,
+		MaxCount: limit,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return toMessages(rows), nil
+	return toMessagesFromLatest(rows), nil
 }
 
-// DeleteMessages deletes all messages for a chat.
-func (s *Service) DeleteMessages(ctx context.Context, chatID string) error {
-	pgID, err := parseUUID(chatID)
+// DeleteMessages deletes all messages for a bot.
+func (s *Service) DeleteMessages(ctx context.Context, botID string) error {
+	pgID, err := parseUUID(botID)
 	if err != nil {
 		return err
 	}
-	return s.queries.DeleteChatMessagesByChat(ctx, pgID)
+	return s.queries.DeleteMessagesByBot(ctx, pgID)
 }
 
 // --- conversion helpers ---
 
-func toChat(row sqlc.Chat) Chat {
+func toChatFromCreate(row sqlc.CreateChatRow) Chat {
+	return toChatFields(
+		row.ID,
+		row.BotID,
+		row.Kind,
+		row.ParentChatID,
+		row.Title,
+		row.CreatedByUserID,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toChatFromGet(row sqlc.GetChatByIDRow) Chat {
+	return toChatFields(
+		row.ID,
+		row.BotID,
+		row.Kind,
+		row.ParentChatID,
+		row.Title,
+		row.CreatedByUserID,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toChatFromThread(row sqlc.ListThreadsByParentRow) Chat {
+	return toChatFields(
+		row.ID,
+		row.BotID,
+		row.Kind,
+		row.ParentChatID,
+		row.Title,
+		row.CreatedByUserID,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toChatFields(id, botID pgtype.UUID, kind string, parentChatID pgtype.UUID, title pgtype.Text, createdBy pgtype.UUID, metadata []byte, createdAt, updatedAt pgtype.Timestamptz) Chat {
 	return Chat{
-		ID:           uuidString(row.ID),
-		BotID:        uuidString(row.BotID),
-		Kind:         row.Kind,
-		ParentChatID: uuidString(row.ParentChatID),
-		Title:        pgTextString(row.Title),
-		CreatedBy:    uuidString(row.CreatedByUserID),
-		Metadata:     parseJSONMap(row.Metadata),
-		CreatedAt:    row.CreatedAt.Time,
-		UpdatedAt:    row.UpdatedAt.Time,
+		ID:           id.String(),
+		BotID:        botID.String(),
+		Kind:         kind,
+		ParentChatID: parentChatID.String(),
+		Title:        db.TextToString(title),
+		CreatedBy:    createdBy.String(),
+		Metadata:     parseJSONMap(metadata),
+		CreatedAt:    createdAt.Time,
+		UpdatedAt:    updatedAt.Time,
 	}
 }
 
 func toChatListItem(row sqlc.ListVisibleChatsByBotAndUserRow) ChatListItem {
 	return ChatListItem{
-		ID:              uuidString(row.ID),
-		BotID:           uuidString(row.BotID),
+		ID:              row.ID.String(),
+		BotID:           row.BotID.String(),
 		Kind:            row.Kind,
-		ParentChatID:    uuidString(row.ParentChatID),
-		Title:           pgTextString(row.Title),
-		CreatedBy:       uuidString(row.CreatedByUserID),
+		ParentChatID:    row.ParentChatID.String(),
+		Title:           db.TextToString(row.Title),
+		CreatedBy:       row.CreatedByUserID.String(),
 		Metadata:        parseJSONMap(row.Metadata),
 		CreatedAt:       row.CreatedAt.Time,
 		UpdatedAt:       row.UpdatedAt.Time,
@@ -715,84 +705,233 @@ func toChatListItem(row sqlc.ListVisibleChatsByBotAndUserRow) ChatListItem {
 	}
 }
 
-func toParticipant(row sqlc.ChatParticipant) Participant {
+func toParticipantFromAdd(row sqlc.AddChatParticipantRow) Participant {
+	return toParticipantFields(row.ChatID, row.UserID, row.Role, row.JoinedAt)
+}
+
+func toParticipantFromGet(row sqlc.GetChatParticipantRow) Participant {
+	return toParticipantFields(row.ChatID, row.UserID, row.Role, row.JoinedAt)
+}
+
+func toParticipantFromList(row sqlc.ListChatParticipantsRow) Participant {
+	return toParticipantFields(row.ChatID, row.UserID, row.Role, row.JoinedAt)
+}
+
+func toParticipantFields(chatID, userID pgtype.UUID, role string, joinedAt pgtype.Timestamptz) Participant {
 	return Participant{
-		ChatID:   uuidString(row.ChatID),
-		UserID:   uuidString(row.UserID),
-		Role:     row.Role,
-		JoinedAt: row.JoinedAt.Time,
+		ChatID:   chatID.String(),
+		UserID:   userID.String(),
+		Role:     role,
+		JoinedAt: joinedAt.Time,
 	}
 }
 
 func toSettingsFromRead(row sqlc.GetChatSettingsRow) Settings {
 	return Settings{
-		ChatID:              uuidString(row.ChatID),
-		EnableChatMemory:    row.EnableChatMemory,
-		EnablePrivateMemory: row.EnablePrivateMemory,
-		EnablePublicMemory:  row.EnablePublicMemory,
-		ModelID:             pgTextString(row.ModelID),
-		Metadata:            parseJSONMap(row.Metadata),
+		ChatID:  row.ChatID.String(),
+		ModelID: db.TextToString(row.ModelID),
 	}
 }
 
 func toSettingsFromUpsert(row sqlc.UpsertChatSettingsRow) Settings {
 	return Settings{
-		ChatID:              uuidString(row.ChatID),
-		EnableChatMemory:    row.EnableChatMemory,
-		EnablePrivateMemory: row.EnablePrivateMemory,
-		EnablePublicMemory:  row.EnablePublicMemory,
-		ModelID:             pgTextString(row.ModelID),
-		Metadata:            parseJSONMap(row.Metadata),
+		ChatID:  row.ChatID.String(),
+		ModelID: db.TextToString(row.ModelID),
 	}
 }
 
-func toRoute(row sqlc.ChatRoute) Route {
+func toRouteFromCreate(row sqlc.CreateChatRouteRow) Route {
+	return toRouteFields(
+		row.ID,
+		row.ChatID,
+		row.BotID,
+		row.Platform,
+		row.ChannelConfigID,
+		row.ConversationID,
+		row.ThreadID,
+		row.ReplyTarget,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toRouteFromFind(row sqlc.FindChatRouteRow) Route {
+	return toRouteFields(
+		row.ID,
+		row.ChatID,
+		row.BotID,
+		row.Platform,
+		row.ChannelConfigID,
+		row.ConversationID,
+		row.ThreadID,
+		row.ReplyTarget,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toRouteFromGet(row sqlc.GetChatRouteByIDRow) Route {
+	return toRouteFields(
+		row.ID,
+		row.ChatID,
+		row.BotID,
+		row.Platform,
+		row.ChannelConfigID,
+		row.ConversationID,
+		row.ThreadID,
+		row.ReplyTarget,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toRouteFromList(row sqlc.ListChatRoutesRow) Route {
+	return toRouteFields(
+		row.ID,
+		row.ChatID,
+		row.BotID,
+		row.Platform,
+		row.ChannelConfigID,
+		row.ConversationID,
+		row.ThreadID,
+		row.ReplyTarget,
+		row.Metadata,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func toRouteFields(id, chatID, botID pgtype.UUID, platform string, channelConfigID pgtype.UUID, conversationID string, threadID, replyTarget pgtype.Text, metadata []byte, createdAt, updatedAt pgtype.Timestamptz) Route {
 	return Route{
-		ID:              uuidString(row.ID),
-		ChatID:          uuidString(row.ChatID),
-		BotID:           uuidString(row.BotID),
-		Platform:        row.Platform,
-		ChannelConfigID: uuidString(row.ChannelConfigID),
-		ConversationID:  row.ConversationID,
-		ThreadID:        pgTextString(row.ThreadID),
-		ReplyTarget:     pgTextString(row.ReplyTarget),
-		Metadata:        parseJSONMap(row.Metadata),
-		CreatedAt:       row.CreatedAt.Time,
-		UpdatedAt:       row.UpdatedAt.Time,
+		ID:              id.String(),
+		ChatID:          chatID.String(),
+		BotID:           botID.String(),
+		Platform:        platform,
+		ChannelConfigID: channelConfigID.String(),
+		ConversationID:  conversationID,
+		ThreadID:        db.TextToString(threadID),
+		ReplyTarget:     db.TextToString(replyTarget),
+		Metadata:        parseJSONMap(metadata),
+		CreatedAt:       createdAt.Time,
+		UpdatedAt:       updatedAt.Time,
 	}
 }
 
-func toMessage(row sqlc.ChatMessage) Message {
+func toMessageFromCreate(row sqlc.CreateMessageRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.CreatedAt,
+	)
+}
+
+func toMessageFromListRow(row sqlc.ListMessagesRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.CreatedAt,
+	)
+}
+
+func toMessageFromSinceRow(row sqlc.ListMessagesSinceRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.CreatedAt,
+	)
+}
+
+func toMessageFromLatestRow(row sqlc.ListMessagesLatestRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.CreatedAt,
+	)
+}
+
+func toMessageFields(id, botID, routeID, senderChannelIdentityID, senderUserID pgtype.UUID, platform, externalMessageID, sourceReplyToMessageID pgtype.Text, role string, content, metadata []byte, createdAt pgtype.Timestamptz) Message {
 	return Message{
-		ID:                      uuidString(row.ID),
-		ChatID:                  uuidString(row.ChatID),
-		BotID:                   uuidString(row.BotID),
-		RouteID:                 uuidString(row.RouteID),
-		SenderChannelIdentityID: uuidString(row.SenderChannelIdentityID),
-		SenderUserID:            uuidString(row.SenderUserID),
-		Platform:                pgTextString(row.Platform),
-		ExternalMessageID:       pgTextString(row.ExternalMessageID),
-		Role:                    row.Role,
-		Content:                 json.RawMessage(row.Content),
-		Metadata:                parseJSONMap(row.Metadata),
-		CreatedAt:               row.CreatedAt.Time,
+		ID:                      id.String(),
+		BotID:                   botID.String(),
+		RouteID:                 routeID.String(),
+		SenderChannelIdentityID: senderChannelIdentityID.String(),
+		SenderUserID:            senderUserID.String(),
+		Platform:                db.TextToString(platform),
+		ExternalMessageID:       db.TextToString(externalMessageID),
+		SourceReplyToMessageID:  db.TextToString(sourceReplyToMessageID),
+		Role:                    role,
+		Content:                 json.RawMessage(content),
+		Metadata:                parseJSONMap(metadata),
+		CreatedAt:               createdAt.Time,
 	}
 }
 
-func toMessages(rows []sqlc.ChatMessage) []Message {
+func toMessagesFromList(rows []sqlc.ListMessagesRow) []Message {
 	msgs := make([]Message, 0, len(rows))
 	for _, row := range rows {
-		msgs = append(msgs, toMessage(row))
+		msgs = append(msgs, toMessageFromListRow(row))
+	}
+	return msgs
+}
+
+func toMessagesFromSince(rows []sqlc.ListMessagesSinceRow) []Message {
+	msgs := make([]Message, 0, len(rows))
+	for _, row := range rows {
+		msgs = append(msgs, toMessageFromSinceRow(row))
+	}
+	return msgs
+}
+
+func toMessagesFromLatest(rows []sqlc.ListMessagesLatestRow) []Message {
+	msgs := make([]Message, 0, len(rows))
+	for _, row := range rows {
+		msgs = append(msgs, toMessageFromLatestRow(row))
 	}
 	return msgs
 }
 
 func defaultSettings(chatID string) Settings {
 	return Settings{
-		ChatID:              chatID,
-		EnableChatMemory:    true,
-		EnablePrivateMemory: true,
-		EnablePublicMemory:  false,
+		ChatID: chatID,
 	}
 }
 
@@ -805,22 +944,6 @@ func determineChatKind(threadID, conversationType string) string {
 		return KindDirect
 	}
 	return KindGroup
-}
-
-func uuidString(id pgtype.UUID) string {
-	if !id.Valid {
-		return ""
-	}
-	b := id.Bytes
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
-}
-
-func pgTextString(t pgtype.Text) string {
-	if !t.Valid {
-		return ""
-	}
-	return t.String
 }
 
 func toPgText(s string) pgtype.Text {
@@ -869,17 +992,9 @@ func (s *Service) resolveChatCreatorChannelIdentityID(ctx context.Context, botID
 		s.logger.Warn("resolve bot owner for group chat failed", slog.Any("error", err))
 		return fallback
 	}
-	ownerChannelIdentityID := uuidString(row.OwnerUserID)
+	ownerChannelIdentityID := row.OwnerUserID.String()
 	if strings.TrimSpace(ownerChannelIdentityID) == "" {
 		return fallback
 	}
 	return ownerChannelIdentityID
-}
-
-func (s *Service) isGroupChat(ctx context.Context, chatID string) bool {
-	chatObj, err := s.Get(ctx, chatID)
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(strings.TrimSpace(chatObj.Kind), KindGroup)
 }

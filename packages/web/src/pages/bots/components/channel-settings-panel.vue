@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h3 class="text-lg font-semibold">
-          {{ channelItem.meta.display_name }}
+          {{ channelTypeLabel }}
         </h3>
         <p class="text-sm text-muted-foreground">
           {{ channelItem.meta.type }}
@@ -151,16 +151,13 @@ import {
 import { reactive, watch, computed } from 'vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
-import { useMutation, useQueryCache } from '@pinia/colada'
-import { putBotsByIdChannelByPlatform } from '@memoh/sdk'
-import type { HandlersChannelMeta, ChannelChannelConfig, ChannelFieldSchema } from '@memoh/sdk'
+import {
+  useUpsertBotChannel,
+  type BotChannelItem,
+  type FieldSchema,
+} from '@/composables/api/useChannels'
+import { ApiError } from '@/utils/request'
 import type { Ref } from 'vue'
-
-interface BotChannelItem {
-  meta: HandlersChannelMeta
-  config: ChannelChannelConfig | null
-  configured: boolean
-}
 
 const props = defineProps<{
   botId: string
@@ -173,17 +170,13 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const botIdRef = computed(() => props.botId) as Ref<string>
-const queryCache = useQueryCache()
-const { mutateAsync: upsertChannel, isLoading } = useMutation({
-  mutation: async ({ platform, data }: { platform: string; data: Record<string, unknown> }) => {
-    const { data: result } = await putBotsByIdChannelByPlatform({
-      path: { id: botIdRef.value, platform },
-      body: data as any,
-      throwOnError: true,
-    })
-    return result
-  },
-  onSettled: () => queryCache.invalidateQueries({ key: ['bot-channels', botIdRef.value] }),
+const { mutateAsync: upsertChannel, isLoading } = useUpsertBotChannel(botIdRef)
+
+const channelTypeLabel = computed(() => {
+  const type = props.channelItem.meta.type
+  const key = `bots.channels.types.${type}`
+  const out = t(key)
+  return out !== key ? out : (props.channelItem.meta.display_name ?? type)
 })
 
 // ---- Form state ----
@@ -207,10 +200,9 @@ const orderedFields = computed(() => {
     if (!a.required && b.required) return 1
     return 0
   })
-  return Object.fromEntries(entries) as Record<string, ChannelFieldSchema>
+  return Object.fromEntries(entries) as Record<string, FieldSchema>
 })
 
-// 初始化表单
 function initForm() {
   const schema = props.channelItem.meta.config_schema?.fields ?? {}
   const existingCredentials = props.channelItem.config?.credentials ?? {}
@@ -238,7 +230,6 @@ watch(
   { immediate: true },
 )
 
-// 客户端校验必填字段
 function validateRequired(): boolean {
   const schema = props.channelItem.meta.config_schema?.fields ?? {}
   for (const [key, field] of Object.entries(schema)) {
@@ -275,7 +266,10 @@ async function handleSave() {
     emit('saved')
   } catch (err) {
     let detail = ''
-    if (err instanceof Error) {
+    if (err instanceof ApiError && err.body) {
+      const body = err.body as Record<string, unknown>
+      detail = String(body.message || body.error || '')
+    } else if (err instanceof Error) {
       detail = err.message
     }
     toast.error(detail ? `${t('bots.channels.saveFailed')}: ${detail}` : t('bots.channels.saveFailed'))

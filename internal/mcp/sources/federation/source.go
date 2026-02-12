@@ -20,9 +20,6 @@ type ConnectionLister interface {
 }
 
 type Gateway interface {
-	ListFSMCPTools(ctx context.Context, botID string) ([]mcpgw.ToolDescriptor, error)
-	CallFSMCPTool(ctx context.Context, botID, toolName string, args map[string]any) (map[string]any, error)
-
 	ListHTTPConnectionTools(ctx context.Context, connection mcpgw.Connection) ([]mcpgw.ToolDescriptor, error)
 	CallHTTPConnectionTool(ctx context.Context, connection mcpgw.Connection, toolName string, args map[string]any) (map[string]any, error)
 
@@ -109,8 +106,6 @@ func (s *Source) CallTool(ctx context.Context, session mcpgw.ToolSessionContext,
 		err     error
 	)
 	switch route.sourceType {
-	case "fs":
-		payload, err = s.gateway.CallFSMCPTool(ctx, botID, route.originalName, arguments)
 	case "http":
 		payload, err = s.gateway.CallHTTPConnectionTool(ctx, route.connection, route.originalName, arguments)
 	case "sse":
@@ -159,18 +154,6 @@ func (s *Source) buildToolsAndRoutes(ctx context.Context, botID string) ([]mcpgw
 		descriptor.Name = finalName
 		routes[finalName] = route
 		tools = append(tools, descriptor)
-	}
-
-	fsTools, err := s.gateway.ListFSMCPTools(ctx, botID)
-	if err != nil {
-		s.logger.Warn("list fs mcp tools failed", slog.String("bot_id", botID), slog.Any("error", err))
-	} else {
-		for _, tool := range fsTools {
-			addTool(tool, toolRoute{
-				sourceType:   "fs",
-				originalName: tool.Name,
-			})
-		}
 	}
 
 	if s.connections != nil {

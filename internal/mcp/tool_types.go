@@ -16,7 +16,6 @@ type ToolSessionContext struct {
 	SessionToken      string
 	CurrentPlatform   string
 	ReplyTarget       string
-	DisplayName       string
 }
 
 // ToolDescriptor is the MCP tools/list item shape used by the gateway.

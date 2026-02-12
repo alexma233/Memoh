@@ -2,6 +2,8 @@ package message
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -67,12 +69,16 @@ func (p *Executor) ListTools(ctx context.Context, session mcpgw.ToolSessionConte
 						"type":        "string",
 						"description": "Alias for channel_identity_id",
 					},
-					"message": map[string]any{
+					"text": map[string]any{
 						"type":        "string",
-						"description": "Message text content",
+						"description": "Message text shortcut when message object is omitted",
+					},
+					"message": map[string]any{
+						"type":        "object",
+						"description": "Structured message payload with text/parts/attachments",
 					},
 				},
-				"required": []string{"message"},
+				"required": []string{},
 			},
 		},
 	}, nil
@@ -109,9 +115,10 @@ func (p *Executor) CallTool(ctx context.Context, session mcpgw.ToolSessionContex
 		return mcpgw.BuildToolErrorResult(err.Error()), nil
 	}
 
-	messageText := mcpgw.FirstStringArg(arguments, "message")
-	if messageText == "" {
-		return mcpgw.BuildToolErrorResult("message is required"), nil
+	messageText := mcpgw.FirstStringArg(arguments, "text")
+	outboundMessage, parseErr := parseOutboundMessage(arguments, messageText)
+	if parseErr != nil {
+		return mcpgw.BuildToolErrorResult(parseErr.Error()), nil
 	}
 
 	target := mcpgw.FirstStringArg(arguments, "target")
@@ -126,9 +133,7 @@ func (p *Executor) CallTool(ctx context.Context, session mcpgw.ToolSessionContex
 	sendReq := channel.SendRequest{
 		Target:            target,
 		ChannelIdentityID: channelIdentityID,
-		Message: channel.Message{
-			Text: messageText,
-		},
+		Message:           outboundMessage,
 	}
 	if err := p.sender.Send(ctx, botID, channelType, sendReq); err != nil {
 		p.logger.Warn("send message failed", slog.Any("error", err), slog.String("bot_id", botID), slog.String("platform", platform))
@@ -144,4 +149,31 @@ func (p *Executor) CallTool(ctx context.Context, session mcpgw.ToolSessionContex
 		"instruction":         "Message delivered successfully. You have completed your response. Please STOP now and do not call any more tools.",
 	}
 	return mcpgw.BuildToolSuccessResult(payload), nil
+}
+
+func parseOutboundMessage(arguments map[string]any, fallbackText string) (channel.Message, error) {
+	var msg channel.Message
+	if raw, ok := arguments["message"]; ok && raw != nil {
+		switch value := raw.(type) {
+		case string:
+			msg.Text = strings.TrimSpace(value)
+		case map[string]any:
+			data, err := json.Marshal(value)
+			if err != nil {
+				return channel.Message{}, err
+			}
+			if err := json.Unmarshal(data, &msg); err != nil {
+				return channel.Message{}, err
+			}
+		default:
+			return channel.Message{}, fmt.Errorf("message must be object or string")
+		}
+	}
+	if msg.IsEmpty() && strings.TrimSpace(fallbackText) != "" {
+		msg.Text = strings.TrimSpace(fallbackText)
+	}
+	if msg.IsEmpty() {
+		return channel.Message{}, fmt.Errorf("message is required")
+	}
+	return msg, nil
 }

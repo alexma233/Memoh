@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -44,7 +44,7 @@ func (s *Service) Get(ctx context.Context, userID string) (Account, error) {
 	if s.queries == nil {
 		return Account{}, fmt.Errorf("account queries not configured")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return Account{}, err
 	}
@@ -109,7 +109,7 @@ func (s *Service) IsAdmin(ctx context.Context, userID string) (bool, error) {
 	if s.queries == nil {
 		return false, fmt.Errorf("account queries not configured")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return false, err
 	}
@@ -157,7 +157,7 @@ func (s *Service) Create(ctx context.Context, userID string, req CreateAccountRe
 		isActive = *req.IsActive
 	}
 
-	pgUserID, err := parseUUID(userID)
+	pgUserID, err := db.ParseUUID(userID)
 	if err != nil {
 		return Account{}, err
 	}
@@ -205,7 +205,7 @@ func (s *Service) CreateHuman(ctx context.Context, userID string, req CreateAcco
 		if !userRow.ID.Valid {
 			return Account{}, fmt.Errorf("create user: invalid id")
 		}
-		userID = uuid.UUID(userRow.ID.Bytes).String()
+		userID = userRow.ID.String()
 	}
 	return s.Create(ctx, userID, req)
 }
@@ -215,7 +215,7 @@ func (s *Service) UpdateAdmin(ctx context.Context, userID string, req UpdateAcco
 	if s.queries == nil {
 		return Account{}, fmt.Errorf("account queries not configured")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return Account{}, err
 	}
@@ -264,7 +264,7 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdatePr
 	if s.queries == nil {
 		return Account{}, fmt.Errorf("account queries not configured")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return Account{}, err
 	}
@@ -303,7 +303,7 @@ func (s *Service) UpdatePassword(ctx context.Context, userID, currentPassword, n
 	if strings.TrimSpace(newPassword) == "" {
 		return fmt.Errorf("new password is required")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return err
 	}
@@ -339,7 +339,7 @@ func (s *Service) ResetPassword(ctx context.Context, userID, newPassword string)
 	if strings.TrimSpace(newPassword) == "" {
 		return fmt.Errorf("new password is required")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func toAccount(row sqlc.User) Account {
 		lastLogin = row.LastLoginAt.Time
 	}
 	return Account{
-		ID:          toUUIDString(row.ID),
+		ID:          row.ID.String(),
 		Username:    username,
 		Email:       email,
 		Role:        fmt.Sprint(row.Role),
@@ -422,24 +422,3 @@ func toAccount(row sqlc.User) Account {
 	}
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(strings.TrimSpace(id))
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
-}
-
-func toUUIDString(value pgtype.UUID) string {
-	if !value.Valid {
-		return ""
-	}
-	parsed, err := uuid.FromBytes(value.Bytes[:])
-	if err != nil {
-		return ""
-	}
-	return parsed.String()
-}

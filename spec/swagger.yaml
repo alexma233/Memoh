@@ -80,6 +80,10 @@ definitions:
     properties:
       avatar_url:
         type: string
+      check_issue_count:
+        type: integer
+      check_state:
+        type: string
       created_at:
         type: string
       display_name:
@@ -93,9 +97,25 @@ definitions:
         type: object
       owner_user_id:
         type: string
+      status:
+        type: string
       type:
         type: string
       updated_at:
+        type: string
+    type: object
+  bots.BotCheck:
+    properties:
+      check_key:
+        type: string
+      detail:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      status:
+        type: string
+      summary:
         type: string
     type: object
   bots.BotMember:
@@ -128,6 +148,13 @@ definitions:
       items:
         items:
           $ref: '#/definitions/bots.Bot'
+        type: array
+    type: object
+  bots.ListChecksResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/bots.BotCheck'
         type: array
     type: object
   bots.ListMembersResponse:
@@ -187,8 +214,12 @@ definitions:
         type: string
       name:
         type: string
+      platform_key:
+        type: string
       size:
         type: integer
+      source_platform:
+        type: string
       thumbnail_url:
         type: string
       type:
@@ -481,26 +512,6 @@ definitions:
       verified_at:
         type: string
     type: object
-  channelidentities.ChannelIdentity:
-    properties:
-      channel:
-        type: string
-      channel_subject_id:
-        type: string
-      created_at:
-        type: string
-      display_name:
-        type: string
-      id:
-        type: string
-      metadata:
-        additionalProperties: {}
-        type: object
-      updated_at:
-        type: string
-      user_id:
-        type: string
-    type: object
   github_com_memohai_memoh_internal_mcp.Connection:
     properties:
       active:
@@ -540,8 +551,6 @@ definitions:
     type: object
   handlers.CreateContainerRequest:
     properties:
-      image:
-        type: string
       snapshotter:
         type: string
     type: object
@@ -632,91 +641,6 @@ definitions:
       message:
         type: string
     type: object
-  handlers.FSDeleteResponse:
-    properties:
-      ok:
-        type: boolean
-    type: object
-  handlers.FSListResponse:
-    properties:
-      entries:
-        items:
-          $ref: '#/definitions/handlers.FSRestEntry'
-        type: array
-      path:
-        type: string
-    type: object
-  handlers.FSMkdirRequest:
-    properties:
-      parents:
-        type: boolean
-      path:
-        type: string
-    type: object
-  handlers.FSReadResponse:
-    properties:
-      content:
-        type: string
-      mod_time:
-        type: string
-      mode:
-        type: integer
-      path:
-        type: string
-      size:
-        type: integer
-    type: object
-  handlers.FSRestEntry:
-    properties:
-      is_dir:
-        type: boolean
-      mod_time:
-        type: string
-      mode:
-        type: integer
-      path:
-        type: string
-      size:
-        type: integer
-    type: object
-  handlers.FSStatResponse:
-    properties:
-      is_dir:
-        type: boolean
-      mod_time:
-        type: string
-      mode:
-        type: integer
-      path:
-        type: string
-      size:
-        type: integer
-    type: object
-  handlers.FSUsageResponse:
-    properties:
-      dir_count:
-        type: integer
-      file_count:
-        type: integer
-      path:
-        type: string
-      total_bytes:
-        type: integer
-    type: object
-  handlers.FSWriteRequest:
-    properties:
-      content:
-        type: string
-      overwrite:
-        type: boolean
-      path:
-        type: string
-    type: object
-  handlers.FSWriteResponse:
-    properties:
-      ok:
-        type: boolean
-    type: object
   handlers.GetContainerResponse:
     properties:
       container_id:
@@ -790,7 +714,7 @@ definitions:
     type: object
   handlers.MCPStdioResponse:
     properties:
-      session_id:
+      connection_id:
         type: string
       tools:
         items:
@@ -855,7 +779,7 @@ definitions:
     properties:
       items:
         items:
-          $ref: '#/definitions/channelidentities.ChannelIdentity'
+          $ref: '#/definitions/identities.ChannelIdentity'
         type: array
       user_id:
         type: string
@@ -864,6 +788,26 @@ definitions:
     properties:
       ok:
         type: boolean
+    type: object
+  identities.ChannelIdentity:
+    properties:
+      channel:
+        type: string
+      channel_subject_id:
+        type: string
+      created_at:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      updated_at:
+        type: string
+      user_id:
+        type: string
     type: object
   mcp.ListResponse:
     properties:
@@ -1402,338 +1346,6 @@ paths:
       summary: Create and start MCP container for bot
       tags:
       - containerd
-  /bots/{bot_id}/container/fs:
-    delete:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Relative path
-        in: query
-        name: path
-        required: true
-        type: string
-      - description: Recursive delete for directories
-        in: query
-        name: recursive
-        type: boolean
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSDeleteResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Delete a file or directory
-      tags:
-      - fs
-    get:
-      description: List entries under a relative path
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Relative directory path
-        in: query
-        name: path
-        type: string
-      - description: Recursive listing
-        in: query
-        name: recursive
-        type: boolean
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: List files for a bot
-      tags:
-      - fs
-  /bots/{bot_id}/container/fs-mcp:
-    post:
-      description: |-
-        Forwards MCP JSON-RPC requests to the MCP server inside the container.
-        Required:
-        - container task is running
-        - container has data mount (default /data) bound to <data_root>/users/<user_id>
-        - container image contains the "mcp" binary
-        Auth: Bearer JWT is used to determine user_id (sub or user_id).
-        Paths must be relative (no leading slash) and must not contain "..".
-
-        Example: tools/list
-        {"jsonrpc":"2.0","id":1,"method":"tools/list"}
-
-        Example: tools/call (fs.read)
-        {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fs.read","arguments":{"path":"notes.txt"}}}
-      parameters:
-      - description: Bearer <token>
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: JSON-RPC request
-        in: body
-        name: payload
-        required: true
-        schema:
-          type: object
-      responses:
-        "200":
-          description: 'JSON-RPC response: {jsonrpc,id,result|error}'
-          schema:
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: MCP filesystem tools (JSON-RPC)
-      tags:
-      - containerd
-  /bots/{bot_id}/container/fs/dir:
-    post:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Directory payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.FSMkdirRequest'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSWriteResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Create a directory
-      tags:
-      - fs
-  /bots/{bot_id}/container/fs/file:
-    get:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Relative file path
-        in: query
-        name: path
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSReadResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Read file content
-      tags:
-      - fs
-    post:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: File write payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.FSWriteRequest'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSWriteResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Create or overwrite a file
-      tags:
-      - fs
-  /bots/{bot_id}/container/fs/stat:
-    get:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Relative path
-        in: query
-        name: path
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSStatResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Get file or directory metadata
-      tags:
-      - fs
-  /bots/{bot_id}/container/fs/upload:
-    post:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Relative file path or directory
-        in: query
-        name: path
-        type: string
-      - description: File to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSWriteResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Upload a file
-      tags:
-      - fs
-  /bots/{bot_id}/container/fs/usage:
-    get:
-      parameters:
-      - description: Bot ID
-        in: path
-        name: bot_id
-        required: true
-        type: string
-      - description: Relative directory path
-        in: query
-        name: path
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FSUsageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Get usage under a path
-      tags:
-      - fs
   /bots/{bot_id}/container/skills:
     delete:
       parameters:
@@ -2021,7 +1633,7 @@ paths:
       summary: Create MCP stdio proxy
       tags:
       - containerd
-  /bots/{bot_id}/mcp-stdio/{session_id}:
+  /bots/{bot_id}/mcp-stdio/{connection_id}:
     post:
       description: Proxies MCP JSON-RPC requests to a stdio MCP process in the container.
       parameters:
@@ -2030,9 +1642,9 @@ paths:
         name: bot_id
         required: true
         type: string
-      - description: Session ID
+      - description: Connection ID
         in: path
-        name: session_id
+        name: connection_id
         required: true
         type: string
       - description: JSON-RPC request
@@ -2710,8 +2322,12 @@ paths:
         required: true
         type: string
       responses:
-        "204":
-          description: No Content
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "400":
           description: Bad Request
           schema:
@@ -2972,6 +2588,39 @@ paths:
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Send message via bot channel session token
+      tags:
+      - bots
+  /bots/{id}/checks:
+    get:
+      description: Evaluate bot attached resource checks in runtime
+      parameters:
+      - description: Bot ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/bots.ListChecksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List bot runtime checks
       tags:
       - bots
   /bots/{id}/members:

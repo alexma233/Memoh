@@ -5,6 +5,9 @@ export interface Bot {
   display_name?: string
   avatar_url?: string
   type?: string
+  status?: 'creating' | 'ready' | 'deleting'
+  check_state?: 'ok' | 'issue' | 'unknown'
+  check_issue_count?: number
 }
 
 export interface BotsResponse {
@@ -39,17 +42,29 @@ export interface ChatResponse {
   provider?: string
 }
 
-export interface PersistedChatMessage {
+export interface Message {
   id: string
-  chat_id: string
   bot_id: string
+  route_id?: string
+  platform?: string
+  external_message_id?: string
+  source_reply_to_message_id?: string
   role: string
   content?: unknown
+  metadata?: Record<string, unknown>
   created_at?: string
 }
 
-export interface ChatMessagesResponse {
-  items: PersistedChatMessage[]
+export interface MessagesResponse {
+  items: Message[]
+}
+
+export type StreamProcessingStatus = 'started' | 'completed' | 'failed'
+
+export interface MessageStreamEvent {
+  type: string
+  bot_id?: string
+  message?: Message
 }
 
 export async function fetchBots(): Promise<Bot[]> {
@@ -58,23 +73,34 @@ export async function fetchBots(): Promise<Bot[]> {
 }
 
 export async function fetchChats(botId: string): Promise<ChatSummary[]> {
-  const res = await fetchApi<ChatsResponse>(`/bots/${botId}/chats`)
-  return res.items ?? []
+  const id = botId.trim()
+  if (!id) {
+    return []
+  }
+  return [{
+    id,
+    bot_id: id,
+    kind: 'bot',
+  }]
 }
 
 export async function createChat(botId: string): Promise<ChatSummary> {
-  return fetchApi<ChatSummary>(`/bots/${botId}/chats`, {
-    method: 'POST',
-    body: {
-      kind: 'direct',
-    },
-  })
+  const id = botId.trim()
+  if (!id) {
+    throw new Error('bot id is required')
+  }
+  return {
+    id,
+    bot_id: id,
+    kind: 'bot',
+  }
 }
 
-export async function deleteChat(chatId: string): Promise<void> {
-  await fetchApi(`/chats/${chatId}`, {
-    method: 'DELETE',
-  })
+export async function deleteChat(botId: string, chatId: string): Promise<void> {
+  if (botId.trim() !== chatId.trim()) {
+    throw new Error('chat id must match bot id')
+  }
+  await fetchApi(`/bots/${botId}/messages`, { method: 'DELETE' })
 }
 
 export async function resolveOrCreateChat(botId: string): Promise<string> {
@@ -87,8 +113,11 @@ export async function resolveOrCreateChat(botId: string): Promise<string> {
   return created.id
 }
 
-export async function sendChatMessage(chatId: string, text: string): Promise<ChatResponse> {
-  return fetchApi<ChatResponse>(`/chats/${chatId}/messages`, {
+export async function sendMessage(botId: string, chatId: string, text: string): Promise<ChatResponse> {
+  if (botId.trim() !== chatId.trim()) {
+    throw new Error('chat id must match bot id')
+  }
+  return fetchApi<ChatResponse>(`/bots/${botId}/messages`, {
     method: 'POST',
     body: {
       query: text,
@@ -98,15 +127,36 @@ export async function sendChatMessage(chatId: string, text: string): Promise<Cha
   })
 }
 
-export async function fetchChatMessages(chatId: string): Promise<PersistedChatMessage[]> {
-  const res = await fetchApi<ChatMessagesResponse>(`/chats/${chatId}/messages`)
+export interface FetchMessagesOptions {
+  limit?: number
+  before?: string
+}
+
+export async function fetchMessages(
+  botId: string,
+  chatId: string,
+  options?: FetchMessagesOptions,
+): Promise<Message[]> {
+  if (botId.trim() !== chatId.trim()) {
+    throw new Error('chat id must match bot id')
+  }
+  const params = new URLSearchParams()
+  const limit = options?.limit ?? 30
+  params.set('limit', String(limit))
+  if (options?.before?.trim()) {
+    params.set('before', options.before.trim())
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetchApi<MessagesResponse>(`/bots/${botId}/messages${suffix}`)
   return res.items ?? []
 }
 
-export async function streamChatMessage(
+export async function streamMessage(
+  botId: string,
   chatId: string,
   text: string,
   onTextDelta: (delta: string) => void,
+  onProcessingStatus?: (status: StreamProcessingStatus) => void,
 ): Promise<ChatResponse | null> {
   const token = localStorage.getItem('token') ?? ''
   const headers: Record<string, string> = {
@@ -116,7 +166,10 @@ export async function streamChatMessage(
     headers.Authorization = `Bearer ${token}`
   }
 
-  const response = await fetch(`/api/chats/${chatId}/messages/stream`, {
+  if (botId.trim() !== chatId.trim()) {
+    throw new Error('chat id must match bot id')
+  }
+  const response = await fetch(`/api/bots/${botId}/messages/stream`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -151,11 +204,22 @@ export async function streamChatMessage(
       return
     }
 
-    if (typeof event.error === 'string' && event.error.trim()) {
-      throw new Error(event.error)
-    }
-
     const eventType = String(event.type ?? '').toLowerCase()
+    if (eventType === 'processing_started') {
+      onProcessingStatus?.('started')
+      return
+    }
+    if (eventType === 'processing_completed') {
+      onProcessingStatus?.('completed')
+      return
+    }
+    if (eventType === 'processing_failed') {
+      onProcessingStatus?.('failed')
+      const message = typeof event.error === 'string' && event.error.trim()
+        ? event.error
+        : 'Stream processing failed'
+      throw new Error(message)
+    }
     if (eventType === 'error') {
       const message = typeof event.message === 'string'
         ? event.message
@@ -163,6 +227,9 @@ export async function streamChatMessage(
           ? event.error
           : 'Stream error'
       throw new Error(message)
+    }
+    if (typeof event.error === 'string' && event.error.trim()) {
+      throw new Error(event.error)
     }
     if (eventType === 'text_delta' && typeof event.delta === 'string') {
       onTextDelta(event.delta)
@@ -207,6 +274,83 @@ export async function streamChatMessage(
   return finalResponse
 }
 
+export async function streamMessageEvents(
+  botId: string,
+  signal: AbortSignal,
+  onEvent: (event: MessageStreamEvent) => void,
+  since?: string,
+): Promise<void> {
+  const id = botId.trim()
+  if (!id) {
+    throw new Error('bot id is required')
+  }
+
+  const token = localStorage.getItem('token') ?? ''
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const query = new URLSearchParams()
+  if (since?.trim()) {
+    query.set('since', since.trim())
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  const response = await fetch(`/api/bots/${id}/messages/events${suffix}`, {
+    method: 'GET',
+    headers,
+    signal,
+  })
+
+  if (!response.ok || !response.body) {
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `Event stream failed: ${response.status}`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const handlePayload = (payload: string) => {
+    if (!payload || payload === '[DONE]') {
+      return
+    }
+    const parsed = parseStreamPayload(payload)
+    if (!parsed || typeof parsed === 'string') {
+      return
+    }
+    if (typeof parsed.type !== 'string' || !parsed.type.trim()) {
+      return
+    }
+    onEvent(parsed as MessageStreamEvent)
+  }
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) {
+      break
+    }
+    buffer += decoder.decode(value, { stream: true })
+
+    let index = buffer.indexOf('\n')
+    while (index >= 0) {
+      const line = buffer.slice(0, index).trim()
+      buffer = buffer.slice(index + 1)
+      index = buffer.indexOf('\n')
+      if (!line.startsWith('data:')) {
+        continue
+      }
+      const payload = line.slice(5).trim()
+      handlePayload(payload)
+    }
+  }
+
+  const tail = buffer.trim()
+  if (tail.startsWith('data:')) {
+    handlePayload(tail.slice(5).trim())
+  }
+}
+
 export function extractAssistantTexts(messages: ModelMessage[]): string[] {
   if (!Array.isArray(messages)) {
     return []
@@ -226,7 +370,7 @@ export function extractAssistantTexts(messages: ModelMessage[]): string[] {
   return outputs
 }
 
-export function extractPersistedMessageText(message: PersistedChatMessage): string {
+export function extractMessageText(message: Message): string {
   const raw = message.content
   if (!raw) return ''
 

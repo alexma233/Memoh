@@ -12,15 +12,15 @@ import (
 )
 
 const createBindCode = `-- name: CreateBindCode :one
-INSERT INTO channel_identity_bind_codes (token, issued_by_user_id, platform, expires_at)
+INSERT INTO channel_identity_bind_codes (token, issued_by_user_id, channel_type, expires_at)
 VALUES ($1, $2, $3, $4)
-RETURNING id, token, issued_by_user_id, platform, expires_at, used_at, used_by_channel_identity_id, created_at
+RETURNING id, token, issued_by_user_id, channel_type, expires_at, used_at, used_by_channel_identity_id, created_at
 `
 
 type CreateBindCodeParams struct {
 	Token          string             `json:"token"`
 	IssuedByUserID pgtype.UUID        `json:"issued_by_user_id"`
-	Platform       pgtype.Text        `json:"platform"`
+	ChannelType    pgtype.Text        `json:"channel_type"`
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
 }
 
@@ -28,7 +28,7 @@ func (q *Queries) CreateBindCode(ctx context.Context, arg CreateBindCodeParams) 
 	row := q.db.QueryRow(ctx, createBindCode,
 		arg.Token,
 		arg.IssuedByUserID,
-		arg.Platform,
+		arg.ChannelType,
 		arg.ExpiresAt,
 	)
 	var i ChannelIdentityBindCode
@@ -36,7 +36,7 @@ func (q *Queries) CreateBindCode(ctx context.Context, arg CreateBindCodeParams) 
 		&i.ID,
 		&i.Token,
 		&i.IssuedByUserID,
-		&i.Platform,
+		&i.ChannelType,
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.UsedByChannelIdentityID,
@@ -46,7 +46,7 @@ func (q *Queries) CreateBindCode(ctx context.Context, arg CreateBindCodeParams) 
 }
 
 const getBindCode = `-- name: GetBindCode :one
-SELECT id, token, issued_by_user_id, platform, expires_at, used_at, used_by_channel_identity_id, created_at
+SELECT id, token, issued_by_user_id, channel_type, expires_at, used_at, used_by_channel_identity_id, created_at
 FROM channel_identity_bind_codes
 WHERE token = $1
 `
@@ -58,7 +58,7 @@ func (q *Queries) GetBindCode(ctx context.Context, token string) (ChannelIdentit
 		&i.ID,
 		&i.Token,
 		&i.IssuedByUserID,
-		&i.Platform,
+		&i.ChannelType,
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.UsedByChannelIdentityID,
@@ -68,7 +68,7 @@ func (q *Queries) GetBindCode(ctx context.Context, token string) (ChannelIdentit
 }
 
 const getBindCodeForUpdate = `-- name: GetBindCodeForUpdate :one
-SELECT id, token, issued_by_user_id, platform, expires_at, used_at, used_by_channel_identity_id, created_at
+SELECT id, token, issued_by_user_id, channel_type, expires_at, used_at, used_by_channel_identity_id, created_at
 FROM channel_identity_bind_codes
 WHERE token = $1
 FOR UPDATE
@@ -81,7 +81,7 @@ func (q *Queries) GetBindCodeForUpdate(ctx context.Context, token string) (Chann
 		&i.ID,
 		&i.Token,
 		&i.IssuedByUserID,
-		&i.Platform,
+		&i.ChannelType,
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.UsedByChannelIdentityID,
@@ -95,7 +95,7 @@ UPDATE channel_identity_bind_codes
 SET used_at = now(), used_by_channel_identity_id = $2
 WHERE id = $1
   AND used_at IS NULL
-RETURNING id, token, issued_by_user_id, platform, expires_at, used_at, used_by_channel_identity_id, created_at
+RETURNING id, token, issued_by_user_id, channel_type, expires_at, used_at, used_by_channel_identity_id, created_at
 `
 
 type MarkBindCodeUsedParams struct {
@@ -110,7 +110,7 @@ func (q *Queries) MarkBindCodeUsed(ctx context.Context, arg MarkBindCodeUsedPara
 		&i.ID,
 		&i.Token,
 		&i.IssuedByUserID,
-		&i.Platform,
+		&i.ChannelType,
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.UsedByChannelIdentityID,

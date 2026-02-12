@@ -1,21 +1,16 @@
 import { ref } from 'vue'
 
 /**
- * TagsInput key:value 双向转换逻辑。
- * 用于 add-platform 的 config 和 create-mcp 的 env 字段。
- *
- * 输入格式："key:value" 字符串数组
- * 输出格式：{ key: value } 对象
+ * TagsInput key:value two-way conversion for add-platform config and create-mcp env.
+ * Input: string[] of "key:value"; output: Record<string, string> via callback.
  */
 export function useKeyValueTags() {
   const tagList = ref<string[]>([])
 
-  /** 验证标签格式：必须是 key:value */
   function convertValue(tagStr: string): string {
     return /^\w+:\w+$/.test(tagStr) ? tagStr : ''
   }
 
-  /** 标签更新时，过滤无效值并转换为对象，通过回调输出 */
   function handleUpdate(tags: string[], onUpdate?: (obj: Record<string, string>) => void) {
     tagList.value = tags.filter(Boolean) as string[]
     const obj: Record<string, string> = {}
@@ -28,7 +23,6 @@ export function useKeyValueTags() {
     onUpdate?.(obj)
   }
 
-  /** 从对象初始化标签列表 */
   function initFromObject(obj: Record<string, string> | undefined | null) {
     if (!obj) {
       tagList.value = []

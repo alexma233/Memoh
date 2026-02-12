@@ -54,7 +54,7 @@ type fakeInboundProcessorIntegration struct {
 	gotMsg InboundMessage
 }
 
-func (f *fakeInboundProcessorIntegration) HandleInbound(ctx context.Context, cfg ChannelConfig, msg InboundMessage, sender ReplySender) error {
+func (f *fakeInboundProcessorIntegration) HandleInbound(ctx context.Context, cfg ChannelConfig, msg InboundMessage, sender StreamReplySender) error {
 	f.gotCfg = cfg
 	f.gotMsg = msg
 	if f.err != nil {

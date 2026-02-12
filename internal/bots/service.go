@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -22,6 +24,10 @@ type Service struct {
 	logger             *slog.Logger
 	containerLifecycle ContainerLifecycle
 }
+
+const (
+	botLifecycleOperationTimeout = 5 * time.Minute
+)
 
 var (
 	ErrBotNotFound       = errors.New("bot not found")
@@ -82,7 +88,7 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 	if ownerID == "" {
 		return Bot{}, fmt.Errorf("owner user id is required")
 	}
-	ownerUUID, err := parseUUID(ownerID)
+	ownerUUID, err := db.ParseUUID(ownerID)
 	if err != nil {
 		return Bot{}, err
 	}
@@ -117,6 +123,7 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 		AvatarUrl:   pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
 		IsActive:    isActive,
 		Metadata:    payload,
+		Status:      BotStatusCreating,
 	})
 	if err != nil {
 		return Bot{}, err
@@ -125,14 +132,10 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 	if err != nil {
 		return Bot{}, err
 	}
-	if s.containerLifecycle != nil {
-		if err := s.containerLifecycle.SetupBotContainer(ctx, bot.ID); err != nil {
-			s.logger.Error("failed to setup bot container",
-				slog.String("bot_id", bot.ID),
-				slog.Any("error", err),
-			)
-		}
+	if err := s.attachCheckSummary(ctx, &bot, row); err != nil {
+		return Bot{}, err
 	}
+	s.enqueueCreateLifecycle(bot.ID)
 	return bot, nil
 }
 
@@ -141,7 +144,7 @@ func (s *Service) Get(ctx context.Context, botID string) (Bot, error) {
 	if s.queries == nil {
 		return Bot{}, fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Bot{}, err
 	}
@@ -149,7 +152,14 @@ func (s *Service) Get(ctx context.Context, botID string) (Bot, error) {
 	if err != nil {
 		return Bot{}, err
 	}
-	return toBot(row)
+	bot, err := toBot(row)
+	if err != nil {
+		return Bot{}, err
+	}
+	if err := s.attachCheckSummary(ctx, &bot, row); err != nil {
+		return Bot{}, err
+	}
+	return bot, nil
 }
 
 // ListByOwner returns bots owned by the given user.
@@ -157,7 +167,7 @@ func (s *Service) ListByOwner(ctx context.Context, ownerUserID string) ([]Bot, e
 	if s.queries == nil {
 		return nil, fmt.Errorf("bot queries not configured")
 	}
-	ownerUUID, err := parseUUID(ownerUserID)
+	ownerUUID, err := db.ParseUUID(ownerUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +181,9 @@ func (s *Service) ListByOwner(ctx context.Context, ownerUserID string) ([]Bot, e
 		if err != nil {
 			return nil, err
 		}
+		if err := s.attachCheckSummary(ctx, &item, row); err != nil {
+			return nil, err
+		}
 		items = append(items, item)
 	}
 	return items, nil
@@ -181,7 +194,7 @@ func (s *Service) ListByMember(ctx context.Context, channelIdentityID string) ([
 	if s.queries == nil {
 		return nil, fmt.Errorf("bot queries not configured")
 	}
-	memberUUID, err := parseUUID(channelIdentityID)
+	memberUUID, err := db.ParseUUID(channelIdentityID)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +206,9 @@ func (s *Service) ListByMember(ctx context.Context, channelIdentityID string) ([
 	for _, row := range rows {
 		item, err := toBot(row)
 		if err != nil {
+			return nil, err
+		}
+		if err := s.attachCheckSummary(ctx, &item, row); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -231,7 +247,7 @@ func (s *Service) Update(ctx context.Context, botID string, req UpdateBotRequest
 	if s.queries == nil {
 		return Bot{}, fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Bot{}, err
 	}
@@ -275,7 +291,14 @@ func (s *Service) Update(ctx context.Context, botID string, req UpdateBotRequest
 	if err != nil {
 		return Bot{}, err
 	}
-	return toBot(row)
+	bot, err := toBot(row)
+	if err != nil {
+		return Bot{}, err
+	}
+	if err := s.attachCheckSummary(ctx, &bot, row); err != nil {
+		return Bot{}, err
+	}
+	return bot, nil
 }
 
 // TransferOwner transfers bot ownership to another user.
@@ -283,11 +306,11 @@ func (s *Service) TransferOwner(ctx context.Context, botID string, ownerUserID s
 	if s.queries == nil {
 		return Bot{}, fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Bot{}, err
 	}
-	ownerUUID, err := parseUUID(ownerUserID)
+	ownerUUID, err := db.ParseUUID(ownerUserID)
 	if err != nil {
 		return Bot{}, err
 	}
@@ -301,7 +324,14 @@ func (s *Service) TransferOwner(ctx context.Context, botID string, ownerUserID s
 	if err != nil {
 		return Bot{}, err
 	}
-	return toBot(row)
+	bot, err := toBot(row)
+	if err != nil {
+		return Bot{}, err
+	}
+	if err := s.attachCheckSummary(ctx, &bot, row); err != nil {
+		return Bot{}, err
+	}
+	return bot, nil
 }
 
 // Delete removes a bot and its associated resources.
@@ -309,25 +339,112 @@ func (s *Service) Delete(ctx context.Context, botID string) error {
 	if s.queries == nil {
 		return fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return err
 	}
-	if _, err := s.queries.GetBotByID(ctx, botUUID); err != nil {
+	row, err := s.queries.GetBotByID(ctx, botUUID)
+	if err != nil {
 		return err
 	}
-	if s.containerLifecycle != nil {
-		s.logger.Info("cleaning up bot container before deletion", slog.String("bot_id", botID))
-		if err := s.containerLifecycle.CleanupBotContainer(ctx, botID); err != nil {
-			s.logger.Error("failed to cleanup bot container",
+	if strings.TrimSpace(row.Status) == BotStatusDeleting {
+		return nil
+	}
+	if err := s.queries.UpdateBotStatus(ctx, sqlc.UpdateBotStatusParams{
+		ID:     botUUID,
+		Status: BotStatusDeleting,
+	}); err != nil {
+		return err
+	}
+	s.enqueueDeleteLifecycle(botID)
+	return nil
+}
+
+// ListChecks evaluates runtime resource checks for a bot.
+func (s *Service) ListChecks(ctx context.Context, botID string) ([]BotCheck, error) {
+	if s.queries == nil {
+		return nil, fmt.Errorf("bot queries not configured")
+	}
+	botUUID, err := db.ParseUUID(botID)
+	if err != nil {
+		return nil, err
+	}
+	row, err := s.queries.GetBotByID(ctx, botUUID)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildRuntimeChecks(ctx, row)
+}
+
+func (s *Service) enqueueCreateLifecycle(botID string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), botLifecycleOperationTimeout)
+		defer cancel()
+
+		if s.containerLifecycle != nil {
+			if err := s.containerLifecycle.SetupBotContainer(ctx, botID); err != nil {
+				s.logger.Error("bot container setup failed",
+					slog.String("bot_id", botID),
+					slog.Any("error", err),
+				)
+			}
+		}
+
+		if err := s.updateStatus(ctx, botID, BotStatusReady); err != nil {
+			s.logger.Error("failed to update bot status to ready after create",
 				slog.String("bot_id", botID),
 				slog.Any("error", err),
 			)
 		}
-	} else {
-		s.logger.Warn("container lifecycle not configured, skipping container cleanup", slog.String("bot_id", botID))
+	}()
+}
+
+func (s *Service) enqueueDeleteLifecycle(botID string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), botLifecycleOperationTimeout)
+		defer cancel()
+
+		if s.containerLifecycle != nil {
+			if err := s.containerLifecycle.CleanupBotContainer(ctx, botID); err != nil {
+				s.logger.Error("bot container cleanup failed",
+					slog.String("bot_id", botID),
+					slog.Any("error", err),
+				)
+			}
+		}
+
+		botUUID, err := db.ParseUUID(botID)
+		if err != nil {
+			s.logger.Error("invalid bot id while finalizing delete",
+				slog.String("bot_id", botID),
+				slog.Any("error", err),
+			)
+			_ = s.updateStatus(ctx, botID, BotStatusReady)
+			return
+		}
+		if err := s.queries.DeleteBotByID(ctx, botUUID); err != nil {
+			s.logger.Error("failed to delete bot after cleanup",
+				slog.String("bot_id", botID),
+				slog.Any("error", err),
+			)
+			_ = s.updateStatus(ctx, botID, BotStatusReady)
+			return
+		}
+	}()
+}
+
+func (s *Service) updateStatus(ctx context.Context, botID, status string) error {
+	if s.queries == nil {
+		return fmt.Errorf("bot queries not configured")
 	}
-	return s.queries.DeleteBotByID(ctx, botUUID)
+	botUUID, err := db.ParseUUID(botID)
+	if err != nil {
+		return err
+	}
+	return s.queries.UpdateBotStatus(ctx, sqlc.UpdateBotStatusParams{
+		ID:     botUUID,
+		Status: strings.TrimSpace(status),
+	})
 }
 
 func (s *Service) ensureUserExists(ctx context.Context, userID pgtype.UUID) error {
@@ -349,11 +466,11 @@ func (s *Service) UpsertMember(ctx context.Context, botID string, req UpsertMemb
 	if s.queries == nil {
 		return BotMember{}, fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return BotMember{}, err
 	}
-	memberUUID, err := parseUUID(req.UserID)
+	memberUUID, err := db.ParseUUID(req.UserID)
 	if err != nil {
 		return BotMember{}, err
 	}
@@ -377,7 +494,7 @@ func (s *Service) ListMembers(ctx context.Context, botID string) ([]BotMember, e
 	if s.queries == nil {
 		return nil, fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return nil, err
 	}
@@ -397,11 +514,11 @@ func (s *Service) GetMember(ctx context.Context, botID, channelIdentityID string
 	if s.queries == nil {
 		return BotMember{}, fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return BotMember{}, err
 	}
-	memberUUID, err := parseUUID(channelIdentityID)
+	memberUUID, err := db.ParseUUID(channelIdentityID)
 	if err != nil {
 		return BotMember{}, err
 	}
@@ -420,11 +537,11 @@ func (s *Service) DeleteMember(ctx context.Context, botID, channelIdentityID str
 	if s.queries == nil {
 		return fmt.Errorf("bot queries not configured")
 	}
-	botUUID, err := parseUUID(botID)
+	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return err
 	}
-	memberUUID, err := parseUUID(channelIdentityID)
+	memberUUID, err := db.ParseUUID(channelIdentityID)
 	if err != nil {
 		return err
 	}
@@ -504,15 +621,18 @@ func toBot(row sqlc.Bot) (Bot, error) {
 		updatedAt = row.UpdatedAt.Time
 	}
 	return Bot{
-		ID:          toUUIDString(row.ID),
-		OwnerUserID: toUUIDString(row.OwnerUserID),
-		Type:        row.Type,
-		DisplayName: displayName,
-		AvatarURL:   avatarURL,
-		IsActive:    row.IsActive,
-		Metadata:    metadata,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
+		ID:              row.ID.String(),
+		OwnerUserID:     row.OwnerUserID.String(),
+		Type:            row.Type,
+		DisplayName:     displayName,
+		AvatarURL:       avatarURL,
+		IsActive:        row.IsActive,
+		Status:          strings.TrimSpace(row.Status),
+		CheckState:      BotCheckStateUnknown,
+		CheckIssueCount: 0,
+		Metadata:        metadata,
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
 	}, nil
 }
 
@@ -522,8 +642,8 @@ func toBotMember(row sqlc.BotMember) BotMember {
 		createdAt = row.CreatedAt.Time
 	}
 	return BotMember{
-		BotID:     toUUIDString(row.BotID),
-		UserID:    toUUIDString(row.UserID),
+		BotID:     row.BotID.String(),
+		UserID:    row.UserID.String(),
 		Role:      row.Role,
 		CreatedAt: createdAt,
 	}
@@ -543,24 +663,197 @@ func decodeMetadata(payload []byte) (map[string]any, error) {
 	return data, nil
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(strings.TrimSpace(id))
+func (s *Service) attachCheckSummary(ctx context.Context, bot *Bot, row sqlc.Bot) error {
+	checks, err := s.buildRuntimeChecks(ctx, row)
 	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
+		return err
 	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
+	checkState, issueCount := summarizeChecks(checks)
+	bot.CheckState = checkState
+	bot.CheckIssueCount = issueCount
+	return nil
 }
 
-func toUUIDString(value pgtype.UUID) string {
-	if !value.Valid {
-		return ""
+func (s *Service) buildRuntimeChecks(ctx context.Context, row sqlc.Bot) ([]BotCheck, error) {
+	status := strings.TrimSpace(row.Status)
+	checks := make([]BotCheck, 0, 4)
+
+	if status == BotStatusCreating {
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerInit,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Initialization is in progress.",
+			Detail:   "Bot resources are still being provisioned.",
+		})
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerRecord,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Container record is pending.",
+			Detail:   "Container record will be checked after initialization.",
+		})
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerTask,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Container task state is pending.",
+			Detail:   "Task state will be checked after initialization.",
+		})
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerData,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Container host path check is pending.",
+			Detail:   "Data path will be checked after initialization.",
+		})
+		return checks, nil
 	}
-	parsed, err := uuid.FromBytes(value.Bytes[:])
+	if status == BotStatusDeleting {
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyDelete,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Deletion is in progress.",
+			Detail:   "Bot resources are being cleaned up.",
+		})
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerRecord,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Container record check is skipped.",
+			Detail:   "Bot is deleting and container checks are paused.",
+		})
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerTask,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Container task check is skipped.",
+			Detail:   "Bot is deleting and task checks are paused.",
+		})
+		checks = append(checks, BotCheck{
+			CheckKey: BotCheckKeyContainerData,
+			Status:   BotCheckStatusUnknown,
+			Summary:  "Container host path check is skipped.",
+			Detail:   "Bot is deleting and data path checks are paused.",
+		})
+		return checks, nil
+	}
+
+	checks = append(checks, BotCheck{
+		CheckKey: BotCheckKeyContainerInit,
+		Status:   BotCheckStatusOK,
+		Summary:  "Initialization finished.",
+	})
+
+	containerRow, err := s.queries.GetContainerByBotID(ctx, row.ID)
 	if err != nil {
-		return ""
+		if errors.Is(err, pgx.ErrNoRows) {
+			checks = append(checks, BotCheck{
+				CheckKey: BotCheckKeyContainerRecord,
+				Status:   BotCheckStatusError,
+				Summary:  "Container record is missing.",
+				Detail:   "No container is attached to this bot.",
+			})
+			checks = append(checks, BotCheck{
+				CheckKey: BotCheckKeyContainerTask,
+				Status:   BotCheckStatusUnknown,
+				Summary:  "Container task state is unknown.",
+				Detail:   "Task state cannot be determined without a container record.",
+			})
+			checks = append(checks, BotCheck{
+				CheckKey: BotCheckKeyContainerData,
+				Status:   BotCheckStatusUnknown,
+				Summary:  "Container data path is unknown.",
+				Detail:   "Data path cannot be determined without a container record.",
+			})
+			return checks, nil
+		}
+		return nil, err
 	}
-	return parsed.String()
+
+	checks = append(checks, BotCheck{
+		CheckKey: BotCheckKeyContainerRecord,
+		Status:   BotCheckStatusOK,
+		Summary:  "Container record exists.",
+		Detail:   fmt.Sprintf("container_id=%s", strings.TrimSpace(containerRow.ContainerID)),
+		Metadata: map[string]any{
+			"container_id": strings.TrimSpace(containerRow.ContainerID),
+			"namespace":    strings.TrimSpace(containerRow.Namespace),
+			"image":        strings.TrimSpace(containerRow.Image),
+		},
+	})
+
+	taskStatus := strings.TrimSpace(strings.ToLower(containerRow.Status))
+	taskCheck := BotCheck{
+		CheckKey: BotCheckKeyContainerTask,
+		Status:   BotCheckStatusWarn,
+		Summary:  "Container task state needs attention.",
+	}
+	switch taskStatus {
+	case "running", "created", "stopped", "paused":
+		taskCheck.Status = BotCheckStatusOK
+		taskCheck.Summary = "Container task state is reported."
+		taskCheck.Detail = fmt.Sprintf("status=%s", taskStatus)
+	case "":
+		taskCheck.Detail = "status is empty"
+	default:
+		taskCheck.Detail = fmt.Sprintf("unexpected status=%s", taskStatus)
+	}
+	taskCheck.Metadata = map[string]any{"status": taskStatus}
+	checks = append(checks, taskCheck)
+
+	hostPath := ""
+	if containerRow.HostPath.Valid {
+		hostPath = strings.TrimSpace(containerRow.HostPath.String)
+	}
+	dataCheck := BotCheck{
+		CheckKey: BotCheckKeyContainerData,
+		Status:   BotCheckStatusWarn,
+		Summary:  "Container host path needs attention.",
+		Metadata: map[string]any{"host_path": hostPath},
+	}
+	if hostPath == "" {
+		dataCheck.Detail = "host path is empty"
+		checks = append(checks, dataCheck)
+		return checks, nil
+	}
+	info, statErr := os.Stat(hostPath)
+	switch {
+	case statErr == nil && info != nil && info.IsDir():
+		dataCheck.Status = BotCheckStatusOK
+		dataCheck.Summary = "Container host path is accessible."
+		dataCheck.Detail = hostPath
+	case statErr == nil:
+		dataCheck.Status = BotCheckStatusError
+		dataCheck.Summary = "Container host path is invalid."
+		dataCheck.Detail = "host path is not a directory"
+	case errors.Is(statErr, os.ErrNotExist):
+		dataCheck.Status = BotCheckStatusError
+		dataCheck.Summary = "Container host path does not exist."
+		dataCheck.Detail = hostPath
+	default:
+		dataCheck.Status = BotCheckStatusWarn
+		dataCheck.Summary = "Container host path cannot be checked."
+		dataCheck.Detail = statErr.Error()
+	}
+	checks = append(checks, dataCheck)
+
+	return checks, nil
+}
+
+func summarizeChecks(checks []BotCheck) (string, int32) {
+	if len(checks) == 0 {
+		return BotCheckStateUnknown, 0
+	}
+	var issueCount int32
+	unknownCount := 0
+	for _, check := range checks {
+		switch check.Status {
+		case BotCheckStatusWarn, BotCheckStatusError:
+			issueCount++
+		case BotCheckStatusUnknown:
+			unknownCount++
+		}
+	}
+	if issueCount > 0 {
+		return BotCheckStateIssue, issueCount
+	}
+	if unknownCount == len(checks) {
+		return BotCheckStateUnknown, 0
+	}
+	return BotCheckStateOK, 0
 }

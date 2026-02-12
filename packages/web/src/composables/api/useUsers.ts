@@ -1,27 +1,12 @@
+import { getUsersMe, putUsersMe, putUsersMePassword, getUsersMeIdentities } from '@memoh/sdk'
+import type { AccountsAccount, AccountsUpdateProfileRequest, AccountsUpdatePasswordRequest, HandlersListMyIdentitiesResponse } from '@memoh/sdk'
 import { fetchApi } from '@/utils/request'
 
-export interface UserAccount {
-  id: string
-  username: string
-  email?: string
-  role: string
-  display_name: string
-  avatar_url?: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-  last_login_at?: string
-}
+// ---- Types (re-export SDK types for backward compatibility) ----
 
-export interface UpdateMyProfileRequest {
-  display_name: string
-  avatar_url: string
-}
-
-export interface UpdateMyPasswordRequest {
-  current_password: string
-  new_password: string
-}
+export type UserAccount = AccountsAccount
+export type UpdateMyProfileRequest = AccountsUpdateProfileRequest
+export type UpdateMyPasswordRequest = AccountsUpdatePasswordRequest
 
 export interface ChannelIdentity {
   id: string
@@ -34,10 +19,7 @@ export interface ChannelIdentity {
   updated_at: string
 }
 
-export interface ListMyIdentitiesResponse {
-  user_id: string
-  items: ChannelIdentity[]
-}
+export type ListMyIdentitiesResponse = HandlersListMyIdentitiesResponse
 
 export interface IssueBindCodeRequest {
   platform?: string
@@ -51,27 +33,25 @@ export interface IssueBindCodeResponse {
 }
 
 export async function getMyAccount(): Promise<UserAccount> {
-  return fetchApi<UserAccount>('/users/me')
+  const { data } = await getUsersMe({ throwOnError: true })
+  return data
 }
 
-export async function updateMyProfile(data: UpdateMyProfileRequest): Promise<UserAccount> {
-  return fetchApi<UserAccount>('/users/me', {
-    method: 'PUT',
-    body: data,
-  })
+export async function updateMyProfile(body: UpdateMyProfileRequest): Promise<UserAccount> {
+  const { data } = await putUsersMe({ body, throwOnError: true })
+  return data
 }
 
-export async function updateMyPassword(data: UpdateMyPasswordRequest): Promise<void> {
-  return fetchApi<void>('/users/me/password', {
-    method: 'PUT',
-    body: data,
-  })
+export async function updateMyPassword(body: UpdateMyPasswordRequest): Promise<void> {
+  await putUsersMePassword({ body, throwOnError: true })
 }
 
 export async function listMyIdentities(): Promise<ListMyIdentitiesResponse> {
-  return fetchApi<ListMyIdentitiesResponse>('/users/me/identities')
+  const { data } = await getUsersMeIdentities({ throwOnError: true })
+  return data
 }
 
+// bind_codes endpoint not in SDK, keep fetchApi
 export async function issueMyBindCode(data: IssueBindCodeRequest): Promise<IssueBindCodeResponse> {
   return fetchApi<IssueBindCodeResponse>('/users/me/bind_codes', {
     method: 'POST',

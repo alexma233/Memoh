@@ -1,11 +1,15 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -23,6 +27,7 @@ import (
 const (
 	BotLabelKey     = "mcp.bot_id"
 	ContainerPrefix = "mcp-"
+	DefaultImageRef = "memoh-mcp:dev"
 )
 
 type ExecRequest struct {
@@ -38,20 +43,32 @@ type ExecResult struct {
 	ExitCode uint32
 }
 
+// ExecWithCaptureResult holds stdout, stderr and exit code from container exec.
+type ExecWithCaptureResult struct {
+	Stdout   string
+	Stderr   string
+	ExitCode uint32
+}
+
 type Manager struct {
 	service     ctr.Service
 	cfg         config.MCPConfig
+	namespace   string
 	containerID func(string) string
 	db          *pgxpool.Pool
 	queries     *dbsqlc.Queries
 	logger      *slog.Logger
 }
 
-func NewManager(log *slog.Logger, service ctr.Service, cfg config.MCPConfig) *Manager {
+func NewManager(log *slog.Logger, service ctr.Service, cfg config.MCPConfig, namespace string) *Manager {
+	if namespace == "" {
+		namespace = config.DefaultNamespace
+	}
 	return &Manager{
-		service: service,
-		cfg:     cfg,
-		logger:  log.With(slog.String("component", "mcp")),
+		service:   service,
+		cfg:       cfg,
+		namespace: namespace,
+		logger:    log.With(slog.String("component", "mcp")),
 		containerID: func(botID string) string {
 			return ContainerPrefix + botID
 		},
@@ -65,10 +82,7 @@ func (m *Manager) WithDB(db *pgxpool.Pool) *Manager {
 }
 
 func (m *Manager) Init(ctx context.Context) error {
-	image := m.cfg.BusyboxImage
-	if image == "" {
-		image = config.DefaultBusyboxImg
-	}
+	image := DefaultImageRef
 
 	_, err := m.service.PullImage(ctx, image, &ctr.PullImageOptions{
 		Unpack:      true,
@@ -99,12 +113,6 @@ func (m *Manager) EnsureBot(ctx context.Context, botID string) error {
 		oci.WithMounts([]specs.Mount{
 			{
 				Destination: dataMount,
-				Type:        "bind",
-				Source:      dataDir,
-				Options:     []string{"rbind", "rw"},
-			},
-			{
-				Destination: "/app",
 				Type:        "bind",
 				Source:      dataDir,
 				Options:     []string{"rbind", "rw"},
@@ -242,6 +250,116 @@ func (m *Manager) Exec(ctx context.Context, req ExecRequest) (*ExecResult, error
 	return &ExecResult{ExitCode: result.ExitCode}, nil
 }
 
+// ExecWithCapture runs a command in the bot container and returns stdout, stderr and exit code.
+// Use this when the caller needs command output (e.g. MCP exec tool).
+// The container must already be running; use Start(botID) or the container/start API to start it.
+// On darwin, it uses Lima SSH to avoid virtiofs FIFO synchronization issues.
+func (m *Manager) ExecWithCapture(ctx context.Context, req ExecRequest) (*ExecWithCaptureResult, error) {
+	if err := validateBotID(req.BotID); err != nil {
+		return nil, err
+	}
+	if len(req.Command) == 0 {
+		return nil, fmt.Errorf("%w: empty command", ctr.ErrInvalidArgument)
+	}
+	if m.queries == nil {
+		return nil, fmt.Errorf("db is not configured")
+	}
+
+	if runtime.GOOS == "darwin" {
+		return m.execWithCaptureLima(ctx, req)
+	}
+	return m.execWithCaptureContainerd(ctx, req)
+}
+
+// execWithCaptureLima runs exec through Lima SSH so that all FIFO I/O stays
+// inside the VM, avoiding virtiofs FIFO synchronization issues on macOS.
+func (m *Manager) execWithCaptureLima(ctx context.Context, req ExecRequest) (*ExecWithCaptureResult, error) {
+	containerID := m.containerID(req.BotID)
+	execID := fmt.Sprintf("exec-%d", time.Now().UnixNano())
+
+	// Each element becomes a separate OS arg to limactl.  Lima/SSH joins
+	// them with spaces and passes the result to the remote shell, so only
+	// values that may contain shell-special characters need quoting.
+	args := []string{"shell", "default", "--",
+		"sudo", "ctr", "-n", m.namespace,
+		"tasks", "exec", "--exec-id", execID,
+	}
+	if req.WorkDir != "" {
+		args = append(args, "--cwd", req.WorkDir)
+	}
+	for _, e := range req.Env {
+		args = append(args, "--env", e)
+	}
+	args = append(args, containerID)
+	// Pass command args as-is; Lima shell-quotes each OS arg for the
+	// remote SSH shell, preserving argument boundaries correctly.
+	args = append(args, req.Command...)
+
+	cmd := exec.CommandContext(ctx, "limactl", args...)
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	exitCode := uint32(0)
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			exitCode = uint32(exitErr.ExitCode())
+		} else {
+			return nil, fmt.Errorf("lima exec: %w", err)
+		}
+	}
+
+	// ctr tasks exec may write its own errors to stderr; separate them from
+	// the container command's stderr output by checking for the ctr prefix.
+	stderr := stderrBuf.String()
+	if exitCode != 0 && strings.HasPrefix(stderr, "ctr:") {
+		return nil, fmt.Errorf("container exec failed: %s", strings.TrimSpace(stderr))
+	}
+
+	return &ExecWithCaptureResult{
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderr,
+		ExitCode: exitCode,
+	}, nil
+}
+
+// execWithCaptureContainerd uses the containerd ExecTask API with FIFO pipes.
+// This works reliably on Linux where FIFO I/O stays on the same filesystem.
+func (m *Manager) execWithCaptureContainerd(ctx context.Context, req ExecRequest) (*ExecWithCaptureResult, error) {
+	fifoDir, err := os.MkdirTemp(m.dataRoot(), "exec-fifo-")
+	if err != nil {
+		return nil, fmt.Errorf("create fifo dir: %w", err)
+	}
+	defer os.RemoveAll(fifoDir)
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	result, err := m.service.ExecTask(ctx, m.containerID(req.BotID), ctr.ExecTaskRequest{
+		Args:    req.Command,
+		Env:     req.Env,
+		WorkDir: req.WorkDir,
+		Stderr:  &stderrBuf,
+		Stdout:  &stdoutBuf,
+		FIFODir: fifoDir,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ExecWithCaptureResult{
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderrBuf.String(),
+		ExitCode: result.ExitCode,
+	}, nil
+}
+
+// sshShellQuote wraps a string in single quotes for safe SSH transport.
+func sshShellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // DataDir returns the host data directory for a bot.
 func (m *Manager) DataDir(botID string) (string, error) {
 	if err := validateBotID(botID); err != nil {
@@ -274,10 +392,7 @@ func (m *Manager) dataMount() string {
 }
 
 func (m *Manager) imageRef() string {
-	if m.cfg.BusyboxImage == "" {
-		return config.DefaultBusyboxImg
-	}
-	return m.cfg.BusyboxImage
+	return DefaultImageRef
 }
 
 func validateBotID(botID string) error {

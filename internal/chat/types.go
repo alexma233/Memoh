@@ -1,6 +1,6 @@
-// Package chat orchestrates conversations with the agent gateway, including
-// synchronous and streaming chat, scheduled triggers, messages, and memory storage.
-package chat
+// Package conversation orchestrates interactions with the agent gateway, including
+// synchronous and streaming responses, scheduled triggers, messages, and memory storage.
+package conversation
 
 import (
 	"encoding/json"
@@ -74,12 +74,8 @@ type Participant struct {
 
 // Settings holds per-chat configuration.
 type Settings struct {
-	ChatID              string         `json:"chat_id"`
-	EnableChatMemory    bool           `json:"enable_chat_memory"`
-	EnablePrivateMemory bool           `json:"enable_private_memory"`
-	EnablePublicMemory  bool           `json:"enable_public_memory"`
-	ModelID             string         `json:"model_id,omitempty"`
-	Metadata            map[string]any `json:"metadata,omitempty"`
+	ChatID  string `json:"chat_id"`
+	ModelID string `json:"model_id,omitempty"`
 }
 
 // Route maps external channel conversations to a chat.
@@ -97,24 +93,24 @@ type Route struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
-// Message represents a single persisted chat message.
+// Message represents a single persisted bot message.
 type Message struct {
 	ID                      string          `json:"id"`
-	ChatID                  string          `json:"chat_id"`
 	BotID                   string          `json:"bot_id"`
 	RouteID                 string          `json:"route_id,omitempty"`
 	SenderChannelIdentityID string          `json:"sender_channel_identity_id,omitempty"`
 	SenderUserID            string          `json:"sender_user_id,omitempty"`
 	Platform                string          `json:"platform,omitempty"`
 	ExternalMessageID       string          `json:"external_message_id,omitempty"`
+	SourceReplyToMessageID  string          `json:"source_reply_to_message_id,omitempty"`
 	Role                    string          `json:"role"`
 	Content                 json.RawMessage `json:"content"`
 	Metadata                map[string]any  `json:"metadata,omitempty"`
 	CreatedAt               time.Time       `json:"created_at"`
 }
 
-// CreateChatRequest is the input for creating a chat.
-type CreateChatRequest struct {
+// CreateRequest is the input for creating a bot-scoped conversation container.
+type CreateRequest struct {
 	Kind         string         `json:"kind"`
 	Title        string         `json:"title,omitempty"`
 	ParentChatID string         `json:"parent_chat_id,omitempty"`
@@ -123,10 +119,7 @@ type CreateChatRequest struct {
 
 // UpdateSettingsRequest is the input for updating chat settings.
 type UpdateSettingsRequest struct {
-	EnableChatMemory    *bool   `json:"enable_chat_memory,omitempty"`
-	EnablePrivateMemory *bool   `json:"enable_private_memory,omitempty"`
-	EnablePublicMemory  *bool   `json:"enable_public_memory,omitempty"`
-	ModelID             *string `json:"model_id,omitempty"`
+	ModelID *string `json:"model_id,omitempty"`
 }
 
 // ResolveChatResult is returned by ResolveChat.
@@ -234,16 +227,17 @@ type ToolCallFunction struct {
 
 // ChatRequest is the input for Chat and StreamChat.
 type ChatRequest struct {
-	BotID                    string `json:"-"`
-	ChatID                   string `json:"-"`
-	Token                    string `json:"-"`
-	UserID                   string `json:"-"`
-	SourceChannelIdentityID  string `json:"-"`
-	ContainerID              string `json:"-"`
-	DisplayName              string `json:"-"`
-	RouteID                  string `json:"-"`
-	ChatToken                string `json:"-"`
-	ExternalMessageID        string `json:"-"`
+	BotID                   string `json:"-"`
+	ChatID                  string `json:"-"`
+	Token                   string `json:"-"`
+	UserID                  string `json:"-"`
+	SourceChannelIdentityID string `json:"-"`
+	ContainerID             string `json:"-"`
+	DisplayName             string `json:"-"`
+	RouteID                 string `json:"-"`
+	ChatToken               string `json:"-"`
+	ExternalMessageID       string `json:"-"`
+	UserMessagePersisted    bool   `json:"-"`
 
 	Query              string         `json:"query"`
 	Model              string         `json:"model,omitempty"`

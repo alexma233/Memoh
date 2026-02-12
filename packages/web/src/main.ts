@@ -3,9 +3,6 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import { setupApiClient } from './lib/api-client'
-
-// Configure SDK client before anything else
-setupApiClient()
 import { createPinia } from 'pinia'
 import i18n from './i18n'
 import { PiniaColada } from '@pinia/colada'
@@ -34,6 +31,11 @@ import {
   faPlug,
   faUser,
   faArrowLeft,
+  faCommentDots,
+  faHashtag,
+  faGlobe,
+  faBuilding,
+  faBell,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faRectangleList,
@@ -41,6 +43,7 @@ import {
   faComments,
   faComment,
 } from '@fortawesome/free-regular-svg-icons'
+import { faSlack } from '@fortawesome/free-brands-svg-icons'
 
 library.add(
   faGear,
@@ -60,11 +63,19 @@ library.add(
   faPlug,
   faUser,
   faArrowLeft,
+  faCommentDots,
+  faHashtag,
+  faGlobe,
+  faBuilding,
+  faBell,
   faRectangleList,
   faTrashCan,
   faComments,
   faComment,
+  faSlack,
 )
+
+setupApiClient()
 
 createApp(App)
   .component('FontAwesomeIcon', FontAwesomeIcon)

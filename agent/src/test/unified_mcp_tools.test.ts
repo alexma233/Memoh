@@ -74,7 +74,6 @@ describe('getMCPTools (unified endpoint)', () => {
       const endpoint = `http://127.0.0.1:${server.port}/bots/bot-1/tools`
       const { tools, close } = await getMCPTools(endpoint, {
         Authorization: 'Bearer test-token',
-        'X-Memoh-Chat-Id': 'chat-1',
       })
 
       expect(Object.keys(tools)).toContain('search_memory')

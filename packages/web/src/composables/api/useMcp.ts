@@ -1,23 +1,8 @@
 import { fetchApi } from '@/utils/request'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-// ---- Types ----
+import { type MCPListItem } from '@memoh/shared'
 
-export interface MCPListItem {
-  id: string
-  type: string
-  name: string
-  config: {
-    cwd: string
-    env: Record<string, string>
-    args: string[]
-    type: string
-    command: string
-  }
-  active: boolean
-  user: string
-  createdAt: string
-  updatedAt: string
-}
+// ---- Types ----
 
 export interface McpListResponse {
   items: MCPListItem[]
@@ -33,7 +18,7 @@ export interface UpdateMcpRequest extends CreateMcpRequest {
   id?: string
 }
 
-// ---- Query: 获取 MCP 列表 ----
+// ---- Query: MCP list ----
 
 export function useMcpList() {
   const query = useQuery({

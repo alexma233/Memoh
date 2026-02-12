@@ -1,4 +1,4 @@
-package chat
+package conversation
 
 import (
 	"context"
@@ -18,8 +18,6 @@ func TestLoadMemoryContextMessage_NoMemoryService(t *testing.T) {
 		Query:  "hello",
 		BotID:  "bot-1",
 		ChatID: "chat-1",
-	}, Settings{
-		EnableChatMemory: true,
 	})
 	if msg != nil {
 		t.Fatalf("expected nil message when memory service is nil")
@@ -36,10 +34,6 @@ func TestLoadMemoryContextMessage_SearchFailureFallback(t *testing.T) {
 		BotID:  "bot-1",
 		ChatID: "chat-1",
 		UserID: "user-1",
-	}, Settings{
-		EnableChatMemory:    true,
-		EnablePrivateMemory: true,
-		EnablePublicMemory:  true,
 	})
 	if msg != nil {
 		t.Fatalf("expected nil message when memory search cannot return results")

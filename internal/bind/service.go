@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -51,7 +52,7 @@ func (s *Service) Issue(ctx context.Context, issuedByUserID, platform string, tt
 		ttl = defaultTTL
 	}
 
-	pgUserID, err := parseUUID(issuedByUserID)
+	pgUserID, err := db.ParseUUID(issuedByUserID)
 	if err != nil {
 		return Code{}, fmt.Errorf("invalid user id: %w", err)
 	}
@@ -63,7 +64,7 @@ func (s *Service) Issue(ctx context.Context, issuedByUserID, platform string, tt
 		row, err := s.queries.CreateBindCode(ctx, sqlc.CreateBindCodeParams{
 			Token:          token,
 			IssuedByUserID: pgUserID,
-			Platform: pgtype.Text{
+			ChannelType: pgtype.Text{
 				String: normalizedPlatform,
 				Valid:  normalizedPlatform != "",
 			},
@@ -116,7 +117,7 @@ func (s *Service) Consume(ctx context.Context, code Code, channelIdentityID stri
 	if sourceIdentityID == "" {
 		return fmt.Errorf("channel identity id is required")
 	}
-	pgSourceIdentityID, err := parseUUID(sourceIdentityID)
+	pgSourceIdentityID, err := db.ParseUUID(sourceIdentityID)
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func (s *Service) Consume(ctx context.Context, code Code, channelIdentityID stri
 	if targetUserID == "" {
 		return fmt.Errorf("bind code issuer user is missing")
 	}
-	pgTargetUserID, err := parseUUID(targetUserID)
+	pgTargetUserID, err := db.ParseUUID(targetUserID)
 	if err != nil {
 		return err
 	}
@@ -168,7 +169,7 @@ func (s *Service) Consume(ctx context.Context, code Code, channelIdentityID stri
 		}
 		return fmt.Errorf("reload source identity: %w", err)
 	}
-	if sourceIdentity.UserID.Valid && uuidString(sourceIdentity.UserID) != targetUserID {
+	if sourceIdentity.UserID.Valid && sourceIdentity.UserID.String() != targetUserID {
 		return ErrLinkConflict
 	}
 	if !sourceIdentity.UserID.Valid {
@@ -205,13 +206,13 @@ func (s *Service) Consume(ctx context.Context, code Code, channelIdentityID stri
 
 func toCode(row sqlc.ChannelIdentityBindCode) Code {
 	c := Code{
-		ID:             uuidString(row.ID),
+		ID:             row.ID.String(),
 		Token:          row.Token,
-		IssuedByUserID: uuidString(row.IssuedByUserID),
+		IssuedByUserID: row.IssuedByUserID.String(),
 		CreatedAt:      row.CreatedAt.Time,
 	}
-	if row.Platform.Valid {
-		c.Platform = normalizePlatform(row.Platform.String)
+	if row.ChannelType.Valid {
+		c.Platform = normalizePlatform(row.ChannelType.String)
 	}
 	if row.ExpiresAt.Valid {
 		c.ExpiresAt = row.ExpiresAt.Time
@@ -220,30 +221,9 @@ func toCode(row sqlc.ChannelIdentityBindCode) Code {
 		c.UsedAt = row.UsedAt.Time
 	}
 	if row.UsedByChannelIdentityID.Valid {
-		c.UsedByChannelIdentityID = uuidString(row.UsedByChannelIdentityID)
+		c.UsedByChannelIdentityID = row.UsedByChannelIdentityID.String()
 	}
 	return c
-}
-
-func parseUUID(id string) (pgtype.UUID, error) {
-	trimmed := strings.TrimSpace(id)
-	if trimmed == "" {
-		return pgtype.UUID{}, fmt.Errorf("empty id")
-	}
-	var pgID pgtype.UUID
-	if err := pgID.Scan(trimmed); err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	return pgID, nil
-}
-
-func uuidString(id pgtype.UUID) string {
-	if !id.Valid {
-		return ""
-	}
-	b := id.Bytes
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 func isUniqueViolation(err error) bool {

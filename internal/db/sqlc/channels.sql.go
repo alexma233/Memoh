@@ -76,24 +76,24 @@ func (q *Queries) GetBotChannelConfigByExternalIdentity(ctx context.Context, arg
 }
 
 const getUserChannelBinding = `-- name: GetUserChannelBinding :one
-SELECT id, user_id, platform, config, created_at, updated_at
+SELECT id, user_id, channel_type, config, created_at, updated_at
 FROM user_channel_bindings
-WHERE user_id = $1 AND platform = $2
+WHERE user_id = $1 AND channel_type = $2
 LIMIT 1
 `
 
 type GetUserChannelBindingParams struct {
-	UserID   pgtype.UUID `json:"user_id"`
-	Platform string      `json:"platform"`
+	UserID      pgtype.UUID `json:"user_id"`
+	ChannelType string      `json:"channel_type"`
 }
 
 func (q *Queries) GetUserChannelBinding(ctx context.Context, arg GetUserChannelBindingParams) (UserChannelBinding, error) {
-	row := q.db.QueryRow(ctx, getUserChannelBinding, arg.UserID, arg.Platform)
+	row := q.db.QueryRow(ctx, getUserChannelBinding, arg.UserID, arg.ChannelType)
 	var i UserChannelBinding
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Platform,
+		&i.ChannelType,
 		&i.Config,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -142,14 +142,14 @@ func (q *Queries) ListBotChannelConfigsByType(ctx context.Context, channelType s
 }
 
 const listUserChannelBindingsByPlatform = `-- name: ListUserChannelBindingsByPlatform :many
-SELECT id, user_id, platform, config, created_at, updated_at
+SELECT id, user_id, channel_type, config, created_at, updated_at
 FROM user_channel_bindings
-WHERE platform = $1
+WHERE channel_type = $1
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListUserChannelBindingsByPlatform(ctx context.Context, platform string) ([]UserChannelBinding, error) {
-	rows, err := q.db.Query(ctx, listUserChannelBindingsByPlatform, platform)
+func (q *Queries) ListUserChannelBindingsByPlatform(ctx context.Context, channelType string) ([]UserChannelBinding, error) {
+	rows, err := q.db.Query(ctx, listUserChannelBindingsByPlatform, channelType)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (q *Queries) ListUserChannelBindingsByPlatform(ctx context.Context, platfor
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.Platform,
+			&i.ChannelType,
 			&i.Config,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -236,28 +236,28 @@ func (q *Queries) UpsertBotChannelConfig(ctx context.Context, arg UpsertBotChann
 }
 
 const upsertUserChannelBinding = `-- name: UpsertUserChannelBinding :one
-INSERT INTO user_channel_bindings (user_id, platform, config)
+INSERT INTO user_channel_bindings (user_id, channel_type, config)
 VALUES ($1, $2, $3)
-ON CONFLICT (user_id, platform)
+ON CONFLICT (user_id, channel_type)
 DO UPDATE SET
   config = EXCLUDED.config,
   updated_at = now()
-RETURNING id, user_id, platform, config, created_at, updated_at
+RETURNING id, user_id, channel_type, config, created_at, updated_at
 `
 
 type UpsertUserChannelBindingParams struct {
-	UserID   pgtype.UUID `json:"user_id"`
-	Platform string      `json:"platform"`
-	Config   []byte      `json:"config"`
+	UserID      pgtype.UUID `json:"user_id"`
+	ChannelType string      `json:"channel_type"`
+	Config      []byte      `json:"config"`
 }
 
 func (q *Queries) UpsertUserChannelBinding(ctx context.Context, arg UpsertUserChannelBindingParams) (UserChannelBinding, error) {
-	row := q.db.QueryRow(ctx, upsertUserChannelBinding, arg.UserID, arg.Platform, arg.Config)
+	row := q.db.QueryRow(ctx, upsertUserChannelBinding, arg.UserID, arg.ChannelType, arg.Config)
 	var i UserChannelBinding
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Platform,
+		&i.ChannelType,
 		&i.Config,
 		&i.CreatedAt,
 		&i.UpdatedAt,

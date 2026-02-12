@@ -89,11 +89,12 @@ import {
   ScrollArea,
 } from '@memoh/ui'
 import { computed, ref, watch } from 'vue'
-import type { ModelsGetResponse, ProvidersGetResponse } from '@memoh/sdk'
+import type { ModelInfo } from '@memoh/shared'
+import type { ProviderWithId } from '@/composables/api/useProviders'
 
 const props = defineProps<{
-  models: ModelsGetResponse[]
-  providers: ProvidersGetResponse[]
+  models: ModelInfo[]
+  providers: ProviderWithId[]
   modelType: 'chat' | 'embedding'
   placeholder?: string
 }>()
@@ -102,7 +103,6 @@ const selected = defineModel<string>({ default: '' })
 const searchTerm = ref('')
 const open = ref(false)
 
-// 打开时清空搜索
 watch(open, (val) => {
   if (val) searchTerm.value = ''
 })
@@ -119,7 +119,6 @@ const providerMap = computed(() => {
   return map
 })
 
-// 搜索过滤后按 Provider 分组
 const filteredGroups = computed(() => {
   const keyword = searchTerm.value.trim().toLowerCase()
   const models = keyword
@@ -130,7 +129,7 @@ const filteredGroups = computed(() => {
     )
     : typeFilteredModels.value
 
-  const groups = new Map<string, { providerName: string; models: ModelsGetResponse[] }>()
+  const groups = new Map<string, { providerName: string; models: ModelInfo[] }>()
   for (const model of models) {
     const pid = model.llm_provider_id
     const providerName = providerMap.value.get(pid) ?? pid
@@ -142,7 +141,6 @@ const filteredGroups = computed(() => {
   return Array.from(groups.values())
 })
 
-// 显示选中模型的名称
 const displayLabel = computed(() => {
   if (!selected.value) return ''
   const model = typeFilteredModels.value.find((m) => m.model_id === selected.value)

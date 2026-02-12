@@ -7,19 +7,24 @@ import {
   deleteChat as requestDeleteChat,
   type Bot as ChatBot,
   type ChatSummary,
+  type Message as PersistedMessage,
   fetchBots,
-  fetchChatMessages,
+  fetchMessages,
   fetchChats,
   extractAssistantTexts,
-  extractPersistedMessageText,
-  streamChatMessage,
+  extractMessageText,
+  streamMessage,
+  streamMessageEvents,
 } from '@/composables/api/useChat'
 
 export const useChatList = defineStore('chatList', () => {
+  const defaultProcessingMessage = 'Message received, processing...'
   const chatList = reactive<(user | robot)[]>([])
   const chats = ref<ChatSummary[]>([])
   const loading = ref(false)
   const loadingChats = ref(false)
+  const loadingOlder = ref(false)
+  const hasMoreOlder = ref(true)
   const initializing = ref(false)
   const botId = useLocalStorage<string | null>('chat-bot-id', null)
   const chatId = useLocalStorage<string | null>('chat-id', null)
@@ -34,12 +39,17 @@ export const useChatList = defineStore('chatList', () => {
     chats.value.find((item) => item.id === chatId.value) ?? null,
   )
   const activeChatReadOnly = computed(() => activeChat.value?.access_mode === 'channel_identity_observed')
+  let messageEventsController: AbortController | null = null
+  let messageEventsLoopVersion = 0
+  let messageEventsSince = ''
 
   // Watch for botId changes to re-initialize
   watch(botId, (newBotId) => {
     if (newBotId) {
       void initialize()
     } else {
+      stopMessageEvents()
+      messageEventsSince = ''
       chats.value = []
       chatId.value = null
       replaceMessages([])
@@ -47,6 +57,10 @@ export const useChatList = defineStore('chatList', () => {
   })
 
   const nextId = () => `${Date.now()}-${Math.floor(Math.random() * 1000)}`
+  const isPendingBot = (bot: ChatBot | null | undefined) => (
+    bot?.status === 'creating'
+    || bot?.status === 'deleting'
+  )
 
   const resolveBotIdentityLabel = (targetBotID?: string | null) => {
     const activeBotID = targetBotID ?? botId.value
@@ -55,6 +69,142 @@ export const useChatList = defineStore('chatList', () => {
     }
     const currentBot = bots.value.find((item) => item.id === activeBotID)
     return currentBot?.display_name?.trim() || currentBot?.id || 'Assistant'
+  }
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+
+  const stopMessageEvents = () => {
+    messageEventsLoopVersion += 1
+    if (messageEventsController) {
+      messageEventsController.abort()
+      messageEventsController = null
+    }
+  }
+
+  const updateMessageEventsSince = (createdAt?: string) => {
+    const value = (createdAt ?? '').trim()
+    if (!value) {
+      return
+    }
+    if (!messageEventsSince) {
+      messageEventsSince = value
+      return
+    }
+    const currentMs = Date.parse(messageEventsSince)
+    const nextMs = Date.parse(value)
+    if (Number.isNaN(nextMs)) {
+      return
+    }
+    if (Number.isNaN(currentMs) || nextMs > currentMs) {
+      messageEventsSince = value
+    }
+  }
+
+  const updateMessageEventsSinceFromRows = (rows: PersistedMessage[]) => {
+    messageEventsSince = ''
+    for (const row of rows) {
+      updateMessageEventsSince(row.created_at)
+    }
+  }
+
+  const hasMessageWithID = (messageID: string) => {
+    const targetID = messageID.trim()
+    if (!targetID) {
+      return false
+    }
+    return chatList.some((item) => String(item.id ?? '').trim() === targetID)
+  }
+
+  const appendRealtimeMessage = (raw: PersistedMessage) => {
+    updateMessageEventsSince(raw.created_at)
+
+    const platform = (raw.platform ?? '').trim().toLowerCase()
+    if (platform === 'web') {
+      // Web messages are already rendered by the request-scoped stream path.
+      return
+    }
+
+    const messageID = String(raw.id ?? '').trim()
+    if (messageID && hasMessageWithID(messageID)) {
+      return
+    }
+
+    const item = toChatItem(raw)
+    if (!item) {
+      return
+    }
+    chatList.push(item)
+    chatList.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+    if (chatId.value) {
+      touchChat(chatId.value)
+    }
+  }
+
+  const handleMessageStreamEvent = (targetBotID: string, event: Record<string, unknown>) => {
+    const eventType = String(event.type ?? '').toLowerCase()
+    if (eventType !== 'message_created') {
+      return
+    }
+
+    const eventBotID = String(event.bot_id ?? '').trim()
+    if (eventBotID && eventBotID !== targetBotID) {
+      return
+    }
+
+    const payload = event.message
+    if (!payload || typeof payload !== 'object') {
+      return
+    }
+
+    const raw = payload as PersistedMessage
+    const payloadBotID = String(raw.bot_id ?? '').trim()
+    if (payloadBotID && payloadBotID !== targetBotID) {
+      return
+    }
+    appendRealtimeMessage(raw)
+  }
+
+  const startMessageEvents = (targetBotID: string) => {
+    const normalizedBotID = targetBotID.trim()
+    stopMessageEvents()
+    if (!normalizedBotID) {
+      return
+    }
+
+    const controller = new AbortController()
+    messageEventsController = controller
+    const loopVersion = messageEventsLoopVersion
+
+    const run = async () => {
+      let retryDelayMs = 1000
+      while (!controller.signal.aborted && messageEventsLoopVersion === loopVersion) {
+        try {
+          await streamMessageEvents(
+            normalizedBotID,
+            controller.signal,
+            (event) => {
+              handleMessageStreamEvent(normalizedBotID, event as Record<string, unknown>)
+            },
+            messageEventsSince || undefined,
+          )
+          retryDelayMs = 1000
+          if (!controller.signal.aborted && messageEventsLoopVersion === loopVersion) {
+            await sleep(300)
+          }
+        } catch (error) {
+          if (controller.signal.aborted || messageEventsLoopVersion !== loopVersion) {
+            return
+          }
+          console.error('Message events stream failed:', error)
+          await sleep(retryDelayMs)
+          retryDelayMs = Math.min(retryDelayMs * 2, 5000)
+        }
+      }
+    }
+
+    void run()
   }
 
   const addUserMessage = (text: string) => {
@@ -97,10 +247,18 @@ export const useChatList = defineStore('chatList', () => {
         return null
       }
       // If we have a persisted botId and it's still valid, use it
-      if (botId.value && botsList.some((b) => b.id === botId.value)) {
+      if (botId.value) {
+        const persisted = botsList.find((b) => b.id === botId.value)
+        if (persisted && !isPendingBot(persisted)) {
+          return botId.value
+        }
+      }
+      const firstReadyBot = botsList.find((item) => !isPendingBot(item))
+      if (firstReadyBot) {
+        botId.value = firstReadyBot.id
         return botId.value
       }
-      // Otherwise default to the first bot
+      // Fallback to the first bot when all bots are in a pending lifecycle state.
       botId.value = botsList[0]!.id
       return botId.value
     } catch (error) {
@@ -113,12 +271,12 @@ export const useChatList = defineStore('chatList', () => {
     chatList.splice(0, chatList.length, ...items)
   }
 
-  const toChatItem = (raw: Awaited<ReturnType<typeof fetchChatMessages>>[number]): user | robot | null => {
+  const toChatItem = (raw: Awaited<ReturnType<typeof fetchMessages>>[number]): user | robot | null => {
     if (raw.role !== 'user' && raw.role !== 'assistant') {
       return null
     }
 
-    const text = extractPersistedMessageText(raw)
+    const text = extractMessageText(raw)
     if (!text) {
       return null
     }
@@ -127,12 +285,16 @@ export const useChatList = defineStore('chatList', () => {
     const time = Number.isNaN(createdAt.getTime()) ? new Date() : createdAt
     const itemID = raw.id || nextId()
 
+    const platform = (raw.platform ?? '').trim().toLowerCase()
+    const channelTag = platform && platform !== 'web' ? platform : undefined
+
     if (raw.role === 'user') {
       return {
         description: text,
         time,
         action: 'user',
         id: itemID,
+        ...(channelTag && { platform: channelTag }),
       }
     }
 
@@ -143,15 +305,49 @@ export const useChatList = defineStore('chatList', () => {
       id: itemID,
       type: resolveBotIdentityLabel(raw.bot_id || botId.value),
       state: 'complete',
+      ...(channelTag && { platform: channelTag }),
     }
   }
 
-  const loadMessages = async (targetChatID: string) => {
-    const rows = await fetchChatMessages(targetChatID)
+  const PAGE_SIZE = 30
+
+  const loadMessages = async (targetBotID: string, targetChatID: string) => {
+    const rows = await fetchMessages(targetBotID, targetChatID, { limit: PAGE_SIZE })
     const items = rows
       .map(toChatItem)
       .filter((item): item is user | robot => item !== null)
     replaceMessages(items)
+    hasMoreOlder.value = true
+    updateMessageEventsSinceFromRows(rows)
+  }
+
+  const loadOlderMessages = async (): Promise<number> => {
+    const currentBotID = botId.value ?? ''
+    const currentChatID = chatId.value ?? ''
+    if (!currentBotID || !currentChatID || loadingOlder.value || !hasMoreOlder.value) {
+      return 0
+    }
+    const first = chatList[0]
+    if (!first?.time) {
+      return 0
+    }
+    const before = typeof first.time === 'object' && first.time instanceof Date
+      ? first.time.toISOString()
+      : new Date(first.time).toISOString()
+    loadingOlder.value = true
+    try {
+      const rows = await fetchMessages(currentBotID, currentChatID, { limit: PAGE_SIZE, before })
+      const items = rows
+        .map(toChatItem)
+        .filter((item): item is user | robot => item !== null)
+      if (items.length < PAGE_SIZE) {
+        hasMoreOlder.value = false
+      }
+      chatList.unshift(...items)
+      return items.length
+    } finally {
+      loadingOlder.value = false
+    }
   }
 
   const initialize = async () => {
@@ -161,9 +357,11 @@ export const useChatList = defineStore('chatList', () => {
 
     initializing.value = true
     loadingChats.value = true
+    stopMessageEvents()
     try {
       const currentBotID = await ensureBot()
       if (!currentBotID) {
+        messageEventsSince = ''
         chats.value = []
         chatId.value = null
         replaceMessages([])
@@ -173,6 +371,7 @@ export const useChatList = defineStore('chatList', () => {
       chats.value = visibleChats
 
       if (visibleChats.length === 0) {
+        messageEventsSince = ''
         chatId.value = null
         replaceMessages([])
         return
@@ -182,7 +381,8 @@ export const useChatList = defineStore('chatList', () => {
         ? chatId.value
         : visibleChats[0]!.id
       chatId.value = activeChatID
-      await loadMessages(activeChatID)
+      await loadMessages(currentBotID, activeChatID)
+      startMessageEvents(currentBotID)
     } finally {
       loadingChats.value = false
       initializing.value = false
@@ -220,7 +420,11 @@ export const useChatList = defineStore('chatList', () => {
 
     loadingChats.value = true
     try {
-      await requestDeleteChat(deletingChatID)
+      const currentBotID = botId.value ?? ''
+      if (!currentBotID) {
+        throw new Error('Bot not selected')
+      }
+      await requestDeleteChat(currentBotID, deletingChatID)
       const remainingChats = chats.value.filter((item) => item.id !== deletingChatID)
       chats.value = remainingChats
 
@@ -236,7 +440,7 @@ export const useChatList = defineStore('chatList', () => {
 
       const nextChatID = remainingChats[0]!.id
       chatId.value = nextChatID
-      await loadMessages(nextChatID)
+      await loadMessages(currentBotID, nextChatID)
     } finally {
       loadingChats.value = false
     }
@@ -251,7 +455,11 @@ export const useChatList = defineStore('chatList', () => {
     chatId.value = nextChatID
     loadingChats.value = true
     try {
-      await loadMessages(nextChatID)
+      const currentBotID = botId.value ?? ''
+      if (!currentBotID) {
+        throw new Error('Bot not selected')
+      }
+      await loadMessages(currentBotID, nextChatID)
     } finally {
       loadingChats.value = false
     }
@@ -298,19 +506,34 @@ export const useChatList = defineStore('chatList', () => {
       }
       addUserMessage(trimmed)
 
-      thinkingId = addRobotMessage('', 'thinking')
+      thinkingId = addRobotMessage(defaultProcessingMessage, 'thinking')
       const currentThinkingID = thinkingId
       let streamedText = ''
-      const finalResponse = await streamChatMessage(activeChatID, trimmed, (delta) => {
-        if (!delta) {
-          return
-        }
-        streamedText += delta
-        updateRobotMessage(currentThinkingID, {
-          description: streamedText,
-          state: 'generate',
-        })
-      })
+      const activeBotID = botId.value!
+      const finalResponse = await streamMessage(
+        activeBotID,
+        activeChatID,
+        trimmed,
+        (delta) => {
+          if (!delta) {
+            return
+          }
+          streamedText += delta
+          updateRobotMessage(currentThinkingID, {
+            description: streamedText,
+            state: 'generate',
+          })
+        },
+        (status) => {
+          if (status !== 'started') {
+            return
+          }
+          updateRobotMessage(currentThinkingID, {
+            description: defaultProcessingMessage,
+            state: 'thinking',
+          })
+        },
+      )
 
       if (streamedText.trim()) {
         updateRobotMessage(currentThinkingID, {
@@ -367,6 +590,8 @@ export const useChatList = defineStore('chatList', () => {
     activeChatReadOnly,
     loading,
     loadingChats,
+    loadingOlder,
+    hasMoreOlder,
     initializing,
     initialize,
     selectBot,
@@ -375,5 +600,6 @@ export const useChatList = defineStore('chatList', () => {
     removeChat,
     deleteChat: removeChat,
     sendMessage,
+    loadOlderMessages,
   }
 })

@@ -71,6 +71,16 @@ func (r *Registry) Get(channelType ChannelType) (Adapter, bool) {
 	return adapter, ok
 }
 
+// DirectoryAdapter returns the directory adapter for the given channel type if it implements ChannelDirectoryAdapter.
+func (r *Registry) DirectoryAdapter(channelType ChannelType) (ChannelDirectoryAdapter, bool) {
+	adapter, ok := r.Get(channelType)
+	if !ok {
+		return nil, false
+	}
+	dir, ok := adapter.(ChannelDirectoryAdapter)
+	return dir, ok
+}
+
 // List returns all registered adapters.
 func (r *Registry) List() []Adapter {
 	r.mu.RLock()
@@ -185,6 +195,26 @@ func (r *Registry) GetSender(channelType ChannelType) (Sender, bool) {
 	return sender, ok
 }
 
+// GetStreamSender returns the StreamSender for the given channel type, or nil if unsupported.
+func (r *Registry) GetStreamSender(channelType ChannelType) (StreamSender, bool) {
+	adapter, ok := r.Get(channelType)
+	if !ok {
+		return nil, false
+	}
+	streamSender, ok := adapter.(StreamSender)
+	return streamSender, ok
+}
+
+// GetMessageEditor returns the MessageEditor for the given channel type, or nil if unsupported.
+func (r *Registry) GetMessageEditor(channelType ChannelType) (MessageEditor, bool) {
+	adapter, ok := r.Get(channelType)
+	if !ok {
+		return nil, false
+	}
+	editor, ok := adapter.(MessageEditor)
+	return editor, ok
+}
+
 // GetReceiver returns the Receiver for the given channel type, or nil if unsupported.
 func (r *Registry) GetReceiver(channelType ChannelType) (Receiver, bool) {
 	adapter, ok := r.Get(channelType)
@@ -193,6 +223,16 @@ func (r *Registry) GetReceiver(channelType ChannelType) (Receiver, bool) {
 	}
 	receiver, ok := adapter.(Receiver)
 	return receiver, ok
+}
+
+// GetProcessingStatusNotifier returns the ProcessingStatusNotifier for the given channel type, or nil if unsupported.
+func (r *Registry) GetProcessingStatusNotifier(channelType ChannelType) (ProcessingStatusNotifier, bool) {
+	adapter, ok := r.Get(channelType)
+	if !ok {
+		return nil, false
+	}
+	notifier, ok := adapter.(ProcessingStatusNotifier)
+	return notifier, ok
 }
 
 // --- Dispatch methods (replace former global functions in config.go / target.go) ---

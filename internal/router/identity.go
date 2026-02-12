@@ -10,7 +10,7 @@ import (
 
 	"github.com/memohai/memoh/internal/bind"
 	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channelidentities"
+	"github.com/memohai/memoh/internal/channel/identities"
 	"github.com/memohai/memoh/internal/preauth"
 )
 
@@ -59,7 +59,7 @@ func IdentityStateFromContext(ctx context.Context) (IdentityState, bool) {
 
 // ChannelIdentityService is the minimal interface for channel identity resolution.
 type ChannelIdentityService interface {
-	ResolveByChannelIdentity(ctx context.Context, channel, channelSubjectID, displayName string) (channelidentities.ChannelIdentity, error)
+	ResolveByChannelIdentity(ctx context.Context, channel, channelSubjectID, displayName string) (identities.ChannelIdentity, error)
 	Canonicalize(ctx context.Context, channelIdentityID string) (string, error)
 	GetLinkedUserID(ctx context.Context, channelIdentityID string) (string, error)
 	LinkChannelIdentityToUser(ctx context.Context, channelIdentityID, userID string) error
@@ -169,7 +169,7 @@ func (r *IdentityResolver) Resolve(ctx context.Context, cfg channel.ChannelConfi
 		channelConfigID = ""
 	}
 	subjectID := extractSubjectIdentity(msg)
-	displayName := extractDisplayName(msg)
+	displayName := r.resolveDisplayName(ctx, cfg, msg, subjectID)
 
 	state := IdentityState{
 		Identity: InboundIdentity{
@@ -184,17 +184,11 @@ func (r *IdentityResolver) Resolve(ctx context.Context, cfg channel.ChannelConfi
 		return state, fmt.Errorf("cannot resolve identity: no channel_subject_id")
 	}
 
-	channelIdentity, err := r.channelIdentities.ResolveByChannelIdentity(ctx, msg.Channel.String(), subjectID, displayName)
-	if err != nil {
-		return state, fmt.Errorf("resolve channel identity: %w", err)
-	}
-
-	channelIdentityID := strings.TrimSpace(channelIdentity.ID)
-	state.Identity.ChannelIdentityID = channelIdentityID
-	linkedUserID, err := r.channelIdentities.GetLinkedUserID(ctx, channelIdentityID)
+	channelIdentityID, linkedUserID, err := r.resolveIdentityWithLinkedUser(ctx, msg, subjectID, displayName)
 	if err != nil {
 		return state, err
 	}
+	state.Identity.ChannelIdentityID = channelIdentityID
 	state.Identity.UserID = strings.TrimSpace(linkedUserID)
 	if strings.TrimSpace(state.Identity.UserID) == "" {
 		state.Identity.UserID = r.tryLinkConfiglessChannelIdentityToUser(ctx, msg, channelIdentityID)
@@ -224,21 +218,12 @@ func (r *IdentityResolver) Resolve(ctx context.Context, cfg channel.ChannelConfi
 			isOwner := strings.TrimSpace(state.Identity.UserID) != "" &&
 				strings.TrimSpace(ownerUserID) == strings.TrimSpace(state.Identity.UserID)
 			if !isOwner {
-				if isGroupConversationType(msg.Conversation.Type) {
-					// Ignore non-owner group messages for personal bots.
-					state.Decision = &IdentityDecision{Stop: true}
-					return state, nil
-				}
-				state.Decision = &IdentityDecision{
-					Stop:  true,
-					Reply: channel.Message{Text: r.unboundReply},
-				}
+				// Ignore all non-owner messages for personal bots.
+				state.Decision = &IdentityDecision{Stop: true}
 				return state, nil
 			}
-			if isGroupConversationType(msg.Conversation.Type) {
-				// Owner can chat in group for personal bots.
-				state.Identity.ForceReply = true
-			}
+			// Owner is authorized, but group trigger policy is still decided by
+			// shouldTriggerAssistantResponse in channel routing.
 			return state, nil
 		}
 	}
@@ -283,11 +268,49 @@ func (r *IdentityResolver) Resolve(ctx context.Context, cfg channel.ChannelConfi
 		return state, err
 	}
 
+	// In group conversations, silently drop unauthorized messages to avoid spamming
+	// the channel with "access denied" replies (same behavior as personal bot non-owner).
+	if isGroupConversationType(msg.Conversation.Type) {
+		state.Decision = &IdentityDecision{Stop: true}
+		return state, nil
+	}
+
 	state.Decision = &IdentityDecision{
 		Stop:  true,
 		Reply: channel.Message{Text: r.unboundReply},
 	}
 	return state, nil
+}
+
+func (r *IdentityResolver) resolveIdentityWithLinkedUser(ctx context.Context, msg channel.InboundMessage, primarySubjectID, displayName string) (string, string, error) {
+	candidates := identitySubjectCandidates(msg, primarySubjectID)
+	if len(candidates) == 0 {
+		return "", "", fmt.Errorf("cannot resolve identity: no channel_subject_id")
+	}
+
+	firstChannelIdentityID := ""
+	for _, subjectID := range candidates {
+		channelIdentity, err := r.channelIdentities.ResolveByChannelIdentity(ctx, msg.Channel.String(), subjectID, displayName)
+		if err != nil {
+			return "", "", fmt.Errorf("resolve channel identity: %w", err)
+		}
+		channelIdentityID := strings.TrimSpace(channelIdentity.ID)
+		if channelIdentityID == "" {
+			continue
+		}
+		if firstChannelIdentityID == "" {
+			firstChannelIdentityID = channelIdentityID
+		}
+		linkedUserID, err := r.channelIdentities.GetLinkedUserID(ctx, channelIdentityID)
+		if err != nil {
+			return "", "", err
+		}
+		linkedUserID = strings.TrimSpace(linkedUserID)
+		if linkedUserID != "" {
+			return channelIdentityID, linkedUserID, nil
+		}
+	}
+	return firstChannelIdentityID, "", nil
 }
 
 func (r *IdentityResolver) tryHandlePreauthKey(ctx context.Context, msg channel.InboundMessage, botID, userID, subjectID string) (bool, IdentityDecision, error) {
@@ -411,21 +434,85 @@ func extractSubjectIdentity(msg channel.InboundMessage) string {
 	return strings.TrimSpace(msg.Sender.DisplayName)
 }
 
+func identitySubjectCandidates(msg channel.InboundMessage, primary string) []string {
+	candidates := make([]string, 0, 3)
+	appendUnique := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		for _, existing := range candidates {
+			if existing == value {
+				return
+			}
+		}
+		candidates = append(candidates, value)
+	}
+
+	appendUnique(primary)
+	appendUnique(msg.Sender.Attribute("open_id"))
+	appendUnique(msg.Sender.Attribute("user_id"))
+	return candidates
+}
+
 func extractDisplayName(msg channel.InboundMessage) string {
 	if strings.TrimSpace(msg.Sender.DisplayName) != "" {
 		return strings.TrimSpace(msg.Sender.DisplayName)
 	}
-	if strings.TrimSpace(msg.Sender.SubjectID) != "" {
-		return strings.TrimSpace(msg.Sender.SubjectID)
+	if value := strings.TrimSpace(msg.Sender.Attribute("display_name")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(msg.Sender.Attribute("name")); value != "" {
+		return value
 	}
 	if value := strings.TrimSpace(msg.Sender.Attribute("username")); value != "" {
 		return value
 	}
-	if value := strings.TrimSpace(msg.Sender.Attribute("user_id")); value != "" {
-		return value
+	return ""
+}
+
+func (r *IdentityResolver) resolveDisplayName(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage, subjectID string) string {
+	displayName := extractDisplayName(msg)
+	if displayName != "" {
+		return displayName
 	}
-	if value := strings.TrimSpace(msg.Sender.Attribute("open_id")); value != "" {
-		return value
+	return r.resolveDisplayNameFromDirectory(ctx, cfg, msg, subjectID)
+}
+
+func (r *IdentityResolver) resolveDisplayNameFromDirectory(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage, subjectID string) string {
+	if r.registry == nil {
+		return ""
+	}
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" {
+		return ""
+	}
+	directoryAdapter, ok := r.registry.DirectoryAdapter(msg.Channel)
+	if !ok || directoryAdapter == nil {
+		return ""
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	entry, err := directoryAdapter.ResolveEntry(lookupCtx, cfg, subjectID, channel.DirectoryEntryUser)
+	if err != nil {
+		if r.logger != nil {
+			r.logger.Debug(
+				"resolve display name from directory failed",
+				slog.String("channel", msg.Channel.String()),
+				slog.String("subject_id", subjectID),
+				slog.Any("error", err),
+			)
+		}
+		return ""
+	}
+	if name := strings.TrimSpace(entry.Name); name != "" {
+		return name
+	}
+	if handle := strings.TrimSpace(entry.Handle); handle != "" {
+		return handle
 	}
 	return ""
 }

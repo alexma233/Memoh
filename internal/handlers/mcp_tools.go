@@ -15,12 +15,10 @@ import (
 )
 
 const (
-	headerChatID            = "X-Memoh-Chat-Id"
 	headerChannelIdentityID = "X-Memoh-Channel-Identity-Id"
 	headerSessionToken      = "X-Memoh-Session-Token"
 	headerCurrentPlatform   = "X-Memoh-Current-Platform"
 	headerReplyTarget       = "X-Memoh-Reply-Target"
-	headerDisplayName       = "X-Memoh-Display-Name"
 )
 
 func (h *ContainerdHandler) SetToolGatewayService(service *mcpgw.ToolGatewayService) {
@@ -234,11 +232,10 @@ func (h *ContainerdHandler) buildToolSessionContext(c echo.Context, botID string
 	}
 	return mcpgw.ToolSessionContext{
 		BotID:             strings.TrimSpace(botID),
-		ChatID:            strings.TrimSpace(c.Request().Header.Get(headerChatID)),
+		ChatID:            strings.TrimSpace(botID),
 		ChannelIdentityID: channelIdentityID,
 		SessionToken:      strings.TrimSpace(c.Request().Header.Get(headerSessionToken)),
 		CurrentPlatform:   strings.TrimSpace(c.Request().Header.Get(headerCurrentPlatform)),
 		ReplyTarget:       strings.TrimSpace(c.Request().Header.Get(headerReplyTarget)),
-		DisplayName:       strings.TrimSpace(c.Request().Header.Get(headerDisplayName)),
 	}
 }

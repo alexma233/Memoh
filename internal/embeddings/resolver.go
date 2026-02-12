@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/models"
 )
@@ -261,7 +262,7 @@ func (r *Resolver) loadChannelIdentityEmbeddingModelID(ctx context.Context, chan
 	if r.queries == nil {
 		return "", nil
 	}
-	pgChannelIdentityID, err := parseUUID(channelIdentityID)
+	pgChannelIdentityID, err := db.ParseUUID(channelIdentityID)
 	if err != nil {
 		return "", err
 	}
@@ -275,13 +276,3 @@ func (r *Resolver) loadChannelIdentityEmbeddingModelID(ctx context.Context, chan
 	return strings.TrimSpace(row.EmbeddingModelID.String), nil
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
-}

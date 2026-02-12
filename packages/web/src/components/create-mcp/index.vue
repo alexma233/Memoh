@@ -260,14 +260,12 @@ import z from 'zod'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { ref, inject, watch } from 'vue'
-import { type MCPListItem as MCPType } from '@/composables/api/useMcp'
+import { type MCPListItem as MCPType } from '@memoh/shared'
 import { useKeyValueTags } from '@/composables/useKeyValueTags'
 import { useCreateOrUpdateMcp } from '@/composables/api/useMcp'
 
-// ---- Env key:value 转换 ----
 const envTags = useKeyValueTags()
 
-// ---- 表单 ----
 const validateSchema = toTypedSchema(z.object({
   name: z.string().min(1),
   config: z.object({
@@ -284,10 +282,8 @@ const form = useForm({
   validationSchema: validateSchema,
 })
 
-// ---- API ----
 const { mutate: fetchMCP } = useCreateOrUpdateMcp()
 
-// ---- Dialog & 编辑状态 ----
 const open = inject('open', ref(false))
 const mcpEditData = inject('mcpEditData', ref<{
   name: string

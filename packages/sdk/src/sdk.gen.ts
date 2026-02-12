@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DeleteBotsByBotIdContainerData, DeleteBotsByBotIdContainerErrors, DeleteBotsByBotIdContainerFsData, DeleteBotsByBotIdContainerFsErrors, DeleteBotsByBotIdContainerFsResponses, DeleteBotsByBotIdContainerResponses, DeleteBotsByBotIdContainerSkillsData, DeleteBotsByBotIdContainerSkillsErrors, DeleteBotsByBotIdContainerSkillsResponses, DeleteBotsByBotIdHistoryByIdData, DeleteBotsByBotIdHistoryByIdErrors, DeleteBotsByBotIdHistoryByIdResponses, DeleteBotsByBotIdHistoryData, DeleteBotsByBotIdHistoryErrors, DeleteBotsByBotIdHistoryResponses, DeleteBotsByBotIdMcpByIdData, DeleteBotsByBotIdMcpByIdErrors, DeleteBotsByBotIdMcpByIdResponses, DeleteBotsByBotIdMemoryMemoriesByMemoryIdData, DeleteBotsByBotIdMemoryMemoriesByMemoryIdErrors, DeleteBotsByBotIdMemoryMemoriesByMemoryIdResponses, DeleteBotsByBotIdMemoryMemoriesData, DeleteBotsByBotIdMemoryMemoriesErrors, DeleteBotsByBotIdMemoryMemoriesResponses, DeleteBotsByBotIdScheduleByIdData, DeleteBotsByBotIdScheduleByIdErrors, DeleteBotsByBotIdScheduleByIdResponses, DeleteBotsByBotIdSettingsData, DeleteBotsByBotIdSettingsErrors, DeleteBotsByBotIdSettingsResponses, DeleteBotsByBotIdSubagentsByIdData, DeleteBotsByBotIdSubagentsByIdErrors, DeleteBotsByBotIdSubagentsByIdResponses, DeleteBotsByIdData, DeleteBotsByIdErrors, DeleteBotsByIdMembersByUserIdData, DeleteBotsByIdMembersByUserIdErrors, DeleteBotsByIdMembersByUserIdResponses, DeleteBotsByIdResponses, DeleteModelsByIdData, DeleteModelsByIdErrors, DeleteModelsByIdResponses, DeleteModelsModelByModelIdData, DeleteModelsModelByModelIdErrors, DeleteModelsModelByModelIdResponses, DeleteProvidersByIdData, DeleteProvidersByIdErrors, DeleteProvidersByIdResponses, GetBotsByBotIdContainerData, GetBotsByBotIdContainerErrors, GetBotsByBotIdContainerFsData, GetBotsByBotIdContainerFsErrors, GetBotsByBotIdContainerFsFileData, GetBotsByBotIdContainerFsFileErrors, GetBotsByBotIdContainerFsFileResponses, GetBotsByBotIdContainerFsResponses, GetBotsByBotIdContainerFsStatData, GetBotsByBotIdContainerFsStatErrors, GetBotsByBotIdContainerFsStatResponses, GetBotsByBotIdContainerFsUsageData, GetBotsByBotIdContainerFsUsageErrors, GetBotsByBotIdContainerFsUsageResponses, GetBotsByBotIdContainerResponses, GetBotsByBotIdContainerSkillsData, GetBotsByBotIdContainerSkillsErrors, GetBotsByBotIdContainerSkillsResponses, GetBotsByBotIdContainerSnapshotsData, GetBotsByBotIdContainerSnapshotsResponses, GetBotsByBotIdHistoryByIdData, GetBotsByBotIdHistoryByIdErrors, GetBotsByBotIdHistoryByIdResponses, GetBotsByBotIdHistoryData, GetBotsByBotIdHistoryErrors, GetBotsByBotIdHistoryResponses, GetBotsByBotIdMcpByIdData, GetBotsByBotIdMcpByIdErrors, GetBotsByBotIdMcpByIdResponses, GetBotsByBotIdMcpData, GetBotsByBotIdMcpErrors, GetBotsByBotIdMcpResponses, GetBotsByBotIdMemoryMemoriesByMemoryIdData, GetBotsByBotIdMemoryMemoriesByMemoryIdErrors, GetBotsByBotIdMemoryMemoriesByMemoryIdResponses, GetBotsByBotIdMemoryMemoriesData, GetBotsByBotIdMemoryMemoriesErrors, GetBotsByBotIdMemoryMemoriesResponses, GetBotsByBotIdScheduleByIdData, GetBotsByBotIdScheduleByIdErrors, GetBotsByBotIdScheduleByIdResponses, GetBotsByBotIdScheduleData, GetBotsByBotIdScheduleErrors, GetBotsByBotIdScheduleResponses, GetBotsByBotIdSettingsData, GetBotsByBotIdSettingsErrors, GetBotsByBotIdSettingsResponses, GetBotsByBotIdSubagentsByIdContextData, GetBotsByBotIdSubagentsByIdContextErrors, GetBotsByBotIdSubagentsByIdContextResponses, GetBotsByBotIdSubagentsByIdData, GetBotsByBotIdSubagentsByIdErrors, GetBotsByBotIdSubagentsByIdResponses, GetBotsByBotIdSubagentsByIdSkillsData, GetBotsByBotIdSubagentsByIdSkillsErrors, GetBotsByBotIdSubagentsByIdSkillsResponses, GetBotsByBotIdSubagentsData, GetBotsByBotIdSubagentsErrors, GetBotsByBotIdSubagentsResponses, GetBotsByIdChannelByPlatformData, GetBotsByIdChannelByPlatformErrors, GetBotsByIdChannelByPlatformResponses, GetBotsByIdData, GetBotsByIdErrors, GetBotsByIdMembersData, GetBotsByIdMembersErrors, GetBotsByIdMembersResponses, GetBotsByIdResponses, GetBotsData, GetBotsErrors, GetBotsResponses, GetChannelsByPlatformData, GetChannelsByPlatformErrors, GetChannelsByPlatformResponses, GetChannelsData, GetChannelsErrors, GetChannelsResponses, GetModelsByIdData, GetModelsByIdErrors, GetModelsByIdResponses, GetModelsCountData, GetModelsCountErrors, GetModelsCountResponses, GetModelsData, GetModelsErrors, GetModelsModelByModelIdData, GetModelsModelByModelIdErrors, GetModelsModelByModelIdResponses, GetModelsResponses, GetProvidersByIdData, GetProvidersByIdErrors, GetProvidersByIdModelsData, GetProvidersByIdModelsErrors, GetProvidersByIdModelsResponses, GetProvidersByIdResponses, GetProvidersCountData, GetProvidersCountErrors, GetProvidersCountResponses, GetProvidersData, GetProvidersErrors, GetProvidersNameByNameData, GetProvidersNameByNameErrors, GetProvidersNameByNameResponses, GetProvidersResponses, GetUsersByIdData, GetUsersByIdErrors, GetUsersByIdResponses, GetUsersData, GetUsersErrors, GetUsersMeChannelsByPlatformData, GetUsersMeChannelsByPlatformErrors, GetUsersMeChannelsByPlatformResponses, GetUsersMeData, GetUsersMeErrors, GetUsersMeResponses, GetUsersResponses, PostAuthLoginData, PostAuthLoginErrors, PostAuthLoginResponses, PostBotsByBotIdChatData, PostBotsByBotIdChatErrors, PostBotsByBotIdChatResponses, PostBotsByBotIdChatStreamData, PostBotsByBotIdChatStreamErrors, PostBotsByBotIdChatStreamResponses, PostBotsByBotIdContainerData, PostBotsByBotIdContainerErrors, PostBotsByBotIdContainerFsDirData, PostBotsByBotIdContainerFsDirErrors, PostBotsByBotIdContainerFsDirResponses, PostBotsByBotIdContainerFsFileData, PostBotsByBotIdContainerFsFileErrors, PostBotsByBotIdContainerFsFileResponses, PostBotsByBotIdContainerFsMcpData, PostBotsByBotIdContainerFsMcpErrors, PostBotsByBotIdContainerFsMcpResponses, PostBotsByBotIdContainerFsUploadData, PostBotsByBotIdContainerFsUploadErrors, PostBotsByBotIdContainerFsUploadResponses, PostBotsByBotIdContainerResponses, PostBotsByBotIdContainerSkillsData, PostBotsByBotIdContainerSkillsErrors, PostBotsByBotIdContainerSkillsResponses, PostBotsByBotIdContainerSnapshotsData, PostBotsByBotIdContainerSnapshotsErrors, PostBotsByBotIdContainerSnapshotsResponses, PostBotsByBotIdContainerStartData, PostBotsByBotIdContainerStartErrors, PostBotsByBotIdContainerStartResponses, PostBotsByBotIdContainerStopData, PostBotsByBotIdContainerStopErrors, PostBotsByBotIdContainerStopResponses, PostBotsByBotIdHistoryData, PostBotsByBotIdHistoryErrors, PostBotsByBotIdHistoryResponses, PostBotsByBotIdMcpData, PostBotsByBotIdMcpErrors, PostBotsByBotIdMcpResponses, PostBotsByBotIdMcpStdioBySessionIdData, PostBotsByBotIdMcpStdioBySessionIdErrors, PostBotsByBotIdMcpStdioBySessionIdResponses, PostBotsByBotIdMcpStdioData, PostBotsByBotIdMcpStdioErrors, PostBotsByBotIdMcpStdioResponses, PostBotsByBotIdMemoryAddData, PostBotsByBotIdMemoryAddErrors, PostBotsByBotIdMemoryAddResponses, PostBotsByBotIdMemoryEmbedData, PostBotsByBotIdMemoryEmbedErrors, PostBotsByBotIdMemoryEmbedResponses, PostBotsByBotIdMemorySearchData, PostBotsByBotIdMemorySearchErrors, PostBotsByBotIdMemorySearchResponses, PostBotsByBotIdMemoryUpdateData, PostBotsByBotIdMemoryUpdateErrors, PostBotsByBotIdMemoryUpdateResponses, PostBotsByBotIdScheduleData, PostBotsByBotIdScheduleErrors, PostBotsByBotIdScheduleResponses, PostBotsByBotIdSettingsData, PostBotsByBotIdSettingsErrors, PostBotsByBotIdSettingsResponses, PostBotsByBotIdSubagentsByIdSkillsData, PostBotsByBotIdSubagentsByIdSkillsErrors, PostBotsByBotIdSubagentsByIdSkillsResponses, PostBotsByBotIdSubagentsData, PostBotsByBotIdSubagentsErrors, PostBotsByBotIdSubagentsResponses, PostBotsByIdChannelByPlatformSendData, PostBotsByIdChannelByPlatformSendErrors, PostBotsByIdChannelByPlatformSendResponses, PostBotsByIdChannelByPlatformSendSessionData, PostBotsByIdChannelByPlatformSendSessionErrors, PostBotsByIdChannelByPlatformSendSessionResponses, PostBotsData, PostBotsErrors, PostBotsResponses, PostEmbeddingsData, PostEmbeddingsErrors, PostEmbeddingsResponses, PostModelsData, PostModelsEnableData, PostModelsEnableErrors, PostModelsEnableResponses, PostModelsErrors, PostModelsResponses, PostProvidersData, PostProvidersErrors, PostProvidersResponses, PostUsersData, PostUsersErrors, PostUsersResponses, PutBotsByBotIdMcpByIdData, PutBotsByBotIdMcpByIdErrors, PutBotsByBotIdMcpByIdResponses, PutBotsByBotIdScheduleByIdData, PutBotsByBotIdScheduleByIdErrors, PutBotsByBotIdScheduleByIdResponses, PutBotsByBotIdSettingsData, PutBotsByBotIdSettingsErrors, PutBotsByBotIdSettingsResponses, PutBotsByBotIdSubagentsByIdContextData, PutBotsByBotIdSubagentsByIdContextErrors, PutBotsByBotIdSubagentsByIdContextResponses, PutBotsByBotIdSubagentsByIdData, PutBotsByBotIdSubagentsByIdErrors, PutBotsByBotIdSubagentsByIdResponses, PutBotsByBotIdSubagentsByIdSkillsData, PutBotsByBotIdSubagentsByIdSkillsErrors, PutBotsByBotIdSubagentsByIdSkillsResponses, PutBotsByIdChannelByPlatformData, PutBotsByIdChannelByPlatformErrors, PutBotsByIdChannelByPlatformResponses, PutBotsByIdData, PutBotsByIdErrors, PutBotsByIdMembersData, PutBotsByIdMembersErrors, PutBotsByIdMembersResponses, PutBotsByIdOwnerData, PutBotsByIdOwnerErrors, PutBotsByIdOwnerResponses, PutBotsByIdResponses, PutModelsByIdData, PutModelsByIdErrors, PutModelsByIdResponses, PutModelsModelByModelIdData, PutModelsModelByModelIdErrors, PutModelsModelByModelIdResponses, PutProvidersByIdData, PutProvidersByIdErrors, PutProvidersByIdResponses, PutUsersByIdData, PutUsersByIdErrors, PutUsersByIdPasswordData, PutUsersByIdPasswordErrors, PutUsersByIdPasswordResponses, PutUsersByIdResponses, PutUsersMeChannelsByPlatformData, PutUsersMeChannelsByPlatformErrors, PutUsersMeChannelsByPlatformResponses, PutUsersMeData, PutUsersMeErrors, PutUsersMePasswordData, PutUsersMePasswordErrors, PutUsersMePasswordResponses, PutUsersMeResponses } from './types.gen';
+import type { DeleteBotsByBotIdContainerData, DeleteBotsByBotIdContainerErrors, DeleteBotsByBotIdContainerResponses, DeleteBotsByBotIdContainerSkillsData, DeleteBotsByBotIdContainerSkillsErrors, DeleteBotsByBotIdContainerSkillsResponses, DeleteBotsByBotIdMcpByIdData, DeleteBotsByBotIdMcpByIdErrors, DeleteBotsByBotIdMcpByIdResponses, DeleteBotsByBotIdScheduleByIdData, DeleteBotsByBotIdScheduleByIdErrors, DeleteBotsByBotIdScheduleByIdResponses, DeleteBotsByBotIdSettingsData, DeleteBotsByBotIdSettingsErrors, DeleteBotsByBotIdSettingsResponses, DeleteBotsByBotIdSubagentsByIdData, DeleteBotsByBotIdSubagentsByIdErrors, DeleteBotsByBotIdSubagentsByIdResponses, DeleteBotsByIdData, DeleteBotsByIdErrors, DeleteBotsByIdMembersByUserIdData, DeleteBotsByIdMembersByUserIdErrors, DeleteBotsByIdMembersByUserIdResponses, DeleteBotsByIdResponses, DeleteModelsByIdData, DeleteModelsByIdErrors, DeleteModelsByIdResponses, DeleteModelsModelByModelIdData, DeleteModelsModelByModelIdErrors, DeleteModelsModelByModelIdResponses, DeleteProvidersByIdData, DeleteProvidersByIdErrors, DeleteProvidersByIdResponses, GetBotsByBotIdContainerData, GetBotsByBotIdContainerErrors, GetBotsByBotIdContainerResponses, GetBotsByBotIdContainerSkillsData, GetBotsByBotIdContainerSkillsErrors, GetBotsByBotIdContainerSkillsResponses, GetBotsByBotIdContainerSnapshotsData, GetBotsByBotIdContainerSnapshotsResponses, GetBotsByBotIdMcpByIdData, GetBotsByBotIdMcpByIdErrors, GetBotsByBotIdMcpByIdResponses, GetBotsByBotIdMcpData, GetBotsByBotIdMcpErrors, GetBotsByBotIdMcpResponses, GetBotsByBotIdScheduleByIdData, GetBotsByBotIdScheduleByIdErrors, GetBotsByBotIdScheduleByIdResponses, GetBotsByBotIdScheduleData, GetBotsByBotIdScheduleErrors, GetBotsByBotIdScheduleResponses, GetBotsByBotIdSettingsData, GetBotsByBotIdSettingsErrors, GetBotsByBotIdSettingsResponses, GetBotsByBotIdSubagentsByIdContextData, GetBotsByBotIdSubagentsByIdContextErrors, GetBotsByBotIdSubagentsByIdContextResponses, GetBotsByBotIdSubagentsByIdData, GetBotsByBotIdSubagentsByIdErrors, GetBotsByBotIdSubagentsByIdResponses, GetBotsByBotIdSubagentsByIdSkillsData, GetBotsByBotIdSubagentsByIdSkillsErrors, GetBotsByBotIdSubagentsByIdSkillsResponses, GetBotsByBotIdSubagentsData, GetBotsByBotIdSubagentsErrors, GetBotsByBotIdSubagentsResponses, GetBotsByIdChannelByPlatformData, GetBotsByIdChannelByPlatformErrors, GetBotsByIdChannelByPlatformResponses, GetBotsByIdChecksData, GetBotsByIdChecksErrors, GetBotsByIdChecksResponses, GetBotsByIdData, GetBotsByIdErrors, GetBotsByIdMembersData, GetBotsByIdMembersErrors, GetBotsByIdMembersResponses, GetBotsByIdResponses, GetBotsData, GetBotsErrors, GetBotsResponses, GetChannelsByPlatformData, GetChannelsByPlatformErrors, GetChannelsByPlatformResponses, GetChannelsData, GetChannelsErrors, GetChannelsResponses, GetModelsByIdData, GetModelsByIdErrors, GetModelsByIdResponses, GetModelsCountData, GetModelsCountErrors, GetModelsCountResponses, GetModelsData, GetModelsErrors, GetModelsModelByModelIdData, GetModelsModelByModelIdErrors, GetModelsModelByModelIdResponses, GetModelsResponses, GetProvidersByIdData, GetProvidersByIdErrors, GetProvidersByIdModelsData, GetProvidersByIdModelsErrors, GetProvidersByIdModelsResponses, GetProvidersByIdResponses, GetProvidersCountData, GetProvidersCountErrors, GetProvidersCountResponses, GetProvidersData, GetProvidersErrors, GetProvidersNameByNameData, GetProvidersNameByNameErrors, GetProvidersNameByNameResponses, GetProvidersResponses, GetUsersByIdData, GetUsersByIdErrors, GetUsersByIdResponses, GetUsersData, GetUsersErrors, GetUsersMeChannelsByPlatformData, GetUsersMeChannelsByPlatformErrors, GetUsersMeChannelsByPlatformResponses, GetUsersMeData, GetUsersMeErrors, GetUsersMeIdentitiesData, GetUsersMeIdentitiesErrors, GetUsersMeIdentitiesResponses, GetUsersMeResponses, GetUsersResponses, PostAuthLoginData, PostAuthLoginErrors, PostAuthLoginResponses, PostBotsByBotIdContainerData, PostBotsByBotIdContainerErrors, PostBotsByBotIdContainerResponses, PostBotsByBotIdContainerSkillsData, PostBotsByBotIdContainerSkillsErrors, PostBotsByBotIdContainerSkillsResponses, PostBotsByBotIdContainerSnapshotsData, PostBotsByBotIdContainerSnapshotsErrors, PostBotsByBotIdContainerSnapshotsResponses, PostBotsByBotIdContainerStartData, PostBotsByBotIdContainerStartErrors, PostBotsByBotIdContainerStartResponses, PostBotsByBotIdContainerStopData, PostBotsByBotIdContainerStopErrors, PostBotsByBotIdContainerStopResponses, PostBotsByBotIdMcpData, PostBotsByBotIdMcpErrors, PostBotsByBotIdMcpResponses, PostBotsByBotIdMcpStdioByConnectionIdData, PostBotsByBotIdMcpStdioByConnectionIdErrors, PostBotsByBotIdMcpStdioByConnectionIdResponses, PostBotsByBotIdMcpStdioData, PostBotsByBotIdMcpStdioErrors, PostBotsByBotIdMcpStdioResponses, PostBotsByBotIdScheduleData, PostBotsByBotIdScheduleErrors, PostBotsByBotIdScheduleResponses, PostBotsByBotIdSettingsData, PostBotsByBotIdSettingsErrors, PostBotsByBotIdSettingsResponses, PostBotsByBotIdSubagentsByIdSkillsData, PostBotsByBotIdSubagentsByIdSkillsErrors, PostBotsByBotIdSubagentsByIdSkillsResponses, PostBotsByBotIdSubagentsData, PostBotsByBotIdSubagentsErrors, PostBotsByBotIdSubagentsResponses, PostBotsByBotIdToolsData, PostBotsByBotIdToolsErrors, PostBotsByBotIdToolsResponses, PostBotsByIdChannelByPlatformSendChatData, PostBotsByIdChannelByPlatformSendChatErrors, PostBotsByIdChannelByPlatformSendChatResponses, PostBotsByIdChannelByPlatformSendData, PostBotsByIdChannelByPlatformSendErrors, PostBotsByIdChannelByPlatformSendResponses, PostBotsData, PostBotsErrors, PostBotsResponses, PostEmbeddingsData, PostEmbeddingsErrors, PostEmbeddingsResponses, PostModelsData, PostModelsEnableData, PostModelsEnableErrors, PostModelsEnableResponses, PostModelsErrors, PostModelsResponses, PostProvidersData, PostProvidersErrors, PostProvidersResponses, PostUsersData, PostUsersErrors, PostUsersResponses, PutBotsByBotIdMcpByIdData, PutBotsByBotIdMcpByIdErrors, PutBotsByBotIdMcpByIdResponses, PutBotsByBotIdScheduleByIdData, PutBotsByBotIdScheduleByIdErrors, PutBotsByBotIdScheduleByIdResponses, PutBotsByBotIdSettingsData, PutBotsByBotIdSettingsErrors, PutBotsByBotIdSettingsResponses, PutBotsByBotIdSubagentsByIdContextData, PutBotsByBotIdSubagentsByIdContextErrors, PutBotsByBotIdSubagentsByIdContextResponses, PutBotsByBotIdSubagentsByIdData, PutBotsByBotIdSubagentsByIdErrors, PutBotsByBotIdSubagentsByIdResponses, PutBotsByBotIdSubagentsByIdSkillsData, PutBotsByBotIdSubagentsByIdSkillsErrors, PutBotsByBotIdSubagentsByIdSkillsResponses, PutBotsByIdChannelByPlatformData, PutBotsByIdChannelByPlatformErrors, PutBotsByIdChannelByPlatformResponses, PutBotsByIdData, PutBotsByIdErrors, PutBotsByIdMembersData, PutBotsByIdMembersErrors, PutBotsByIdMembersResponses, PutBotsByIdOwnerData, PutBotsByIdOwnerErrors, PutBotsByIdOwnerResponses, PutBotsByIdResponses, PutModelsByIdData, PutModelsByIdErrors, PutModelsByIdResponses, PutModelsModelByModelIdData, PutModelsModelByModelIdErrors, PutModelsModelByModelIdResponses, PutProvidersByIdData, PutProvidersByIdErrors, PutProvidersByIdResponses, PutUsersByIdData, PutUsersByIdErrors, PutUsersByIdPasswordData, PutUsersByIdPasswordErrors, PutUsersByIdPasswordResponses, PutUsersByIdResponses, PutUsersMeChannelsByPlatformData, PutUsersMeChannelsByPlatformErrors, PutUsersMeChannelsByPlatformResponses, PutUsersMeData, PutUsersMeErrors, PutUsersMePasswordData, PutUsersMePasswordErrors, PutUsersMePasswordResponses, PutUsersMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -54,34 +54,6 @@ export const postBots = <ThrowOnError extends boolean = false>(options: Options<
 });
 
 /**
- * Chat with AI
- *
- * Send a chat message and get a response. The system will automatically select an appropriate chat model from the database.
- */
-export const postBotsByBotIdChat = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdChatData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdChatResponses, PostBotsByBotIdChatErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/chat',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Stream chat with AI
- *
- * Send a chat message and get a streaming response. The system will automatically select an appropriate chat model from the database.
- */
-export const postBotsByBotIdChatStream = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdChatStreamData, ThrowOnError>) => (options.client ?? client).sse.post<PostBotsByBotIdChatStreamResponses, PostBotsByBotIdChatStreamErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/chat/stream',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * Delete MCP container for bot
  */
 export const deleteBotsByBotIdContainer = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdContainerData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdContainerResponses, DeleteBotsByBotIdContainerErrors, ThrowOnError>({ url: '/bots/{bot_id}/container', ...options });
@@ -102,88 +74,6 @@ export const postBotsByBotIdContainer = <ThrowOnError extends boolean = false>(o
         ...options.headers
     }
 });
-
-/**
- * Delete a file or directory
- */
-export const deleteBotsByBotIdContainerFs = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdContainerFsData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdContainerFsResponses, DeleteBotsByBotIdContainerFsErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/fs', ...options });
-
-/**
- * List files for a bot
- *
- * List entries under a relative path
- */
-export const getBotsByBotIdContainerFs = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdContainerFsData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdContainerFsResponses, GetBotsByBotIdContainerFsErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/fs', ...options });
-
-/**
- * MCP filesystem tools (JSON-RPC)
- *
- * Forwards MCP JSON-RPC requests to the MCP server inside the container.
- * Required:
- * - container task is running
- * - container has data mount (default /data) bound to <data_root>/users/<user_id>
- * - container image contains the "mcp" binary
- * Auth: Bearer JWT is used to determine user_id (sub or user_id).
- * Paths must be relative (no leading slash) and must not contain "..".
- *
- * Example: tools/list
- * {"jsonrpc":"2.0","id":1,"method":"tools/list"}
- *
- * Example: tools/call (fs.read)
- * {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fs.read","arguments":{"path":"notes.txt"}}}
- */
-export const postBotsByBotIdContainerFsMcp = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdContainerFsMcpData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdContainerFsMcpResponses, PostBotsByBotIdContainerFsMcpErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/container/fs-mcp',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Create a directory
- */
-export const postBotsByBotIdContainerFsDir = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdContainerFsDirData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdContainerFsDirResponses, PostBotsByBotIdContainerFsDirErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/container/fs/dir',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Read file content
- */
-export const getBotsByBotIdContainerFsFile = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdContainerFsFileData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdContainerFsFileResponses, GetBotsByBotIdContainerFsFileErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/fs/file', ...options });
-
-/**
- * Create or overwrite a file
- */
-export const postBotsByBotIdContainerFsFile = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdContainerFsFileData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdContainerFsFileResponses, PostBotsByBotIdContainerFsFileErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/container/fs/file',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Get file or directory metadata
- */
-export const getBotsByBotIdContainerFsStat = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdContainerFsStatData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdContainerFsStatResponses, GetBotsByBotIdContainerFsStatErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/fs/stat', ...options });
-
-/**
- * Upload a file
- */
-export const postBotsByBotIdContainerFsUpload = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdContainerFsUploadData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdContainerFsUploadResponses, PostBotsByBotIdContainerFsUploadErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/fs/upload', ...options });
-
-/**
- * Get usage under a path
- */
-export const getBotsByBotIdContainerFsUsage = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdContainerFsUsageData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdContainerFsUsageResponses, GetBotsByBotIdContainerFsUsageErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/fs/usage', ...options });
 
 /**
  * Delete skills from data directory
@@ -242,53 +132,11 @@ export const postBotsByBotIdContainerStart = <ThrowOnError extends boolean = fal
 export const postBotsByBotIdContainerStop = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdContainerStopData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdContainerStopResponses, PostBotsByBotIdContainerStopErrors, ThrowOnError>({ url: '/bots/{bot_id}/container/stop', ...options });
 
 /**
- * Delete all history records
- *
- * Delete all history records for current user
- */
-export const deleteBotsByBotIdHistory = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdHistoryData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdHistoryResponses, DeleteBotsByBotIdHistoryErrors, ThrowOnError>({ url: '/bots/{bot_id}/history', ...options });
-
-/**
- * List history records
- *
- * List history records for current user
- */
-export const getBotsByBotIdHistory = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdHistoryData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdHistoryResponses, GetBotsByBotIdHistoryErrors, ThrowOnError>({ url: '/bots/{bot_id}/history', ...options });
-
-/**
- * Create history record
- *
- * Create a history record for current user
- */
-export const postBotsByBotIdHistory = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdHistoryData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdHistoryResponses, PostBotsByBotIdHistoryErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/history',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Delete history record
- *
- * Delete a history record by ID (must belong to current user)
- */
-export const deleteBotsByBotIdHistoryById = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdHistoryByIdData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdHistoryByIdResponses, DeleteBotsByBotIdHistoryByIdErrors, ThrowOnError>({ url: '/bots/{bot_id}/history/{id}', ...options });
-
-/**
- * Get history record
- *
- * Get a history record by ID (must belong to current user)
- */
-export const getBotsByBotIdHistoryById = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdHistoryByIdData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdHistoryByIdResponses, GetBotsByBotIdHistoryByIdErrors, ThrowOnError>({ url: '/bots/{bot_id}/history/{id}', ...options });
-
-/**
  * List MCP connections
  *
  * List MCP connections for a bot
  */
-export const getBotsByBotIdMcp = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdMcpData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdMcpResponses, GetBotsByBotIdMcpErrors, ThrowOnError>({ url: '/bots/{bot_id}/mcp', ...options });
+export const getBotsByBotIdMcp = <ThrowOnError extends boolean = false>(options?: Options<GetBotsByBotIdMcpData, ThrowOnError>) => (options?.client ?? client).get<GetBotsByBotIdMcpResponses, GetBotsByBotIdMcpErrors, ThrowOnError>({ url: '/bots/{bot_id}/mcp', ...options });
 
 /**
  * Create MCP connection
@@ -323,8 +171,8 @@ export const postBotsByBotIdMcpStdio = <ThrowOnError extends boolean = false>(op
  *
  * Proxies MCP JSON-RPC requests to a stdio MCP process in the container.
  */
-export const postBotsByBotIdMcpStdioBySessionId = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdMcpStdioBySessionIdData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdMcpStdioBySessionIdResponses, PostBotsByBotIdMcpStdioBySessionIdErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/mcp-stdio/{session_id}',
+export const postBotsByBotIdMcpStdioByConnectionId = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdMcpStdioByConnectionIdData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdMcpStdioByConnectionIdResponses, PostBotsByBotIdMcpStdioByConnectionIdErrors, ThrowOnError>({
+    url: '/bots/{bot_id}/mcp-stdio/{connection_id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -361,102 +209,11 @@ export const putBotsByBotIdMcpById = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Add memory
- *
- * Add memory for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const postBotsByBotIdMemoryAdd = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdMemoryAddData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdMemoryAddResponses, PostBotsByBotIdMemoryAddErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/memory/add',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Embed and upsert memory
- *
- * Embed text or multimodal input and upsert into memory store. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const postBotsByBotIdMemoryEmbed = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdMemoryEmbedData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdMemoryEmbedResponses, PostBotsByBotIdMemoryEmbedErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/memory/embed',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Delete memories
- *
- * Delete all memories for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const deleteBotsByBotIdMemoryMemories = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdMemoryMemoriesData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdMemoryMemoriesResponses, DeleteBotsByBotIdMemoryMemoriesErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/memory/memories',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * List memories
- *
- * List memories for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const getBotsByBotIdMemoryMemories = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdMemoryMemoriesData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdMemoryMemoriesResponses, GetBotsByBotIdMemoryMemoriesErrors, ThrowOnError>({ url: '/bots/{bot_id}/memory/memories', ...options });
-
-/**
- * Delete memory
- *
- * Delete a memory by ID via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const deleteBotsByBotIdMemoryMemoriesByMemoryId = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdMemoryMemoriesByMemoryIdData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdMemoryMemoriesByMemoryIdResponses, DeleteBotsByBotIdMemoryMemoriesByMemoryIdErrors, ThrowOnError>({ url: '/bots/{bot_id}/memory/memories/{memoryId}', ...options });
-
-/**
- * Get memory
- *
- * Get a memory by ID via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const getBotsByBotIdMemoryMemoriesByMemoryId = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdMemoryMemoriesByMemoryIdData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdMemoryMemoriesByMemoryIdResponses, GetBotsByBotIdMemoryMemoriesByMemoryIdErrors, ThrowOnError>({ url: '/bots/{bot_id}/memory/memories/{memoryId}', ...options });
-
-/**
- * Search memories
- *
- * Search memories for a user via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const postBotsByBotIdMemorySearch = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdMemorySearchData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdMemorySearchResponses, PostBotsByBotIdMemorySearchErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/memory/search',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Update memory
- *
- * Update a memory by ID via memory. Auth: Bearer JWT determines user_id (sub or user_id).
- */
-export const postBotsByBotIdMemoryUpdate = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdMemoryUpdateData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdMemoryUpdateResponses, PostBotsByBotIdMemoryUpdateErrors, ThrowOnError>({
-    url: '/bots/{bot_id}/memory/update',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * List schedules
  *
  * List schedules for current user
  */
-export const getBotsByBotIdSchedule = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdScheduleData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdScheduleResponses, GetBotsByBotIdScheduleErrors, ThrowOnError>({ url: '/bots/{bot_id}/schedule', ...options });
+export const getBotsByBotIdSchedule = <ThrowOnError extends boolean = false>(options?: Options<GetBotsByBotIdScheduleData, ThrowOnError>) => (options?.client ?? client).get<GetBotsByBotIdScheduleResponses, GetBotsByBotIdScheduleErrors, ThrowOnError>({ url: '/bots/{bot_id}/schedule', ...options });
 
 /**
  * Create schedule
@@ -505,14 +262,14 @@ export const putBotsByBotIdScheduleById = <ThrowOnError extends boolean = false>
  *
  * Remove agent settings for current user
  */
-export const deleteBotsByBotIdSettings = <ThrowOnError extends boolean = false>(options: Options<DeleteBotsByBotIdSettingsData, ThrowOnError>) => (options.client ?? client).delete<DeleteBotsByBotIdSettingsResponses, DeleteBotsByBotIdSettingsErrors, ThrowOnError>({ url: '/bots/{bot_id}/settings', ...options });
+export const deleteBotsByBotIdSettings = <ThrowOnError extends boolean = false>(options?: Options<DeleteBotsByBotIdSettingsData, ThrowOnError>) => (options?.client ?? client).delete<DeleteBotsByBotIdSettingsResponses, DeleteBotsByBotIdSettingsErrors, ThrowOnError>({ url: '/bots/{bot_id}/settings', ...options });
 
 /**
  * Get user settings
  *
  * Get agent settings for current user
  */
-export const getBotsByBotIdSettings = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdSettingsData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdSettingsResponses, GetBotsByBotIdSettingsErrors, ThrowOnError>({ url: '/bots/{bot_id}/settings', ...options });
+export const getBotsByBotIdSettings = <ThrowOnError extends boolean = false>(options?: Options<GetBotsByBotIdSettingsData, ThrowOnError>) => (options?.client ?? client).get<GetBotsByBotIdSettingsResponses, GetBotsByBotIdSettingsErrors, ThrowOnError>({ url: '/bots/{bot_id}/settings', ...options });
 
 /**
  * Update user settings
@@ -547,7 +304,7 @@ export const putBotsByBotIdSettings = <ThrowOnError extends boolean = false>(opt
  *
  * List subagents for current user
  */
-export const getBotsByBotIdSubagents = <ThrowOnError extends boolean = false>(options: Options<GetBotsByBotIdSubagentsData, ThrowOnError>) => (options.client ?? client).get<GetBotsByBotIdSubagentsResponses, GetBotsByBotIdSubagentsErrors, ThrowOnError>({ url: '/bots/{bot_id}/subagents', ...options });
+export const getBotsByBotIdSubagents = <ThrowOnError extends boolean = false>(options?: Options<GetBotsByBotIdSubagentsData, ThrowOnError>) => (options?.client ?? client).get<GetBotsByBotIdSubagentsResponses, GetBotsByBotIdSubagentsErrors, ThrowOnError>({ url: '/bots/{bot_id}/subagents', ...options });
 
 /**
  * Create subagent
@@ -648,6 +405,20 @@ export const putBotsByBotIdSubagentsByIdSkills = <ThrowOnError extends boolean =
 });
 
 /**
+ * Unified MCP tools gateway
+ *
+ * MCP endpoint for tool discovery and invocation.
+ */
+export const postBotsByBotIdTools = <ThrowOnError extends boolean = false>(options: Options<PostBotsByBotIdToolsData, ThrowOnError>) => (options.client ?? client).post<PostBotsByBotIdToolsResponses, PostBotsByBotIdToolsErrors, ThrowOnError>({
+    url: '/bots/{bot_id}/tools',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Delete bot
  *
  * Delete a bot user (owner/admin only)
@@ -715,14 +486,21 @@ export const postBotsByIdChannelByPlatformSend = <ThrowOnError extends boolean =
  *
  * Send a message using a session-scoped token (reply only)
  */
-export const postBotsByIdChannelByPlatformSendSession = <ThrowOnError extends boolean = false>(options: Options<PostBotsByIdChannelByPlatformSendSessionData, ThrowOnError>) => (options.client ?? client).post<PostBotsByIdChannelByPlatformSendSessionResponses, PostBotsByIdChannelByPlatformSendSessionErrors, ThrowOnError>({
-    url: '/bots/{id}/channel/{platform}/send_session',
+export const postBotsByIdChannelByPlatformSendChat = <ThrowOnError extends boolean = false>(options: Options<PostBotsByIdChannelByPlatformSendChatData, ThrowOnError>) => (options.client ?? client).post<PostBotsByIdChannelByPlatformSendChatResponses, PostBotsByIdChannelByPlatformSendChatErrors, ThrowOnError>({
+    url: '/bots/{id}/channel/{platform}/send_chat',
     ...options,
     headers: {
         'Content-Type': 'application/json',
         ...options.headers
     }
 });
+
+/**
+ * List bot runtime checks
+ *
+ * Evaluate bot attached resource checks in runtime
+ */
+export const getBotsByIdChecks = <ThrowOnError extends boolean = false>(options: Options<GetBotsByIdChecksData, ThrowOnError>) => (options.client ?? client).get<GetBotsByIdChecksResponses, GetBotsByIdChecksErrors, ThrowOnError>({ url: '/bots/{id}/checks', ...options });
 
 /**
  * List bot members
@@ -1024,6 +802,13 @@ export const putUsersMeChannelsByPlatform = <ThrowOnError extends boolean = fals
         ...options.headers
     }
 });
+
+/**
+ * List current user's channel identities
+ *
+ * List all channel identities linked to current user
+ */
+export const getUsersMeIdentities = <ThrowOnError extends boolean = false>(options?: Options<GetUsersMeIdentitiesData, ThrowOnError>) => (options?.client ?? client).get<GetUsersMeIdentitiesResponses, GetUsersMeIdentitiesErrors, ThrowOnError>({ url: '/users/me/identities', ...options });
 
 /**
  * Update current user password

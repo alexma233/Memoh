@@ -1,4 +1,4 @@
-package chat
+package conversation
 
 import (
 	"context"
@@ -48,7 +48,6 @@ func TestPostTriggerSchedule_Endpoint(t *testing.T) {
 		Skills:            []string{},
 		Identity: gatewayIdentity{
 			BotID:             "bot-123",
-			SessionID:         "schedule:sched-1",
 			ContainerID:       "mcp-bot-123",
 			ChannelIdentityID: "owner-user-1",
 			DisplayName:       "Scheduler",

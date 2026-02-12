@@ -506,7 +506,7 @@ func (s *QdrantStore) ensurePayloadIndexes(ctx context.Context) error {
 	if s.client == nil {
 		return nil
 	}
-	fields := []string{"botId", "sessionId", "runId"}
+	fields := []string{"botId", "runId"}
 	wait := true
 	for _, field := range fields {
 		_, err := s.client.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{

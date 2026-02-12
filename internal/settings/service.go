@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
@@ -30,7 +30,7 @@ func NewService(log *slog.Logger, queries *sqlc.Queries) *Service {
 
 // Get returns user-level settings.
 func (s *Service) Get(ctx context.Context, userID string) (Settings, error) {
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -55,7 +55,7 @@ func (s *Service) Upsert(ctx context.Context, userID string, req UpsertRequest) 
 	if s.queries == nil {
 		return Settings{}, fmt.Errorf("settings queries not configured")
 	}
-	pgID, err := parseUUID(userID)
+	pgID, err := db.ParseUUID(userID)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -106,7 +106,7 @@ func (s *Service) Upsert(ctx context.Context, userID string, req UpsertRequest) 
 }
 
 func (s *Service) GetBot(ctx context.Context, botID string) (Settings, error) {
-	pgID, err := parseUUID(botID)
+	pgID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -121,7 +121,7 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	if s.queries == nil {
 		return Settings{}, fmt.Errorf("settings queries not configured")
 	}
-	pgID, err := parseUUID(botID)
+	pgID, err := db.ParseUUID(botID)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -191,7 +191,7 @@ func (s *Service) Delete(ctx context.Context, botID string) error {
 	if s.queries == nil {
 		return fmt.Errorf("settings queries not configured")
 	}
-	pgID, err := parseUUID(botID)
+	pgID, err := db.ParseUUID(botID)
 	if err != nil {
 		return err
 	}
@@ -278,13 +278,3 @@ func (s *Service) resolveModelUUID(ctx context.Context, modelID string) (pgtype.
 	return row.ID, nil
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	parsed, err := uuid.Parse(id)
-	if err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: %w", err)
-	}
-	var pgID pgtype.UUID
-	pgID.Valid = true
-	copy(pgID.Bytes[:], parsed[:])
-	return pgID, nil
-}

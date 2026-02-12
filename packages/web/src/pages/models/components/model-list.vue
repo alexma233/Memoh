@@ -51,16 +51,16 @@ import {
 } from '@memoh/ui'
 import CreateModel from '@/components/create-model/index.vue'
 import ModelItem from './model-item.vue'
-import type { ModelsGetResponse } from '@memoh/sdk'
+import { type ModelInfo } from '@memoh/shared'
 
 defineProps<{
   providerId: string | undefined
-  models: ModelsGetResponse[] | undefined
+  models: ModelInfo[] | undefined
   deleteModelLoading: boolean
 }>()
 
 defineEmits<{
-  edit: [model: ModelsGetResponse]
+  edit: [model: ModelInfo]
   delete: [name: string]
 }>()
 </script>

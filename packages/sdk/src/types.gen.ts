@@ -4,18 +4,79 @@ export type ClientOptions = {
     baseUrl: string;
 };
 
+export type AccountsAccount = {
+    avatar_url?: string;
+    created_at?: string;
+    display_name?: string;
+    email?: string;
+    id?: string;
+    is_active?: boolean;
+    last_login_at?: string;
+    role?: string;
+    updated_at?: string;
+    username?: string;
+};
+
+export type AccountsCreateAccountRequest = {
+    avatar_url?: string;
+    display_name?: string;
+    email?: string;
+    is_active?: boolean;
+    password?: string;
+    role?: string;
+    username?: string;
+};
+
+export type AccountsListAccountsResponse = {
+    items?: Array<AccountsAccount>;
+};
+
+export type AccountsResetPasswordRequest = {
+    new_password?: string;
+};
+
+export type AccountsUpdateAccountRequest = {
+    avatar_url?: string;
+    display_name?: string;
+    is_active?: boolean;
+    role?: string;
+};
+
+export type AccountsUpdatePasswordRequest = {
+    current_password?: string;
+    new_password?: string;
+};
+
+export type AccountsUpdateProfileRequest = {
+    avatar_url?: string;
+    display_name?: string;
+};
+
 export type BotsBot = {
     avatar_url?: string;
-    created_at: string;
-    display_name: string;
-    id: string;
-    is_active: boolean;
+    check_issue_count?: number;
+    check_state?: string;
+    created_at?: string;
+    display_name?: string;
+    id?: string;
+    is_active?: boolean;
     metadata?: {
         [key: string]: unknown;
     };
-    owner_user_id: string;
-    type: string;
-    updated_at: string;
+    owner_user_id?: string;
+    status?: string;
+    type?: string;
+    updated_at?: string;
+};
+
+export type BotsBotCheck = {
+    check_key?: string;
+    detail?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    status?: string;
+    summary?: string;
 };
 
 export type BotsBotMember = {
@@ -36,7 +97,11 @@ export type BotsCreateBotRequest = {
 };
 
 export type BotsListBotsResponse = {
-    items: Array<BotsBot>;
+    items?: Array<BotsBot>;
+};
+
+export type BotsListChecksResponse = {
+    items?: Array<BotsBotCheck>;
 };
 
 export type BotsListMembersResponse = {
@@ -77,7 +142,9 @@ export type ChannelAttachment = {
     };
     mime?: string;
     name?: string;
+    platform_key?: string;
     size?: number;
+    source_platform?: string;
     thumbnail_url?: string;
     type?: ChannelAttachmentType;
     url?: string;
@@ -125,7 +192,8 @@ export type ChannelChannelConfig = {
     verifiedAt?: string;
 };
 
-export type ChannelChannelUserBinding = {
+export type ChannelChannelIdentityBinding = {
+    channelIdentityID?: string;
     channelType?: string;
     config?: {
         [key: string]: unknown;
@@ -133,7 +201,6 @@ export type ChannelChannelUserBinding = {
     createdAt?: string;
     id?: string;
     updatedAt?: string;
-    userID?: string;
 };
 
 export type ChannelConfigSchema = {
@@ -171,6 +238,7 @@ export type ChannelMessage = {
 export type ChannelMessageFormat = 'plain' | 'markdown' | 'rich';
 
 export type ChannelMessagePart = {
+    channel_identity_id?: string;
     emoji?: string;
     language?: string;
     metadata?: {
@@ -180,7 +248,6 @@ export type ChannelMessagePart = {
     text?: string;
     type?: ChannelMessagePartType;
     url?: string;
-    user_id?: string;
 };
 
 export type ChannelMessagePartType = 'text' | 'link' | 'code_block' | 'mention' | 'emoji';
@@ -193,9 +260,9 @@ export type ChannelReplyRef = {
 };
 
 export type ChannelSendRequest = {
+    channel_identity_id?: string;
     message?: ChannelMessage;
     target?: string;
-    user_id?: string;
 };
 
 export type ChannelTargetHint = {
@@ -210,6 +277,12 @@ export type ChannelTargetSpec = {
 
 export type ChannelThreadRef = {
     id?: string;
+};
+
+export type ChannelUpsertChannelIdentityConfigRequest = {
+    config?: {
+        [key: string]: unknown;
+    };
 };
 
 export type ChannelUpsertConfigRequest = {
@@ -227,76 +300,30 @@ export type ChannelUpsertConfigRequest = {
     verified_at?: string;
 };
 
-export type ChannelUpsertUserConfigRequest = {
+export type GithubComMemohaiMemohInternalMcpConnection = {
+    active?: boolean;
+    bot_id?: string;
     config?: {
         [key: string]: unknown;
     };
-};
-
-export type ChatChatRequest = {
-    allowed_actions?: Array<string>;
-    channels?: Array<string>;
-    current_channel?: string;
-    language?: string;
-    max_context_load_time?: number;
-    messages?: Array<ChatModelMessage>;
-    model?: string;
-    provider?: string;
-    query?: string;
-    skills?: Array<string>;
-};
-
-export type ChatChatResponse = {
-    messages?: Array<ChatModelMessage>;
-    model?: string;
-    provider?: string;
-    skills?: Array<string>;
-};
-
-export type ChatModelMessage = {
-    content?: Array<number>;
-    name?: string;
-    role?: string;
-    tool_call_id?: string;
-    tool_calls?: Array<ChatToolCall>;
-};
-
-export type ChatToolCall = {
-    function?: ChatToolCallFunction;
+    created_at?: string;
     id?: string;
-    type?: string;
-};
-
-export type ChatToolCallFunction = {
-    arguments?: string;
     name?: string;
-};
-
-export type GithubComMemohaiMemohInternalMcpConnection = {
-    active: boolean;
-    bot_id: string;
-    config: {
-        [key: string]: unknown;
-    };
-    created_at: string;
-    id: string;
-    name: string;
-    type: string;
-    updated_at: string;
+    type?: string;
+    updated_at?: string;
 };
 
 export type HandlersChannelMeta = {
-    capabilities: ChannelChannelCapabilities;
-    config_schema: ChannelConfigSchema;
+    capabilities?: ChannelChannelCapabilities;
+    config_schema?: ChannelConfigSchema;
     configless?: boolean;
-    display_name: string;
+    display_name?: string;
     target_spec?: ChannelTargetSpec;
-    type: string;
+    type?: string;
     user_config_schema?: ChannelConfigSchema;
 };
 
 export type HandlersCreateContainerRequest = {
-    image?: string;
     snapshotter?: string;
 };
 
@@ -356,61 +383,6 @@ export type HandlersErrorResponse = {
     message?: string;
 };
 
-export type HandlersFsDeleteResponse = {
-    ok?: boolean;
-};
-
-export type HandlersFsListResponse = {
-    entries?: Array<HandlersFsRestEntry>;
-    path?: string;
-};
-
-export type HandlersFsMkdirRequest = {
-    parents?: boolean;
-    path?: string;
-};
-
-export type HandlersFsReadResponse = {
-    content?: string;
-    mod_time?: string;
-    mode?: number;
-    path?: string;
-    size?: number;
-};
-
-export type HandlersFsRestEntry = {
-    is_dir?: boolean;
-    mod_time?: string;
-    mode?: number;
-    path?: string;
-    size?: number;
-};
-
-export type HandlersFsStatResponse = {
-    is_dir?: boolean;
-    mod_time?: string;
-    mode?: number;
-    path?: string;
-    size?: number;
-};
-
-export type HandlersFsUsageResponse = {
-    dir_count?: number;
-    file_count?: number;
-    path?: string;
-    total_bytes?: number;
-};
-
-export type HandlersFsWriteRequest = {
-    content?: string;
-    overwrite?: boolean;
-    path?: string;
-};
-
-export type HandlersFsWriteResponse = {
-    ok?: boolean;
-};
-
 export type HandlersGetContainerResponse = {
     container_id?: string;
     container_path?: string;
@@ -429,18 +401,18 @@ export type HandlersListSnapshotsResponse = {
 };
 
 export type HandlersLoginRequest = {
-    password: string;
-    username: string;
+    password?: string;
+    username?: string;
 };
 
 export type HandlersLoginResponse = {
-    access_token: string;
-    display_name: string;
-    expires_at: string;
-    role: string;
-    token_type: string;
-    user_id: string;
-    username: string;
+    access_token?: string;
+    display_name?: string;
+    expires_at?: string;
+    role?: string;
+    token_type?: string;
+    user_id?: string;
+    username?: string;
 };
 
 export type HandlersMcpStdioRequest = {
@@ -454,7 +426,7 @@ export type HandlersMcpStdioRequest = {
 };
 
 export type HandlersMcpStdioResponse = {
-    session_id?: string;
+    connection_id?: string;
     tools?: Array<string>;
     url?: string;
 };
@@ -492,80 +464,26 @@ export type HandlersSnapshotInfo = {
     updated_at?: string;
 };
 
-export type HandlersMemoryAddPayload = {
-    embedding_enabled?: boolean;
-    filters?: {
-        [key: string]: unknown;
-    };
-    infer?: boolean;
-    message?: string;
-    messages?: Array<MemoryMessage>;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    run_id?: string;
-};
-
-export type HandlersMemoryDeleteAllPayload = {
-    run_id?: string;
-};
-
-export type HandlersMemoryEmbedUpsertPayload = {
-    filters?: {
-        [key: string]: unknown;
-    };
-    input?: MemoryEmbedInput;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    model?: string;
-    provider?: string;
-    run_id?: string;
-    source?: string;
-    type?: string;
-};
-
-export type HandlersMemorySearchPayload = {
-    embedding_enabled?: boolean;
-    filters?: {
-        [key: string]: unknown;
-    };
-    limit?: number;
-    query?: string;
-    run_id?: string;
-    sources?: Array<string>;
+export type HandlersListMyIdentitiesResponse = {
+    items?: Array<IdentitiesChannelIdentity>;
+    user_id?: string;
 };
 
 export type HandlersSkillsOpResponse = {
     ok?: boolean;
 };
 
-export type HistoryCreateRequest = {
-    messages?: Array<{
-        [key: string]: unknown;
-    }>;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    skills?: Array<string>;
-};
-
-export type HistoryListResponse = {
-    items?: Array<HistoryRecord>;
-};
-
-export type HistoryRecord = {
-    bot_id?: string;
+export type IdentitiesChannelIdentity = {
+    channel?: string;
+    channel_subject_id?: string;
+    created_at?: string;
+    display_name?: string;
     id?: string;
-    messages?: Array<{
-        [key: string]: unknown;
-    }>;
     metadata?: {
         [key: string]: unknown;
     };
-    session_id?: string;
-    skills?: Array<string>;
-    timestamp?: string;
+    updated_at?: string;
+    user_id?: string;
 };
 
 export type McpListResponse = {
@@ -581,63 +499,14 @@ export type McpUpsertRequest = {
     type?: string;
 };
 
-export type MemoryDeleteResponse = {
-    message?: string;
-};
-
-export type MemoryEmbedInput = {
-    image_url?: string;
-    text?: string;
-    video_url?: string;
-};
-
-export type MemoryEmbedUpsertResponse = {
-    dimensions?: number;
-    item?: MemoryMemoryItem;
-    model?: string;
-    provider?: string;
-};
-
-export type MemoryMemoryItem = {
-    agentId?: string;
-    botId?: string;
-    createdAt?: string;
-    hash?: string;
-    id?: string;
-    memory?: string;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    runId?: string;
-    score?: number;
-    sessionId?: string;
-    updatedAt?: string;
-};
-
-export type MemoryMessage = {
-    content?: string;
-    role?: string;
-};
-
-export type MemorySearchResponse = {
-    relations?: Array<unknown>;
-    results?: Array<MemoryMemoryItem>;
-};
-
-export type MemoryUpdateRequest = {
-    embedding_enabled?: boolean;
-    memory?: string;
-    memory_id?: string;
-};
-
 export type ModelsAddRequest = {
     dimensions?: number;
     input?: Array<string>;
     is_multimodal?: boolean;
-    llm_provider_id: string;
-    model_id: string;
-    name: string;
-    type: ModelsModelType;
+    llm_provider_id?: string;
+    model_id?: string;
+    name?: string;
+    type?: ModelsModelType;
 };
 
 export type ModelsAddResponse = {
@@ -653,10 +522,10 @@ export type ModelsGetResponse = {
     dimensions?: number;
     input?: Array<string>;
     is_multimodal?: boolean;
-    llm_provider_id: string;
-    model_id: string;
-    name: string;
-    type: ModelsModelType;
+    llm_provider_id?: string;
+    model_id?: string;
+    name?: string;
+    type?: ModelsModelType;
 };
 
 export type ModelsModelType = 'chat' | 'embedding';
@@ -665,10 +534,10 @@ export type ModelsUpdateRequest = {
     dimensions?: number;
     input?: Array<string>;
     is_multimodal?: boolean;
-    llm_provider_id: string;
-    model_id: string;
-    name: string;
-    type: ModelsModelType;
+    llm_provider_id?: string;
+    model_id?: string;
+    name?: string;
+    type?: ModelsModelType;
 };
 
 export type ProvidersClientType = 'openai' | 'openai-compat' | 'anthropic' | 'google' | 'ollama';
@@ -692,15 +561,15 @@ export type ProvidersGetResponse = {
      * masked in response
      */
     api_key?: string;
-    base_url: string;
-    client_type: string;
-    created_at: string;
-    id: string;
+    base_url?: string;
+    client_type?: string;
+    created_at?: string;
+    id?: string;
     metadata?: {
         [key: string]: unknown;
     };
-    name: string;
-    updated_at: string;
+    name?: string;
+    updated_at?: string;
 };
 
 export type ProvidersUpdateRequest = {
@@ -755,12 +624,12 @@ export type ScheduleUpdateRequest = {
 };
 
 export type SettingsSettings = {
-    allow_guest: boolean;
-    chat_model_id: string;
-    embedding_model_id: string;
-    language: string;
-    max_context_load_time: number;
-    memory_model_id: string;
+    allow_guest?: boolean;
+    chat_model_id?: string;
+    embedding_model_id?: string;
+    language?: string;
+    max_context_load_time?: number;
+    memory_model_id?: string;
 };
 
 export type SettingsUpsertRequest = {
@@ -836,54 +705,6 @@ export type SubagentUpdateRequest = {
 
 export type SubagentUpdateSkillsRequest = {
     skills?: Array<string>;
-};
-
-export type UsersCreateUserRequest = {
-    avatar_url?: string;
-    display_name?: string;
-    email?: string;
-    is_active?: boolean;
-    password?: string;
-    role?: string;
-    username?: string;
-};
-
-export type UsersListUsersResponse = {
-    items?: Array<UsersUser>;
-};
-
-export type UsersResetPasswordRequest = {
-    new_password?: string;
-};
-
-export type UsersUpdatePasswordRequest = {
-    current_password?: string;
-    new_password?: string;
-};
-
-export type UsersUpdateProfileRequest = {
-    avatar_url?: string;
-    display_name?: string;
-};
-
-export type UsersUpdateUserRequest = {
-    avatar_url?: string;
-    display_name?: string;
-    is_active?: boolean;
-    role?: string;
-};
-
-export type UsersUser = {
-    avatar_url?: string;
-    created_at?: string;
-    display_name?: string;
-    email?: string;
-    id?: string;
-    is_active?: boolean;
-    last_login_at?: string;
-    role?: string;
-    updated_at?: string;
-    username?: string;
 };
 
 export type PostAuthLoginData = {
@@ -996,80 +817,6 @@ export type PostBotsResponses = {
 
 export type PostBotsResponse = PostBotsResponses[keyof PostBotsResponses];
 
-export type PostBotsByBotIdChatData = {
-    /**
-     * Chat request
-     */
-    body: ChatChatRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/chat';
-};
-
-export type PostBotsByBotIdChatErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdChatError = PostBotsByBotIdChatErrors[keyof PostBotsByBotIdChatErrors];
-
-export type PostBotsByBotIdChatResponses = {
-    /**
-     * OK
-     */
-    200: ChatChatResponse;
-};
-
-export type PostBotsByBotIdChatResponse = PostBotsByBotIdChatResponses[keyof PostBotsByBotIdChatResponses];
-
-export type PostBotsByBotIdChatStreamData = {
-    /**
-     * Chat request
-     */
-    body: ChatChatRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/chat/stream';
-};
-
-export type PostBotsByBotIdChatStreamErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdChatStreamError = PostBotsByBotIdChatStreamErrors[keyof PostBotsByBotIdChatStreamErrors];
-
-export type PostBotsByBotIdChatStreamResponses = {
-    /**
-     * OK
-     */
-    200: string;
-};
-
-export type PostBotsByBotIdChatStreamResponse = PostBotsByBotIdChatStreamResponses[keyof PostBotsByBotIdChatStreamResponses];
-
 export type DeleteBotsByBotIdContainerData = {
     body?: never;
     path: {
@@ -1172,409 +919,6 @@ export type PostBotsByBotIdContainerResponses = {
 };
 
 export type PostBotsByBotIdContainerResponse = PostBotsByBotIdContainerResponses[keyof PostBotsByBotIdContainerResponses];
-
-export type DeleteBotsByBotIdContainerFsData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query: {
-        /**
-         * Relative path
-         */
-        path: string;
-        /**
-         * Recursive delete for directories
-         */
-        recursive?: boolean;
-    };
-    url: '/bots/{bot_id}/container/fs';
-};
-
-export type DeleteBotsByBotIdContainerFsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdContainerFsError = DeleteBotsByBotIdContainerFsErrors[keyof DeleteBotsByBotIdContainerFsErrors];
-
-export type DeleteBotsByBotIdContainerFsResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsDeleteResponse;
-};
-
-export type DeleteBotsByBotIdContainerFsResponse = DeleteBotsByBotIdContainerFsResponses[keyof DeleteBotsByBotIdContainerFsResponses];
-
-export type GetBotsByBotIdContainerFsData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Relative directory path
-         */
-        path?: string;
-        /**
-         * Recursive listing
-         */
-        recursive?: boolean;
-    };
-    url: '/bots/{bot_id}/container/fs';
-};
-
-export type GetBotsByBotIdContainerFsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdContainerFsError = GetBotsByBotIdContainerFsErrors[keyof GetBotsByBotIdContainerFsErrors];
-
-export type GetBotsByBotIdContainerFsResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsListResponse;
-};
-
-export type GetBotsByBotIdContainerFsResponse = GetBotsByBotIdContainerFsResponses[keyof GetBotsByBotIdContainerFsResponses];
-
-export type PostBotsByBotIdContainerFsMcpData = {
-    /**
-     * JSON-RPC request
-     */
-    body: {
-        [key: string]: unknown;
-    };
-    headers: {
-        /**
-         * Bearer <token>
-         */
-        Authorization: string;
-    };
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/container/fs-mcp';
-};
-
-export type PostBotsByBotIdContainerFsMcpErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdContainerFsMcpError = PostBotsByBotIdContainerFsMcpErrors[keyof PostBotsByBotIdContainerFsMcpErrors];
-
-export type PostBotsByBotIdContainerFsMcpResponses = {
-    /**
-     * JSON-RPC response: {jsonrpc,id,result|error}
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type PostBotsByBotIdContainerFsMcpResponse = PostBotsByBotIdContainerFsMcpResponses[keyof PostBotsByBotIdContainerFsMcpResponses];
-
-export type PostBotsByBotIdContainerFsDirData = {
-    /**
-     * Directory payload
-     */
-    body: HandlersFsMkdirRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/container/fs/dir';
-};
-
-export type PostBotsByBotIdContainerFsDirErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdContainerFsDirError = PostBotsByBotIdContainerFsDirErrors[keyof PostBotsByBotIdContainerFsDirErrors];
-
-export type PostBotsByBotIdContainerFsDirResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsWriteResponse;
-};
-
-export type PostBotsByBotIdContainerFsDirResponse = PostBotsByBotIdContainerFsDirResponses[keyof PostBotsByBotIdContainerFsDirResponses];
-
-export type GetBotsByBotIdContainerFsFileData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query: {
-        /**
-         * Relative file path
-         */
-        path: string;
-    };
-    url: '/bots/{bot_id}/container/fs/file';
-};
-
-export type GetBotsByBotIdContainerFsFileErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdContainerFsFileError = GetBotsByBotIdContainerFsFileErrors[keyof GetBotsByBotIdContainerFsFileErrors];
-
-export type GetBotsByBotIdContainerFsFileResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsReadResponse;
-};
-
-export type GetBotsByBotIdContainerFsFileResponse = GetBotsByBotIdContainerFsFileResponses[keyof GetBotsByBotIdContainerFsFileResponses];
-
-export type PostBotsByBotIdContainerFsFileData = {
-    /**
-     * File write payload
-     */
-    body: HandlersFsWriteRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/container/fs/file';
-};
-
-export type PostBotsByBotIdContainerFsFileErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Conflict
-     */
-    409: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdContainerFsFileError = PostBotsByBotIdContainerFsFileErrors[keyof PostBotsByBotIdContainerFsFileErrors];
-
-export type PostBotsByBotIdContainerFsFileResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsWriteResponse;
-};
-
-export type PostBotsByBotIdContainerFsFileResponse = PostBotsByBotIdContainerFsFileResponses[keyof PostBotsByBotIdContainerFsFileResponses];
-
-export type GetBotsByBotIdContainerFsStatData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query: {
-        /**
-         * Relative path
-         */
-        path: string;
-    };
-    url: '/bots/{bot_id}/container/fs/stat';
-};
-
-export type GetBotsByBotIdContainerFsStatErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdContainerFsStatError = GetBotsByBotIdContainerFsStatErrors[keyof GetBotsByBotIdContainerFsStatErrors];
-
-export type GetBotsByBotIdContainerFsStatResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsStatResponse;
-};
-
-export type GetBotsByBotIdContainerFsStatResponse = GetBotsByBotIdContainerFsStatResponses[keyof GetBotsByBotIdContainerFsStatResponses];
-
-export type PostBotsByBotIdContainerFsUploadData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Relative file path or directory
-         */
-        path?: string;
-    };
-    url: '/bots/{bot_id}/container/fs/upload';
-};
-
-export type PostBotsByBotIdContainerFsUploadErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdContainerFsUploadError = PostBotsByBotIdContainerFsUploadErrors[keyof PostBotsByBotIdContainerFsUploadErrors];
-
-export type PostBotsByBotIdContainerFsUploadResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsWriteResponse;
-};
-
-export type PostBotsByBotIdContainerFsUploadResponse = PostBotsByBotIdContainerFsUploadResponses[keyof PostBotsByBotIdContainerFsUploadResponses];
-
-export type GetBotsByBotIdContainerFsUsageData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Relative directory path
-         */
-        path?: string;
-    };
-    url: '/bots/{bot_id}/container/fs/usage';
-};
-
-export type GetBotsByBotIdContainerFsUsageErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdContainerFsUsageError = GetBotsByBotIdContainerFsUsageErrors[keyof GetBotsByBotIdContainerFsUsageErrors];
-
-export type GetBotsByBotIdContainerFsUsageResponses = {
-    /**
-     * OK
-     */
-    200: HandlersFsUsageResponse;
-};
-
-export type GetBotsByBotIdContainerFsUsageResponse = GetBotsByBotIdContainerFsUsageResponses[keyof GetBotsByBotIdContainerFsUsageResponses];
 
 export type DeleteBotsByBotIdContainerSkillsData = {
     /**
@@ -1831,204 +1175,9 @@ export type PostBotsByBotIdContainerStopResponses = {
 
 export type PostBotsByBotIdContainerStopResponse = PostBotsByBotIdContainerStopResponses[keyof PostBotsByBotIdContainerStopResponses];
 
-export type DeleteBotsByBotIdHistoryData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/history';
-};
-
-export type DeleteBotsByBotIdHistoryErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdHistoryError = DeleteBotsByBotIdHistoryErrors[keyof DeleteBotsByBotIdHistoryErrors];
-
-export type DeleteBotsByBotIdHistoryResponses = {
-    /**
-     * No Content
-     */
-    204: unknown;
-};
-
-export type GetBotsByBotIdHistoryData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Limit
-         */
-        limit?: number;
-    };
-    url: '/bots/{bot_id}/history';
-};
-
-export type GetBotsByBotIdHistoryErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdHistoryError = GetBotsByBotIdHistoryErrors[keyof GetBotsByBotIdHistoryErrors];
-
-export type GetBotsByBotIdHistoryResponses = {
-    /**
-     * OK
-     */
-    200: HistoryListResponse;
-};
-
-export type GetBotsByBotIdHistoryResponse = GetBotsByBotIdHistoryResponses[keyof GetBotsByBotIdHistoryResponses];
-
-export type PostBotsByBotIdHistoryData = {
-    /**
-     * History payload
-     */
-    body: HistoryCreateRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/history';
-};
-
-export type PostBotsByBotIdHistoryErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdHistoryError = PostBotsByBotIdHistoryErrors[keyof PostBotsByBotIdHistoryErrors];
-
-export type PostBotsByBotIdHistoryResponses = {
-    /**
-     * Created
-     */
-    201: HistoryRecord;
-};
-
-export type PostBotsByBotIdHistoryResponse = PostBotsByBotIdHistoryResponses[keyof PostBotsByBotIdHistoryResponses];
-
-export type DeleteBotsByBotIdHistoryByIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * History ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/history/{id}';
-};
-
-export type DeleteBotsByBotIdHistoryByIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Forbidden
-     */
-    403: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdHistoryByIdError = DeleteBotsByBotIdHistoryByIdErrors[keyof DeleteBotsByBotIdHistoryByIdErrors];
-
-export type DeleteBotsByBotIdHistoryByIdResponses = {
-    /**
-     * No Content
-     */
-    204: unknown;
-};
-
-export type GetBotsByBotIdHistoryByIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * History ID
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/history/{id}';
-};
-
-export type GetBotsByBotIdHistoryByIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdHistoryByIdError = GetBotsByBotIdHistoryByIdErrors[keyof GetBotsByBotIdHistoryByIdErrors];
-
-export type GetBotsByBotIdHistoryByIdResponses = {
-    /**
-     * OK
-     */
-    200: HistoryRecord;
-};
-
-export type GetBotsByBotIdHistoryByIdResponse = GetBotsByBotIdHistoryByIdResponses[keyof GetBotsByBotIdHistoryByIdResponses];
-
 export type GetBotsByBotIdMcpData = {
     body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/mcp';
 };
@@ -2068,12 +1217,7 @@ export type PostBotsByBotIdMcpData = {
      * MCP payload
      */
     body: McpUpsertRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/mcp';
 };
@@ -2149,7 +1293,7 @@ export type PostBotsByBotIdMcpStdioResponses = {
 
 export type PostBotsByBotIdMcpStdioResponse = PostBotsByBotIdMcpStdioResponses[keyof PostBotsByBotIdMcpStdioResponses];
 
-export type PostBotsByBotIdMcpStdioBySessionIdData = {
+export type PostBotsByBotIdMcpStdioByConnectionIdData = {
     /**
      * JSON-RPC request
      */
@@ -2162,15 +1306,15 @@ export type PostBotsByBotIdMcpStdioBySessionIdData = {
          */
         bot_id: string;
         /**
-         * Session ID
+         * Connection ID
          */
-        session_id: string;
+        connection_id: string;
     };
     query?: never;
-    url: '/bots/{bot_id}/mcp-stdio/{session_id}';
+    url: '/bots/{bot_id}/mcp-stdio/{connection_id}';
 };
 
-export type PostBotsByBotIdMcpStdioBySessionIdErrors = {
+export type PostBotsByBotIdMcpStdioByConnectionIdErrors = {
     /**
      * Bad Request
      */
@@ -2185,9 +1329,9 @@ export type PostBotsByBotIdMcpStdioBySessionIdErrors = {
     500: HandlersErrorResponse;
 };
 
-export type PostBotsByBotIdMcpStdioBySessionIdError = PostBotsByBotIdMcpStdioBySessionIdErrors[keyof PostBotsByBotIdMcpStdioBySessionIdErrors];
+export type PostBotsByBotIdMcpStdioByConnectionIdError = PostBotsByBotIdMcpStdioByConnectionIdErrors[keyof PostBotsByBotIdMcpStdioByConnectionIdErrors];
 
-export type PostBotsByBotIdMcpStdioBySessionIdResponses = {
+export type PostBotsByBotIdMcpStdioByConnectionIdResponses = {
     /**
      * JSON-RPC response: {jsonrpc,id,result|error}
      */
@@ -2196,15 +1340,11 @@ export type PostBotsByBotIdMcpStdioBySessionIdResponses = {
     };
 };
 
-export type PostBotsByBotIdMcpStdioBySessionIdResponse = PostBotsByBotIdMcpStdioBySessionIdResponses[keyof PostBotsByBotIdMcpStdioBySessionIdResponses];
+export type PostBotsByBotIdMcpStdioByConnectionIdResponse = PostBotsByBotIdMcpStdioByConnectionIdResponses[keyof PostBotsByBotIdMcpStdioByConnectionIdResponses];
 
 export type DeleteBotsByBotIdMcpByIdData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * MCP ID
          */
@@ -2245,10 +1385,6 @@ export type DeleteBotsByBotIdMcpByIdResponses = {
 export type GetBotsByBotIdMcpByIdData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * MCP ID
          */
@@ -2295,10 +1431,6 @@ export type PutBotsByBotIdMcpByIdData = {
     body: McpUpsertRequest;
     path: {
         /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
          * MCP ID
          */
         id: string;
@@ -2337,318 +1469,9 @@ export type PutBotsByBotIdMcpByIdResponses = {
 
 export type PutBotsByBotIdMcpByIdResponse = PutBotsByBotIdMcpByIdResponses[keyof PutBotsByBotIdMcpByIdResponses];
 
-export type PostBotsByBotIdMemoryAddData = {
-    /**
-     * Add request
-     */
-    body: HandlersMemoryAddPayload;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/add';
-};
-
-export type PostBotsByBotIdMemoryAddErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdMemoryAddError = PostBotsByBotIdMemoryAddErrors[keyof PostBotsByBotIdMemoryAddErrors];
-
-export type PostBotsByBotIdMemoryAddResponses = {
-    /**
-     * OK
-     */
-    200: MemorySearchResponse;
-};
-
-export type PostBotsByBotIdMemoryAddResponse = PostBotsByBotIdMemoryAddResponses[keyof PostBotsByBotIdMemoryAddResponses];
-
-export type PostBotsByBotIdMemoryEmbedData = {
-    /**
-     * Embed upsert request
-     */
-    body: HandlersMemoryEmbedUpsertPayload;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/embed';
-};
-
-export type PostBotsByBotIdMemoryEmbedErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdMemoryEmbedError = PostBotsByBotIdMemoryEmbedErrors[keyof PostBotsByBotIdMemoryEmbedErrors];
-
-export type PostBotsByBotIdMemoryEmbedResponses = {
-    /**
-     * OK
-     */
-    200: MemoryEmbedUpsertResponse;
-};
-
-export type PostBotsByBotIdMemoryEmbedResponse = PostBotsByBotIdMemoryEmbedResponses[keyof PostBotsByBotIdMemoryEmbedResponses];
-
-export type DeleteBotsByBotIdMemoryMemoriesData = {
-    /**
-     * Delete all request
-     */
-    body: HandlersMemoryDeleteAllPayload;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/memories';
-};
-
-export type DeleteBotsByBotIdMemoryMemoriesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdMemoryMemoriesError = DeleteBotsByBotIdMemoryMemoriesErrors[keyof DeleteBotsByBotIdMemoryMemoriesErrors];
-
-export type DeleteBotsByBotIdMemoryMemoriesResponses = {
-    /**
-     * OK
-     */
-    200: MemoryDeleteResponse;
-};
-
-export type DeleteBotsByBotIdMemoryMemoriesResponse = DeleteBotsByBotIdMemoryMemoriesResponses[keyof DeleteBotsByBotIdMemoryMemoriesResponses];
-
-export type GetBotsByBotIdMemoryMemoriesData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Run ID
-         */
-        run_id?: string;
-        /**
-         * Limit
-         */
-        limit?: number;
-    };
-    url: '/bots/{bot_id}/memory/memories';
-};
-
-export type GetBotsByBotIdMemoryMemoriesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdMemoryMemoriesError = GetBotsByBotIdMemoryMemoriesErrors[keyof GetBotsByBotIdMemoryMemoriesErrors];
-
-export type GetBotsByBotIdMemoryMemoriesResponses = {
-    /**
-     * OK
-     */
-    200: MemorySearchResponse;
-};
-
-export type GetBotsByBotIdMemoryMemoriesResponse = GetBotsByBotIdMemoryMemoriesResponses[keyof GetBotsByBotIdMemoryMemoriesResponses];
-
-export type DeleteBotsByBotIdMemoryMemoriesByMemoryIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Memory ID
-         */
-        memoryId: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/memories/{memoryId}';
-};
-
-export type DeleteBotsByBotIdMemoryMemoriesByMemoryIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdMemoryMemoriesByMemoryIdError = DeleteBotsByBotIdMemoryMemoriesByMemoryIdErrors[keyof DeleteBotsByBotIdMemoryMemoriesByMemoryIdErrors];
-
-export type DeleteBotsByBotIdMemoryMemoriesByMemoryIdResponses = {
-    /**
-     * OK
-     */
-    200: MemoryDeleteResponse;
-};
-
-export type DeleteBotsByBotIdMemoryMemoriesByMemoryIdResponse = DeleteBotsByBotIdMemoryMemoriesByMemoryIdResponses[keyof DeleteBotsByBotIdMemoryMemoriesByMemoryIdResponses];
-
-export type GetBotsByBotIdMemoryMemoriesByMemoryIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Memory ID
-         */
-        memoryId: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/memories/{memoryId}';
-};
-
-export type GetBotsByBotIdMemoryMemoriesByMemoryIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdMemoryMemoriesByMemoryIdError = GetBotsByBotIdMemoryMemoriesByMemoryIdErrors[keyof GetBotsByBotIdMemoryMemoriesByMemoryIdErrors];
-
-export type GetBotsByBotIdMemoryMemoriesByMemoryIdResponses = {
-    /**
-     * OK
-     */
-    200: MemoryMemoryItem;
-};
-
-export type GetBotsByBotIdMemoryMemoriesByMemoryIdResponse = GetBotsByBotIdMemoryMemoriesByMemoryIdResponses[keyof GetBotsByBotIdMemoryMemoriesByMemoryIdResponses];
-
-export type PostBotsByBotIdMemorySearchData = {
-    /**
-     * Search request
-     */
-    body: HandlersMemorySearchPayload;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/search';
-};
-
-export type PostBotsByBotIdMemorySearchErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdMemorySearchError = PostBotsByBotIdMemorySearchErrors[keyof PostBotsByBotIdMemorySearchErrors];
-
-export type PostBotsByBotIdMemorySearchResponses = {
-    /**
-     * OK
-     */
-    200: MemorySearchResponse;
-};
-
-export type PostBotsByBotIdMemorySearchResponse = PostBotsByBotIdMemorySearchResponses[keyof PostBotsByBotIdMemorySearchResponses];
-
-export type PostBotsByBotIdMemoryUpdateData = {
-    /**
-     * Update request
-     */
-    body: MemoryUpdateRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/memory/update';
-};
-
-export type PostBotsByBotIdMemoryUpdateErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-    /**
-     * Internal Server Error
-     */
-    500: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdMemoryUpdateError = PostBotsByBotIdMemoryUpdateErrors[keyof PostBotsByBotIdMemoryUpdateErrors];
-
-export type PostBotsByBotIdMemoryUpdateResponses = {
-    /**
-     * OK
-     */
-    200: MemoryMemoryItem;
-};
-
-export type PostBotsByBotIdMemoryUpdateResponse = PostBotsByBotIdMemoryUpdateResponses[keyof PostBotsByBotIdMemoryUpdateResponses];
-
 export type GetBotsByBotIdScheduleData = {
     body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/schedule';
 };
@@ -2680,12 +1503,7 @@ export type PostBotsByBotIdScheduleData = {
      * Schedule payload
      */
     body: ScheduleCreateRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/schedule';
 };
@@ -2715,10 +1533,6 @@ export type PostBotsByBotIdScheduleResponse = PostBotsByBotIdScheduleResponses[k
 export type DeleteBotsByBotIdScheduleByIdData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * Schedule ID
          */
@@ -2751,10 +1565,6 @@ export type DeleteBotsByBotIdScheduleByIdResponses = {
 export type GetBotsByBotIdScheduleByIdData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * Schedule ID
          */
@@ -2797,10 +1607,6 @@ export type PutBotsByBotIdScheduleByIdData = {
     body: ScheduleUpdateRequest;
     path: {
         /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
          * Schedule ID
          */
         id: string;
@@ -2833,12 +1639,7 @@ export type PutBotsByBotIdScheduleByIdResponse = PutBotsByBotIdScheduleByIdRespo
 
 export type DeleteBotsByBotIdSettingsData = {
     body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/settings';
 };
@@ -2865,12 +1666,7 @@ export type DeleteBotsByBotIdSettingsResponses = {
 
 export type GetBotsByBotIdSettingsData = {
     body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/settings';
 };
@@ -2902,12 +1698,7 @@ export type PostBotsByBotIdSettingsData = {
      * Settings payload
      */
     body: SettingsUpsertRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/settings';
 };
@@ -2939,12 +1730,7 @@ export type PutBotsByBotIdSettingsData = {
      * Settings payload
      */
     body: SettingsUpsertRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/settings';
 };
@@ -2973,12 +1759,7 @@ export type PutBotsByBotIdSettingsResponse = PutBotsByBotIdSettingsResponses[key
 
 export type GetBotsByBotIdSubagentsData = {
     body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/subagents';
 };
@@ -3010,12 +1791,7 @@ export type PostBotsByBotIdSubagentsData = {
      * Subagent payload
      */
     body: SubagentCreateRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
+    path?: never;
     query?: never;
     url: '/bots/{bot_id}/subagents';
 };
@@ -3045,10 +1821,6 @@ export type PostBotsByBotIdSubagentsResponse = PostBotsByBotIdSubagentsResponses
 export type DeleteBotsByBotIdSubagentsByIdData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * Subagent ID
          */
@@ -3085,10 +1857,6 @@ export type DeleteBotsByBotIdSubagentsByIdResponses = {
 export type GetBotsByBotIdSubagentsByIdData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * Subagent ID
          */
@@ -3131,10 +1899,6 @@ export type PutBotsByBotIdSubagentsByIdData = {
     body: SubagentUpdateRequest;
     path: {
         /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
          * Subagent ID
          */
         id: string;
@@ -3172,10 +1936,6 @@ export type PutBotsByBotIdSubagentsByIdResponse = PutBotsByBotIdSubagentsByIdRes
 export type GetBotsByBotIdSubagentsByIdContextData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * Subagent ID
          */
@@ -3218,10 +1978,6 @@ export type PutBotsByBotIdSubagentsByIdContextData = {
     body: SubagentUpdateContextRequest;
     path: {
         /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
          * Subagent ID
          */
         id: string;
@@ -3259,10 +2015,6 @@ export type PutBotsByBotIdSubagentsByIdContextResponse = PutBotsByBotIdSubagents
 export type GetBotsByBotIdSubagentsByIdSkillsData = {
     body?: never;
     path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
         /**
          * Subagent ID
          */
@@ -3305,10 +2057,6 @@ export type PostBotsByBotIdSubagentsByIdSkillsData = {
     body: SubagentAddSkillsRequest;
     path: {
         /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
          * Subagent ID
          */
         id: string;
@@ -3350,10 +2098,6 @@ export type PutBotsByBotIdSubagentsByIdSkillsData = {
     body: SubagentUpdateSkillsRequest;
     path: {
         /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
          * Subagent ID
          */
         id: string;
@@ -3387,6 +2131,51 @@ export type PutBotsByBotIdSubagentsByIdSkillsResponses = {
 };
 
 export type PutBotsByBotIdSubagentsByIdSkillsResponse = PutBotsByBotIdSubagentsByIdSkillsResponses[keyof PutBotsByBotIdSubagentsByIdSkillsResponses];
+
+export type PostBotsByBotIdToolsData = {
+    /**
+     * JSON-RPC request
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/tools';
+};
+
+export type PostBotsByBotIdToolsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdToolsError = PostBotsByBotIdToolsErrors[keyof PostBotsByBotIdToolsErrors];
+
+export type PostBotsByBotIdToolsResponses = {
+    /**
+     * JSON-RPC response: {jsonrpc,id,result|error}
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PostBotsByBotIdToolsResponse = PostBotsByBotIdToolsResponses[keyof PostBotsByBotIdToolsResponses];
 
 export type DeleteBotsByIdData = {
     body?: never;
@@ -3423,10 +2212,14 @@ export type DeleteBotsByIdError = DeleteBotsByIdErrors[keyof DeleteBotsByIdError
 
 export type DeleteBotsByIdResponses = {
     /**
-     * No Content
+     * Accepted
      */
-    204: unknown;
+    202: {
+        [key: string]: string;
+    };
 };
+
+export type DeleteBotsByIdResponse = DeleteBotsByIdResponses[keyof DeleteBotsByIdResponses];
 
 export type GetBotsByIdData = {
     body?: never;
@@ -3661,7 +2454,7 @@ export type PostBotsByIdChannelByPlatformSendResponses = {
 
 export type PostBotsByIdChannelByPlatformSendResponse = PostBotsByIdChannelByPlatformSendResponses[keyof PostBotsByIdChannelByPlatformSendResponses];
 
-export type PostBotsByIdChannelByPlatformSendSessionData = {
+export type PostBotsByIdChannelByPlatformSendChatData = {
     /**
      * Send payload
      */
@@ -3677,10 +2470,10 @@ export type PostBotsByIdChannelByPlatformSendSessionData = {
         platform: string;
     };
     query?: never;
-    url: '/bots/{id}/channel/{platform}/send_session';
+    url: '/bots/{id}/channel/{platform}/send_chat';
 };
 
-export type PostBotsByIdChannelByPlatformSendSessionErrors = {
+export type PostBotsByIdChannelByPlatformSendChatErrors = {
     /**
      * Bad Request
      */
@@ -3699,9 +2492,9 @@ export type PostBotsByIdChannelByPlatformSendSessionErrors = {
     500: HandlersErrorResponse;
 };
 
-export type PostBotsByIdChannelByPlatformSendSessionError = PostBotsByIdChannelByPlatformSendSessionErrors[keyof PostBotsByIdChannelByPlatformSendSessionErrors];
+export type PostBotsByIdChannelByPlatformSendChatError = PostBotsByIdChannelByPlatformSendChatErrors[keyof PostBotsByIdChannelByPlatformSendChatErrors];
 
-export type PostBotsByIdChannelByPlatformSendSessionResponses = {
+export type PostBotsByIdChannelByPlatformSendChatResponses = {
     /**
      * OK
      */
@@ -3710,7 +2503,49 @@ export type PostBotsByIdChannelByPlatformSendSessionResponses = {
     };
 };
 
-export type PostBotsByIdChannelByPlatformSendSessionResponse = PostBotsByIdChannelByPlatformSendSessionResponses[keyof PostBotsByIdChannelByPlatformSendSessionResponses];
+export type PostBotsByIdChannelByPlatformSendChatResponse = PostBotsByIdChannelByPlatformSendChatResponses[keyof PostBotsByIdChannelByPlatformSendChatResponses];
+
+export type GetBotsByIdChecksData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/bots/{id}/checks';
+};
+
+export type GetBotsByIdChecksErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBotsByIdChecksError = GetBotsByIdChecksErrors[keyof GetBotsByIdChecksErrors];
+
+export type GetBotsByIdChecksResponses = {
+    /**
+     * OK
+     */
+    200: BotsListChecksResponse;
+};
+
+export type GetBotsByIdChecksResponse = GetBotsByIdChecksResponses[keyof GetBotsByIdChecksResponses];
 
 export type GetBotsByIdMembersData = {
     body?: never;
@@ -4677,7 +3512,7 @@ export type GetUsersResponses = {
     /**
      * OK
      */
-    200: UsersListUsersResponse;
+    200: AccountsListAccountsResponse;
 };
 
 export type GetUsersResponse = GetUsersResponses[keyof GetUsersResponses];
@@ -4686,7 +3521,7 @@ export type PostUsersData = {
     /**
      * User payload
      */
-    body: UsersCreateUserRequest;
+    body: AccountsCreateAccountRequest;
     path?: never;
     query?: never;
     url: '/users';
@@ -4713,7 +3548,7 @@ export type PostUsersResponses = {
     /**
      * Created
      */
-    201: UsersUser;
+    201: AccountsAccount;
 };
 
 export type PostUsersResponse = PostUsersResponses[keyof PostUsersResponses];
@@ -4742,7 +3577,7 @@ export type GetUsersMeResponses = {
     /**
      * OK
      */
-    200: UsersUser;
+    200: AccountsAccount;
 };
 
 export type GetUsersMeResponse = GetUsersMeResponses[keyof GetUsersMeResponses];
@@ -4751,7 +3586,7 @@ export type PutUsersMeData = {
     /**
      * Profile payload
      */
-    body: UsersUpdateProfileRequest;
+    body: AccountsUpdateProfileRequest;
     path?: never;
     query?: never;
     url: '/users/me';
@@ -4774,7 +3609,7 @@ export type PutUsersMeResponses = {
     /**
      * OK
      */
-    200: UsersUser;
+    200: AccountsAccount;
 };
 
 export type PutUsersMeResponse = PutUsersMeResponses[keyof PutUsersMeResponses];
@@ -4812,7 +3647,7 @@ export type GetUsersMeChannelsByPlatformResponses = {
     /**
      * OK
      */
-    200: ChannelChannelUserBinding;
+    200: ChannelChannelIdentityBinding;
 };
 
 export type GetUsersMeChannelsByPlatformResponse = GetUsersMeChannelsByPlatformResponses[keyof GetUsersMeChannelsByPlatformResponses];
@@ -4821,7 +3656,7 @@ export type PutUsersMeChannelsByPlatformData = {
     /**
      * Channel user config payload
      */
-    body: ChannelUpsertUserConfigRequest;
+    body: ChannelUpsertChannelIdentityConfigRequest;
     path: {
         /**
          * Channel platform
@@ -4849,16 +3684,49 @@ export type PutUsersMeChannelsByPlatformResponses = {
     /**
      * OK
      */
-    200: ChannelChannelUserBinding;
+    200: ChannelChannelIdentityBinding;
 };
 
 export type PutUsersMeChannelsByPlatformResponse = PutUsersMeChannelsByPlatformResponses[keyof PutUsersMeChannelsByPlatformResponses];
+
+export type GetUsersMeIdentitiesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/users/me/identities';
+};
+
+export type GetUsersMeIdentitiesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetUsersMeIdentitiesError = GetUsersMeIdentitiesErrors[keyof GetUsersMeIdentitiesErrors];
+
+export type GetUsersMeIdentitiesResponses = {
+    /**
+     * OK
+     */
+    200: HandlersListMyIdentitiesResponse;
+};
+
+export type GetUsersMeIdentitiesResponse = GetUsersMeIdentitiesResponses[keyof GetUsersMeIdentitiesResponses];
 
 export type PutUsersMePasswordData = {
     /**
      * Password payload
      */
-    body: UsersUpdatePasswordRequest;
+    body: AccountsUpdatePasswordRequest;
     path?: never;
     query?: never;
     url: '/users/me/password';
@@ -4921,7 +3789,7 @@ export type GetUsersByIdResponses = {
     /**
      * OK
      */
-    200: UsersUser;
+    200: AccountsAccount;
 };
 
 export type GetUsersByIdResponse = GetUsersByIdResponses[keyof GetUsersByIdResponses];
@@ -4930,7 +3798,7 @@ export type PutUsersByIdData = {
     /**
      * User update payload
      */
-    body: UsersUpdateUserRequest;
+    body: AccountsUpdateAccountRequest;
     path: {
         /**
          * User ID
@@ -4966,7 +3834,7 @@ export type PutUsersByIdResponses = {
     /**
      * OK
      */
-    200: UsersUser;
+    200: AccountsAccount;
 };
 
 export type PutUsersByIdResponse = PutUsersByIdResponses[keyof PutUsersByIdResponses];
@@ -4975,7 +3843,7 @@ export type PutUsersByIdPasswordData = {
     /**
      * Password payload
      */
-    body: UsersResetPasswordRequest;
+    body: AccountsResetPasswordRequest;
     path: {
         /**
          * User ID

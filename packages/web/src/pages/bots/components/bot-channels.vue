@@ -43,11 +43,11 @@
               class="flex size-8 shrink-0 items-center justify-center rounded-md text-xs font-bold uppercase"
               :class="channelBadgeClass(item.meta.type)"
             >
-              {{ channelIcon(item.meta.type) }}
+              {{ channelIconShort(item.meta.type) }}
             </div>
             <div class="flex-1 text-left">
               <div class="font-medium">
-                {{ item.meta.display_name }}
+                {{ channelTypeLabel(item.meta.type, item.meta.display_name) }}
               </div>
               <div class="text-xs">
                 <span
@@ -105,9 +105,9 @@
                 class="flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-bold uppercase"
                 :class="channelBadgeClass(item.meta.type)"
               >
-                {{ channelIcon(item.meta.type) }}
+                {{ channelIconShort(item.meta.type) }}
               </div>
-              <span>{{ item.meta.display_name }}</span>
+              <span>{{ channelTypeLabel(item.meta.type, item.meta.display_name) }}</span>
             </button>
           </PopoverContent>
         </Popover>
@@ -142,48 +142,17 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@memoh/ui'
-import { useQuery, useQueryCache } from '@pinia/colada'
-import { getChannels, getBotsByIdChannelByPlatform } from '@memoh/sdk'
-import type { HandlersChannelMeta, ChannelChannelConfig } from '@memoh/sdk'
+import { useI18n } from 'vue-i18n'
+import { useBotChannels, type BotChannelItem } from '@/composables/api/useChannels'
 import ChannelSettingsPanel from './channel-settings-panel.vue'
 
-export interface BotChannelItem {
-  meta: HandlersChannelMeta
-  config: ChannelChannelConfig | null
-  configured: boolean
-}
-
+const { t } = useI18n()
 const props = defineProps<{
   botId: string
 }>()
 
 const botIdRef = computed(() => props.botId)
-
-const { data: channels, isLoading, refetch } = useQuery({
-  key: () => ['bot-channels', botIdRef.value],
-  query: async (): Promise<BotChannelItem[]> => {
-    const { data: metas } = await getChannels({ throwOnError: true })
-    if (!metas) return []
-
-    const configurableTypes = metas.filter((m) => !m.configless)
-
-    const results = await Promise.all(
-      configurableTypes.map(async (meta) => {
-        try {
-          const { data: config } = await getBotsByIdChannelByPlatform({
-            path: { id: botIdRef.value, platform: meta.type },
-            throwOnError: true,
-          })
-          return { meta, config: config ?? null, configured: true } as BotChannelItem
-        } catch {
-          return { meta, config: null, configured: false } as BotChannelItem
-        }
-      }),
-    )
-    return results
-  },
-  enabled: () => !!botIdRef.value,
-})
+const { data: channels, isLoading, refetch } = useBotChannels(botIdRef)
 
 const selectedType = ref<string | null>(null)
 const addPopoverOpen = ref(false)
@@ -196,7 +165,6 @@ const selectedItem = computed(() =>
   allChannels.value.find((c) => c.meta.type === selectedType.value) ?? null,
 )
 
-// 自动选中第一个已配置的平台
 watch(configuredChannels, (list) => {
   if (list.length > 0 && !selectedType.value) {
     selectedType.value = list[0].meta.type
@@ -208,12 +176,16 @@ function addChannel(type: string) {
   selectedType.value = type
 }
 
-function channelIcon(type: string): string {
-  const icons: Record<string, string> = {
-    telegram: 'TG',
-    feishu: '飞',
-  }
-  return icons[type] ?? type.slice(0, 2).toUpperCase()
+function channelTypeLabel(type: string, displayName?: string): string {
+  const key = `bots.channels.types.${type}`
+  const out = t(key)
+  return out !== key ? out : (displayName ?? type)
+}
+
+function channelIconShort(type: string): string {
+  const key = `bots.channels.typesShort.${type}`
+  const out = t(key)
+  return out !== key ? out : type.slice(0, 2).toUpperCase()
 }
 
 function channelBadgeClass(type: string): string {

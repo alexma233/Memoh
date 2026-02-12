@@ -61,6 +61,7 @@ type Manager struct {
 	inboundCtx     context.Context
 	inboundCancel  context.CancelFunc
 	mu             sync.Mutex
+	refreshMu      sync.Mutex
 	connections    map[string]*connectionEntry
 }
 

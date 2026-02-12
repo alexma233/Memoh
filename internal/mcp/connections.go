@@ -14,14 +14,14 @@ import (
 
 // Connection represents a stored MCP connection for a bot.
 type Connection struct {
-	ID        string         `json:"id" validate:"required"`
-	BotID     string         `json:"bot_id" validate:"required"`
-	Name      string         `json:"name" validate:"required"`
-	Type      string         `json:"type" validate:"required"`
-	Config    map[string]any `json:"config" validate:"required"`
-	Active    bool           `json:"active" validate:"required"`
-	CreatedAt time.Time      `json:"created_at" validate:"required"`
-	UpdatedAt time.Time      `json:"updated_at" validate:"required"`
+	ID        string         `json:"id"`
+	BotID     string         `json:"bot_id"`
+	Name      string         `json:"name"`
+	Type      string         `json:"type"`
+	Config    map[string]any `json:"config"`
+	Active    bool           `json:"active"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // UpsertRequest is the payload for creating or updating MCP connections.
@@ -222,8 +222,8 @@ func normalizeMCPConnection(row sqlc.McpConnection) (Connection, error) {
 		return Connection{}, err
 	}
 	return Connection{
-		ID:        db.UUIDToString(row.ID),
-		BotID:     db.UUIDToString(row.BotID),
+		ID:        row.ID.String(),
+		BotID:     row.BotID.String(),
 		Name:      strings.TrimSpace(row.Name),
 		Type:      strings.TrimSpace(row.Type),
 		Config:    config,

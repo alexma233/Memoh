@@ -39,61 +39,42 @@ const routes = [
       component: () => import('@/pages/settings/index.vue'),
       meta: {
         breadcrumb: i18nRef('sidebar.settings')
+      }
+    }, {
+      name: 'settings-user',
+      path: 'user',
+      component: () => import('@/pages/settings/user.vue'),
+      meta: {
+        breadcrumb: i18nRef('settings.user')
       },
-      children: [
-        {
-          name: 'settings-user',
-          path: 'user',
-          component: () => import('@/pages/settings/user.vue'),
-          meta: {
-            breadcrumb: i18nRef('settings.user')
-          },
-        },
-        {
-          name: 'bots',
-          path: 'bots',
-          component: () => import('@/pages/bots/index.vue'),
-          meta: {
-            breadcrumb: i18nRef('sidebar.bots')
-          },
-        },
-        {
-          name: 'bot-detail',
-          path: 'bots/:botId',
-          component: () => import('@/pages/bots/detail.vue'),
-          meta: {
-            breadcrumb: (route: RouteLocationNormalized) => route.params.botId,
-          },
-        },
-        {
-          name: 'models',
-          path: 'models',
-          component: () => import('@/pages/models/index.vue'),
-          meta: {
-            breadcrumb: i18nRef('sidebar.models')
-          },
-        },
-        {
-          name: 'mcp',
-          path: 'mcp',
-          component: () => import('@/pages/mcp/index.vue'),
-          meta: {
-            breadcrumb: i18nRef('sidebar.mcp')
-          },
-        },
-      ],
     }, {
+      name: 'bots',
       path: 'bots',
-      redirect: '/main/settings/bots',
+      component: () => import('@/pages/bots/index.vue'),
+      meta: {
+        breadcrumb: i18nRef('sidebar.bots')
+      },
     }, {
+      name: 'bot-detail',
       path: 'bots/:botId',
-      redirect: (to) => `/main/settings/bots/${to.params.botId}`,
+      component: () => import('@/pages/bots/detail.vue'),
+      meta: {
+        breadcrumb: (route: RouteLocationNormalized) => route.params.botId,
+      },
     }, {
+      name: 'models',
       path: 'models',
-      redirect: '/main/settings/models',
+      component: () => import('@/pages/models/index.vue'),
+      meta: {
+        breadcrumb: i18nRef('sidebar.models')
+      },
     }, {
+      name: 'mcp',
       path: 'mcp',
-      redirect: '/main/settings/mcp',
+      component: () => import('@/pages/mcp/index.vue'),
+      meta: {
+        breadcrumb: i18nRef('sidebar.mcp')
+      },
     }]
   }
 

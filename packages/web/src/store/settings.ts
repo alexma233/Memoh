@@ -14,7 +14,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const language = useStorage<Locale>('language', 'zh')
   const theme = useStorage<'light' | 'dark'>('theme', 'light')
 
-  // 立即同步持久化的设置到运行时状态
   colorMode.value = theme.value
   i18n.locale.value = language.value
 

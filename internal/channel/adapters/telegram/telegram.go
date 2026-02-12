@@ -15,6 +15,8 @@ import (
 	"github.com/memohai/memoh/internal/channel/adapters/common"
 )
 
+const telegramMaxMessageLength = 4096
+
 // TelegramAdapter implements the channel.Adapter, channel.Sender, and channel.Receiver interfaces for Telegram.
 type TelegramAdapter struct {
 	logger *slog.Logger
@@ -27,10 +29,12 @@ func NewTelegramAdapter(log *slog.Logger) *TelegramAdapter {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &TelegramAdapter{
+	adapter := &TelegramAdapter{
 		logger: log.With(slog.String("adapter", "telegram")),
 		bots:   make(map[string]*tgbotapi.BotAPI),
 	}
+	_ = tgbotapi.SetLogger(&slogBotLogger{log: adapter.logger})
+	return adapter
 }
 
 func (a *TelegramAdapter) getOrCreateBot(token, configID string) (*tgbotapi.BotAPI, error) {
@@ -67,11 +71,13 @@ func (a *TelegramAdapter) Descriptor() channel.Descriptor {
 		Type:        Type,
 		DisplayName: "Telegram",
 		Capabilities: channel.ChannelCapabilities{
-			Text:        true,
-			Markdown:    true,
-			Reply:       true,
-			Attachments: true,
-			Media:       true,
+			Text:           true,
+			Markdown:       true,
+			Reply:          true,
+			Attachments:    true,
+			Media:          true,
+			Streaming:      true,
+			BlockStreaming: true,
 		},
 		ConfigSchema: channel.ConfigSchema{
 			Version: 1,
@@ -277,7 +283,7 @@ func (a *TelegramAdapter) Send(ctx context.Context, cfg channel.ChannelConfig, m
 		return fmt.Errorf("message is required")
 	}
 	text := strings.TrimSpace(msg.Message.PlainText())
-	parseMode := resolveTelegramParseMode(msg.Message.Format)
+	text, parseMode := formatTelegramOutput(text, msg.Message.Format)
 	replyTo := parseReplyToMessageID(msg.Message.Reply)
 	if len(msg.Message.Attachments) > 0 {
 		usedCaption := false
@@ -304,6 +310,28 @@ func (a *TelegramAdapter) Send(ctx context.Context, cfg channel.ChannelConfig, m
 		return nil
 	}
 	return sendTelegramText(bot, to, text, replyTo, parseMode)
+}
+
+// OpenStream opens a Telegram streaming session.
+// The adapter sends one message then edits it in place as deltas arrive (editMessageText),
+// avoiding one message per delta and rate limits.
+func (a *TelegramAdapter) OpenStream(ctx context.Context, cfg channel.ChannelConfig, target string, opts channel.StreamOptions) (channel.OutboundStream, error) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil, fmt.Errorf("telegram target is required")
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	return &telegramOutboundStream{
+		adapter:   a,
+		cfg:       cfg,
+		target:    target,
+		reply:     opts.Reply,
+		parseMode: "",
+	}, nil
 }
 
 func resolveTelegramSender(msg *tgbotapi.Message) (string, string, map[string]string) {
@@ -376,36 +404,69 @@ func parseReplyToMessageID(reply *channel.ReplyRef) int {
 }
 
 func sendTelegramText(bot *tgbotapi.BotAPI, target string, text string, replyTo int, parseMode string) error {
+	_, _, err := sendTelegramTextReturnMessage(bot, target, text, replyTo, parseMode)
+	return err
+}
+
+// sendTelegramTextReturnMessage sends a text message and returns the chat ID and message ID for later editing.
+func sendTelegramTextReturnMessage(bot *tgbotapi.BotAPI, target string, text string, replyTo int, parseMode string) (chatID int64, messageID int, err error) {
+	var sent tgbotapi.Message
 	if strings.HasPrefix(target, "@") {
 		message := tgbotapi.NewMessageToChannel(target, text)
 		message.ParseMode = parseMode
 		if replyTo > 0 {
 			message.ReplyToMessageID = replyTo
 		}
-		_, err := bot.Send(message)
-		return err
+		sent, err = bot.Send(message)
+		if err != nil {
+			return 0, 0, err
+		}
+	} else {
+		chatID, err = strconv.ParseInt(target, 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("telegram target must be @username or chat_id")
+		}
+		message := tgbotapi.NewMessage(chatID, text)
+		message.ParseMode = parseMode
+		if replyTo > 0 {
+			message.ReplyToMessageID = replyTo
+		}
+		sent, err = bot.Send(message)
+		if err != nil {
+			return 0, 0, err
+		}
 	}
-	chatID, err := strconv.ParseInt(target, 10, 64)
-	if err != nil {
-		return fmt.Errorf("telegram target must be @username or chat_id")
+	if sent.Chat != nil {
+		chatID = sent.Chat.ID
 	}
-	message := tgbotapi.NewMessage(chatID, text)
-	message.ParseMode = parseMode
-	if replyTo > 0 {
-		message.ReplyToMessageID = replyTo
+	messageID = sent.MessageID
+	return chatID, messageID, nil
+}
+
+func editTelegramMessageText(bot *tgbotapi.BotAPI, chatID int64, messageID int, text string, parseMode string) error {
+	if len(text) > telegramMaxMessageLength {
+		text = text[:telegramMaxMessageLength-3] + "..."
 	}
-	_, err = bot.Send(message)
+	edit := tgbotapi.NewEditMessageText(chatID, messageID, text)
+	edit.ParseMode = parseMode
+	_, err := bot.Send(edit)
 	return err
 }
 
 func sendTelegramAttachment(bot *tgbotapi.BotAPI, target string, att channel.Attachment, caption string, replyTo int, parseMode string) error {
-	if strings.TrimSpace(att.URL) == "" {
-		return fmt.Errorf("attachment url is required")
+	urlRef := strings.TrimSpace(att.URL)
+	keyRef := strings.TrimSpace(att.PlatformKey)
+	sourcePlatform := strings.TrimSpace(att.SourcePlatform)
+	if urlRef == "" && keyRef == "" {
+		return fmt.Errorf("attachment reference is required")
 	}
 	if strings.TrimSpace(caption) == "" && strings.TrimSpace(att.Caption) != "" {
 		caption = strings.TrimSpace(att.Caption)
 	}
-	file := tgbotapi.FileURL(att.URL)
+	file := tgbotapi.RequestFileData(tgbotapi.FileURL(urlRef))
+	if keyRef != "" && (sourcePlatform == "" || strings.EqualFold(sourcePlatform, Type.String())) {
+		file = tgbotapi.FileID(keyRef)
+	}
 	isChannel := strings.HasPrefix(target, "@")
 	switch att.Type {
 	case channel.AttachmentImage:
@@ -668,12 +729,14 @@ func (a *TelegramAdapter) buildTelegramAttachment(bot *tgbotapi.BotAPI, attType 
 		}
 	}
 	att := channel.Attachment{
-		Type:     attType,
-		URL:      strings.TrimSpace(url),
-		Name:     strings.TrimSpace(name),
-		Mime:     strings.TrimSpace(mime),
-		Size:     size,
-		Metadata: map[string]any{},
+		Type:           attType,
+		URL:            strings.TrimSpace(url),
+		PlatformKey:    strings.TrimSpace(fileID),
+		SourcePlatform: Type.String(),
+		Name:           strings.TrimSpace(name),
+		Mime:           strings.TrimSpace(mime),
+		Size:           size,
+		Metadata:       map[string]any{},
 	}
 	if fileID != "" {
 		att.Metadata["file_id"] = fileID

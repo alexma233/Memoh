@@ -36,13 +36,13 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS channel_identities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  channel TEXT NOT NULL,
+  channel_type TEXT NOT NULL,
   channel_subject_id TEXT NOT NULL,
   display_name TEXT,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT channel_identities_channel_subject_unique UNIQUE (channel, channel_subject_id)
+  CONSTRAINT channel_identities_channel_type_subject_unique UNIQUE (channel_type, channel_subject_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_channel_identities_user_id ON channel_identities(user_id);
@@ -51,11 +51,11 @@ CREATE INDEX IF NOT EXISTS idx_channel_identities_user_id ON channel_identities(
 CREATE TABLE IF NOT EXISTS user_channel_bindings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  platform TEXT NOT NULL,
+  channel_type TEXT NOT NULL,
   config JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT user_channel_bindings_unique UNIQUE (user_id, platform)
+  CONSTRAINT user_channel_bindings_unique UNIQUE (user_id, channel_type)
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_channel_bindings_user_id ON user_channel_bindings(user_id);
@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS bots (
   display_name TEXT,
   avatar_url TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
+  status TEXT NOT NULL DEFAULT 'ready',
   max_context_load_time INTEGER NOT NULL DEFAULT 1440,
   language TEXT NOT NULL DEFAULT 'auto',
   allow_guest BOOLEAN NOT NULL DEFAULT false,
@@ -117,7 +118,8 @@ CREATE TABLE IF NOT EXISTS bots (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public'))
+  CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
+  CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_bots_owner_user_id ON bots(owner_user_id);
@@ -148,85 +150,7 @@ CREATE TABLE IF NOT EXISTS mcp_connections (
 
 CREATE INDEX IF NOT EXISTS idx_mcp_connections_bot_id ON mcp_connections(bot_id);
 
--- chats: first-class conversation container
-CREATE TABLE IF NOT EXISTS chats (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('direct', 'group', 'thread')),
-  parent_chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,
-  title TEXT,
-  created_by_user_id UUID REFERENCES users(id),
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  enable_chat_memory BOOLEAN NOT NULL DEFAULT true,
-  enable_private_memory BOOLEAN NOT NULL DEFAULT true,
-  enable_public_memory BOOLEAN NOT NULL DEFAULT false,
-  model_id TEXT,
-  settings_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_chats_bot_id ON chats(bot_id);
-CREATE INDEX IF NOT EXISTS idx_chats_parent ON chats(parent_chat_id);
-
--- chat_participants: chat membership
-CREATE TABLE IF NOT EXISTS chat_participants (
-  chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
-  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (chat_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_participants_user ON chat_participants(user_id);
-
--- chat_messages: per-message storage (replaces history)
-CREATE TABLE IF NOT EXISTS chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  route_id UUID,
-  sender_channel_identity_id UUID REFERENCES channel_identities(id),
-  sender_user_id UUID REFERENCES users(id),
-  platform TEXT,
-  external_message_id TEXT,
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system', 'tool')),
-  content JSONB NOT NULL,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Backfill newly introduced columns for existing deployments where chat_messages
--- was created before route/platform traceability fields were added.
-ALTER TABLE IF EXISTS chat_messages
-  ADD COLUMN IF NOT EXISTS route_id UUID;
-
-ALTER TABLE IF EXISTS chat_messages
-  ADD COLUMN IF NOT EXISTS platform TEXT;
-
-ALTER TABLE IF EXISTS chat_messages
-  ADD COLUMN IF NOT EXISTS external_message_id TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_chat_messages_chat_created ON chat_messages(chat_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_bot ON chat_messages(bot_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_route ON chat_messages(route_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_external_lookup
-  ON chat_messages(platform, external_message_id);
-
--- chat_channel_identity_presence: derived cache of channel identities observed in chats
-CREATE TABLE IF NOT EXISTS chat_channel_identity_presence (
-  chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-  channel_identity_id UUID NOT NULL REFERENCES channel_identities(id) ON DELETE CASCADE,
-  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  message_count BIGINT NOT NULL DEFAULT 1,
-  PRIMARY KEY (chat_id, channel_identity_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_channel_identity_presence_identity_last_seen
-  ON chat_channel_identity_presence(channel_identity_id, last_seen_at DESC);
-CREATE INDEX IF NOT EXISTS idx_chat_channel_identity_presence_chat_last_seen
-  ON chat_channel_identity_presence(chat_id, last_seen_at DESC);
+-- Bot history is bot-scoped (one history container per bot).
 
 CREATE TABLE IF NOT EXISTS bot_channel_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -269,7 +193,7 @@ CREATE TABLE IF NOT EXISTS channel_identity_bind_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   token TEXT NOT NULL,
   issued_by_user_id UUID NOT NULL REFERENCES users(id),
-  platform TEXT,
+  channel_type TEXT,
   expires_at TIMESTAMPTZ,
   used_at TIMESTAMPTZ,
   used_by_channel_identity_id UUID REFERENCES channel_identities(id),
@@ -277,27 +201,48 @@ CREATE TABLE IF NOT EXISTS channel_identity_bind_codes (
   CONSTRAINT channel_identity_bind_codes_token_unique UNIQUE (token)
 );
 
-CREATE INDEX IF NOT EXISTS idx_channel_identity_bind_codes_platform ON channel_identity_bind_codes(platform);
+CREATE INDEX IF NOT EXISTS idx_channel_identity_bind_codes_channel_type ON channel_identity_bind_codes(channel_type);
 
--- chat_routes: routing mapping (replaces channel_sessions)
-CREATE TABLE IF NOT EXISTS chat_routes (
+-- bot_channel_routes: route mapping for inbound channel threads to bot history.
+CREATE TABLE IF NOT EXISTS bot_channel_routes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
   bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
-  platform TEXT NOT NULL,
+  channel_type TEXT NOT NULL,
   channel_config_id UUID REFERENCES bot_channel_configs(id) ON DELETE SET NULL,
-  conversation_id TEXT NOT NULL,
-  thread_id TEXT,
-  reply_target TEXT,
+  external_conversation_id TEXT NOT NULL,
+  external_thread_id TEXT,
+  default_reply_target TEXT,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_routes_unique
-  ON chat_routes (bot_id, platform, conversation_id, COALESCE(thread_id, ''));
-CREATE INDEX IF NOT EXISTS idx_chat_routes_chat ON chat_routes(chat_id);
-CREATE INDEX IF NOT EXISTS idx_chat_routes_bot ON chat_routes(bot_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bot_channel_routes_unique
+  ON bot_channel_routes (bot_id, channel_type, external_conversation_id, COALESCE(external_thread_id, ''));
+CREATE INDEX IF NOT EXISTS idx_bot_channel_routes_bot ON bot_channel_routes(bot_id);
+
+-- bot_history_messages: unified message history under bot scope.
+CREATE TABLE IF NOT EXISTS bot_history_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  route_id UUID REFERENCES bot_channel_routes(id) ON DELETE SET NULL,
+  sender_channel_identity_id UUID REFERENCES channel_identities(id),
+  sender_account_user_id UUID REFERENCES users(id),
+  channel_type TEXT,
+  source_message_id TEXT,
+  source_reply_to_message_id TEXT,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system', 'tool')),
+  content JSONB NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_bot_created ON bot_history_messages(bot_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_route ON bot_history_messages(route_id);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_source_lookup
+  ON bot_history_messages(channel_type, source_message_id);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_reply_lookup
+  ON bot_history_messages(channel_type, source_reply_to_message_id);
 
 CREATE TABLE IF NOT EXISTS containers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

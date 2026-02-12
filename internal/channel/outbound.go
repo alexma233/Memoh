@@ -302,6 +302,9 @@ func validateMessageCapabilities(registry *Registry, channelType ChannelType, ms
 	if msg.Reply != nil && !caps.Reply {
 		return fmt.Errorf("channel does not support reply")
 	}
+	if strings.TrimSpace(msg.ID) != "" && !caps.Edit {
+		return fmt.Errorf("channel does not support edit")
+	}
 	return nil
 }
 
@@ -316,12 +319,40 @@ func (m *Manager) sendWithConfig(ctx context.Context, sender Sender, cfg Channel
 	if msg.Message.IsEmpty() {
 		return fmt.Errorf("message is required")
 	}
-	if err := validateMessageCapabilities(m.registry, cfg.ChannelType, msg.Message); err != nil {
+	normalized := msg
+	attachments, err := normalizeAttachmentRefs(msg.Message.Attachments, cfg.ChannelType)
+	if err != nil {
 		return err
+	}
+	normalized.Message.Attachments = attachments
+	if err := validateMessageCapabilities(m.registry, cfg.ChannelType, normalized.Message); err != nil {
+		return err
+	}
+	editor, _ := m.registry.GetMessageEditor(cfg.ChannelType)
+	if strings.TrimSpace(normalized.Message.ID) != "" {
+		if editor == nil {
+			return fmt.Errorf("channel does not support edit")
+		}
+		var lastErr error
+		for i := 0; i < policy.RetryMax; i++ {
+			err := editor.Update(ctx, cfg, target, strings.TrimSpace(normalized.Message.ID), normalized.Message)
+			if err == nil {
+				return nil
+			}
+			lastErr = err
+			if m.logger != nil {
+				m.logger.Warn("edit outbound retry",
+					slog.String("channel", cfg.ChannelType.String()),
+					slog.Int("attempt", i+1),
+					slog.Any("error", err))
+			}
+			time.Sleep(time.Duration(i+1) * time.Duration(policy.RetryBackoffMs) * time.Millisecond)
+		}
+		return fmt.Errorf("edit outbound failed after retries: %w", lastErr)
 	}
 	var lastErr error
 	for i := 0; i < policy.RetryMax; i++ {
-		err := sender.Send(ctx, cfg, OutboundMessage{Target: target, Message: msg.Message})
+		err := sender.Send(ctx, cfg, OutboundMessage{Target: target, Message: normalized.Message})
 		if err == nil {
 			return nil
 		}
@@ -337,6 +368,27 @@ func (m *Manager) sendWithConfig(ctx context.Context, sender Sender, cfg Channel
 	return fmt.Errorf("send outbound failed after retries: %w", lastErr)
 }
 
+func normalizeAttachmentRefs(attachments []Attachment, defaultPlatform ChannelType) ([]Attachment, error) {
+	if len(attachments) == 0 {
+		return nil, nil
+	}
+	normalized := make([]Attachment, 0, len(attachments))
+	for _, att := range attachments {
+		item := att
+		item.URL = strings.TrimSpace(item.URL)
+		item.PlatformKey = strings.TrimSpace(item.PlatformKey)
+		item.SourcePlatform = strings.TrimSpace(item.SourcePlatform)
+		if item.SourcePlatform == "" && item.PlatformKey != "" {
+			item.SourcePlatform = defaultPlatform.String()
+		}
+		if item.URL == "" && item.PlatformKey == "" {
+			return nil, fmt.Errorf("attachment reference is required")
+		}
+		normalized = append(normalized, item)
+	}
+	return normalized, nil
+}
+
 func requiresMedia(attachments []Attachment) bool {
 	for _, att := range attachments {
 		switch att.Type {
@@ -349,21 +401,55 @@ func requiresMedia(attachments []Attachment) bool {
 	return false
 }
 
-func (m *Manager) newReplySender(cfg ChannelConfig, channelType ChannelType) ReplySender {
+func validateStreamEvent(registry *Registry, channelType ChannelType, event StreamEvent) error {
+	caps, _ := registry.GetCapabilities(channelType)
+	switch event.Type {
+	case StreamEventStatus:
+		if event.Status == "" {
+			return fmt.Errorf("stream status is required")
+		}
+	case StreamEventDelta:
+		if !caps.Streaming && !caps.BlockStreaming {
+			return fmt.Errorf("channel does not support streaming")
+		}
+	case StreamEventFinal:
+		if event.Final == nil {
+			return fmt.Errorf("stream final payload is required")
+		}
+		if err := validateMessageCapabilities(registry, channelType, event.Final.Message); err != nil {
+			return err
+		}
+		if _, err := normalizeAttachmentRefs(event.Final.Message.Attachments, channelType); err != nil {
+			return err
+		}
+	case StreamEventError:
+		if strings.TrimSpace(event.Error) == "" {
+			return fmt.Errorf("stream error is required")
+		}
+	default:
+		return fmt.Errorf("unsupported stream event type: %s", event.Type)
+	}
+	return nil
+}
+
+func (m *Manager) newReplySender(cfg ChannelConfig, channelType ChannelType) StreamReplySender {
 	sender, _ := m.registry.GetSender(channelType)
+	streamSender, _ := m.registry.GetStreamSender(channelType)
 	return &managerReplySender{
-		manager:     m,
-		sender:      sender,
-		channelType: channelType,
-		config:      cfg,
+		manager:      m,
+		sender:       sender,
+		streamSender: streamSender,
+		channelType:  channelType,
+		config:       cfg,
 	}
 }
 
 type managerReplySender struct {
-	manager     *Manager
-	sender      Sender
-	channelType ChannelType
-	config      ChannelConfig
+	manager      *Manager
+	sender       Sender
+	streamSender StreamSender
+	channelType  ChannelType
+	config       ChannelConfig
 }
 
 func (s *managerReplySender) Send(ctx context.Context, msg OutboundMessage) error {
@@ -381,4 +467,53 @@ func (s *managerReplySender) Send(ctx context.Context, msg OutboundMessage) erro
 		}
 	}
 	return nil
+}
+
+func (s *managerReplySender) OpenStream(ctx context.Context, target string, opts StreamOptions) (OutboundStream, error) {
+	if s.manager == nil {
+		return nil, fmt.Errorf("channel manager not configured")
+	}
+	if s.streamSender == nil {
+		return nil, fmt.Errorf("channel stream sender not configured")
+	}
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return nil, fmt.Errorf("target is required")
+	}
+	caps, _ := s.manager.registry.GetCapabilities(s.channelType)
+	if !caps.Streaming && !caps.BlockStreaming {
+		return nil, fmt.Errorf("channel does not support streaming")
+	}
+	stream, err := s.streamSender.OpenStream(ctx, s.config, target, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &managerOutboundStream{
+		manager:     s.manager,
+		stream:      stream,
+		channelType: s.channelType,
+	}, nil
+}
+
+type managerOutboundStream struct {
+	manager     *Manager
+	stream      OutboundStream
+	channelType ChannelType
+}
+
+func (s *managerOutboundStream) Push(ctx context.Context, event StreamEvent) error {
+	if s.manager == nil || s.stream == nil {
+		return fmt.Errorf("stream is not configured")
+	}
+	if err := validateStreamEvent(s.manager.registry, s.channelType, event); err != nil {
+		return err
+	}
+	return s.stream.Push(ctx, event)
+}
+
+func (s *managerOutboundStream) Close(ctx context.Context) error {
+	if s.stream == nil {
+		return fmt.Errorf("stream is not configured")
+	}
+	return s.stream.Close(ctx)
 }

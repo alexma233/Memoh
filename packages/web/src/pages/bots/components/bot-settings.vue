@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-2xl space-y-6">
+  <div class="max-w-2xl mx-auto space-y-6">
     <!-- Chat Model -->
     <div class="space-y-2">
       <Label>{{ $t('bots.settings.chatModel') }}</Label>
@@ -87,6 +87,38 @@
         {{ $t('bots.settings.save') }}
       </Button>
     </div>
+
+    <Separator />
+
+    <!-- Danger zone -->
+    <div class="rounded-lg border border-red-200 bg-red-50/50 p-4 dark:border-red-900/50 dark:bg-red-950/20">
+      <h4 class="text-sm font-medium text-red-800 dark:text-red-200">
+        {{ $t('bots.settings.dangerZone') }}
+      </h4>
+      <p class="mt-1 text-sm text-red-700 dark:text-red-300">
+        {{ $t('bots.settings.deleteBotDescription') }}
+      </p>
+      <div class="mt-3">
+        <ConfirmPopover
+          :message="$t('bots.deleteConfirm')"
+          :loading="deleteLoading"
+          @confirm="handleDeleteBot"
+        >
+          <template #trigger>
+            <Button
+              variant="destructive"
+              :disabled="deleteLoading"
+            >
+              <Spinner
+                v-if="deleteLoading"
+                class="mr-1.5"
+              />
+              {{ $t('bots.settings.deleteBot') }}
+            </Button>
+          </template>
+        </ConfirmPopover>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -100,12 +132,15 @@ import {
   Spinner,
 } from '@memoh/ui'
 import { reactive, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
+import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import ModelSelect from './model-select.vue'
-import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { getBotsByBotIdSettings, putBotsByBotIdSettings, getModels, getProviders } from '@memoh/sdk'
-import type { SettingsSettings } from '@memoh/sdk'
+import { useBotSettings, useUpdateBotSettings, type BotSettings } from '@/composables/api/useBotSettings'
+import { useDeleteBot } from '@/composables/api/useBots'
+import { useAllModels } from '@/composables/api/useModels'
+import { useAllProviders } from '@/composables/api/useProviders'
 import type { Ref } from 'vue'
 
 const props = defineProps<{
@@ -115,54 +150,22 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
+const router = useRouter()
 const botIdRef = computed(() => props.botId) as Ref<string>
 const isPersonalBot = computed(() => props.botType.trim().toLowerCase() === 'personal')
 
 // ---- Data ----
-const queryCache = useQueryCache()
-
-const { data: settings } = useQuery({
-  key: () => ['bot-settings', botIdRef.value],
-  query: async () => {
-    const { data } = await getBotsByBotIdSettings({ path: { bot_id: botIdRef.value }, throwOnError: true })
-    return data
-  },
-  enabled: () => !!botIdRef.value,
-})
-
-const { data: modelData } = useQuery({
-  key: ['all-models'],
-  query: async () => {
-    const { data } = await getModels({ throwOnError: true })
-    return data
-  },
-})
-
-const { data: providerData } = useQuery({
-  key: ['all-providers'],
-  query: async () => {
-    const { data } = await getProviders({ throwOnError: true })
-    return data
-  },
-})
-
-const { mutateAsync: updateSettings, isLoading } = useMutation({
-  mutation: async (body: Partial<SettingsSettings>) => {
-    const { data } = await putBotsByBotIdSettings({
-      path: { bot_id: botIdRef.value },
-      body,
-      throwOnError: true,
-    })
-    return data
-  },
-  onSettled: () => queryCache.invalidateQueries({ key: ['bot-settings', botIdRef.value] }),
-})
+const { data: settings } = useBotSettings(botIdRef)
+const { mutate: deleteBot, isLoading: deleteLoading } = useDeleteBot()
+const { data: modelData } = useAllModels()
+const { data: providerData } = useAllProviders()
+const { mutateAsync: updateSettings, isLoading } = useUpdateBotSettings(botIdRef)
 
 const models = computed(() => modelData.value ?? [])
 const providers = computed(() => providerData.value ?? [])
 
 // ---- Form ----
-const form = reactive<SettingsSettings>({
+const form = reactive<BotSettings>({
   chat_model_id: '',
   memory_model_id: '',
   embedding_model_id: '',
@@ -171,7 +174,6 @@ const form = reactive<SettingsSettings>({
   allow_guest: false,
 })
 
-// 同步服务端数据到表单
 watch(settings, (val) => {
   if (val) {
     form.chat_model_id = val.chat_model_id ?? ''
@@ -211,6 +213,16 @@ async function handleSave() {
     toast.success(t('bots.settings.saveSuccess'))
   } catch {
     return
+  }
+}
+
+async function handleDeleteBot() {
+  try {
+    await deleteBot(props.botId)
+    toast.success(t('bots.deleteSuccess'))
+    await router.push({ name: 'bots' })
+  } catch {
+    toast.error(t('bots.lifecycle.deleteFailed'))
   }
 }
 </script>

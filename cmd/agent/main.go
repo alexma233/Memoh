@@ -15,21 +15,27 @@ import (
 	"github.com/memohai/memoh/internal/channel/adapters/feishu"
 	"github.com/memohai/memoh/internal/channel/adapters/local"
 	"github.com/memohai/memoh/internal/channel/adapters/telegram"
-	"github.com/memohai/memoh/internal/channelidentities"
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/channel/identities"
+	"github.com/memohai/memoh/internal/channel/route"
 	"github.com/memohai/memoh/internal/config"
 	ctr "github.com/memohai/memoh/internal/containerd"
+	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow"
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/embeddings"
 	"github.com/memohai/memoh/internal/handlers"
 	"github.com/memohai/memoh/internal/logger"
 	"github.com/memohai/memoh/internal/mcp"
+	mcpcontainer "github.com/memohai/memoh/internal/mcp/providers/container"
+	mcpdirectory "github.com/memohai/memoh/internal/mcp/providers/directory"
 	mcpmemory "github.com/memohai/memoh/internal/mcp/providers/memory"
 	mcpmessage "github.com/memohai/memoh/internal/mcp/providers/message"
 	mcpschedule "github.com/memohai/memoh/internal/mcp/providers/schedule"
 	mcpfederation "github.com/memohai/memoh/internal/mcp/sources/federation"
 	"github.com/memohai/memoh/internal/memory"
+	"github.com/memohai/memoh/internal/message"
+	"github.com/memohai/memoh/internal/message/event"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/policy"
 	"github.com/memohai/memoh/internal/preauth"
@@ -85,7 +91,7 @@ func main() {
 	defer client.Close()
 
 	service := ctr.NewDefaultService(logger.L, client, cfg.Containerd.Namespace)
-	manager := mcp.NewManager(logger.L, service, cfg.MCP)
+	manager := mcp.NewManager(logger.L, service, cfg.MCP, cfg.Containerd.Namespace)
 
 	pingHandler := handlers.NewPingHandler(logger.L)
 	// containerdHandler is created later after DB services are initialized
@@ -101,8 +107,10 @@ func main() {
 	modelsService := models.NewService(logger.L, queries)
 	botService := bots.NewService(logger.L, queries)
 	accountService := accounts.NewService(logger.L, queries)
+	settingsService := settings.NewService(logger.L, queries)
+	policyService := policy.NewService(logger.L, botService, settingsService)
 
-	containerdHandler := handlers.NewContainerdHandler(logger.L, service, cfg.MCP, cfg.Containerd.Namespace, botService, accountService, queries)
+	containerdHandler := handlers.NewContainerdHandler(logger.L, service, cfg.MCP, cfg.Containerd.Namespace, botService, accountService, policyService, queries)
 	botService.SetContainerLifecycle(containerdHandler)
 
 	if err := ensureAdminUser(ctx, logger.L, queries, cfg); err != nil {
@@ -112,8 +120,8 @@ func main() {
 
 	authHandler := handlers.NewAuthHandler(logger.L, accountService, cfg.Auth.JWTSecret, jwtExpiresIn)
 
-	// Initialize chat resolver after memory service is configured.
-	var chatResolver *chat.Resolver
+	// Initialize conversation runner after memory service is configured.
+	var chatResolver *flow.Resolver
 
 	// Create LLM client for memory operations (deferred model/provider selection).
 	var llmClient memory.LLM = &lazyLLMClient{
@@ -147,42 +155,43 @@ func main() {
 	// Initialize providers and models handlers
 	providersService := providers.NewService(logger.L, queries)
 	providersHandler := handlers.NewProvidersHandler(logger.L, providersService, modelsService)
-	settingsService := settings.NewService(logger.L, queries)
 	settingsHandler := handlers.NewSettingsHandler(logger.L, settingsService, botService, accountService)
 	modelsHandler := handlers.NewModelsHandler(logger.L, modelsService, settingsService)
-	policyService := policy.NewService(logger.L, botService, settingsService)
-	chatService := chat.NewService(logger.L, queries)
+	chatService := conversation.NewService(logger.L, queries)
+	routeService := route.NewService(logger.L, queries, chatService)
+	messageEvents := event.NewHub()
+	messageService := message.NewService(logger.L, queries, messageEvents)
 	memoryHandler := handlers.NewMemoryHandler(logger.L, memoryService, chatService, accountService)
-	actorService := channelidentities.NewService(logger.L, queries)
+	channelIdentitySvc := identities.NewService(logger.L, queries)
 	preauthService := preauth.NewService(queries)
 	preauthHandler := handlers.NewPreauthHandler(preauthService, botService, accountService)
 	bindService := bind.NewService(logger.L, conn, queries)
 	bindHandler := handlers.NewBindHandler(logger.L, bindService)
 	mcpConnectionsService := mcp.NewConnectionService(logger.L, queries)
 	mcpHandler := handlers.NewMCPHandler(logger.L, mcpConnectionsService, botService, accountService)
-	chatResolver = chat.NewResolver(logger.L, modelsService, queries, memoryService, chatService, settingsService, mcpConnectionsService, cfg.AgentGateway.BaseURL(), 120*time.Second)
+	chatResolver = flow.NewResolver(logger.L, modelsService, queries, memoryService, chatService, messageService, settingsService, mcpConnectionsService, cfg.AgentGateway.BaseURL(), 120*time.Second)
 	chatResolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	embeddingsHandler := handlers.NewEmbeddingsHandler(logger.L, modelsService, queries)
 	swaggerHandler := handlers.NewSwaggerHandler(logger.L)
-	chatHandler := handlers.NewChatHandler(logger.L, chatResolver, chatService, botService, accountService)
+	conversationHandler := handlers.NewMessageHandler(logger.L, chatResolver, chatService, messageService, botService, accountService, channelIdentitySvc, messageEvents)
 	channelRegistry := channel.NewRegistry()
-	sessionHub := local.NewSessionHub()
+	routeHub := local.NewRouteHub()
 	channelRegistry.MustRegister(telegram.NewTelegramAdapter(logger.L))
 	channelRegistry.MustRegister(feishu.NewFeishuAdapter(logger.L))
-	channelRegistry.MustRegister(local.NewCLIAdapter(sessionHub))
-	channelRegistry.MustRegister(local.NewWebAdapter(sessionHub))
+	channelRegistry.MustRegister(local.NewCLIAdapter(routeHub))
+	channelRegistry.MustRegister(local.NewWebAdapter(routeHub))
 	channelService := channel.NewService(queries, channelRegistry)
-	channelRouter := router.NewChannelInboundProcessor(logger.L, channelRegistry, chatService, chatResolver, actorService, botService, policyService, preauthService, bindService, cfg.Auth.JWTSecret, 5*time.Minute)
+	channelRouter := router.NewChannelInboundProcessor(logger.L, channelRegistry, routeService, messageService, chatResolver, channelIdentitySvc, botService, policyService, preauthService, bindService, cfg.Auth.JWTSecret, 5*time.Minute)
 	channelManager := channel.NewManager(logger.L, channelRegistry, channelService, channelRouter)
 	if mw := channelRouter.IdentityMiddleware(); mw != nil {
 		channelManager.Use(mw)
 	}
 	channelManager.Start(ctx)
 	channelHandler := handlers.NewChannelHandler(channelService, channelRegistry)
-	usersHandler := handlers.NewUsersHandler(logger.L, accountService, actorService, botService, chatService, channelService, channelManager, channelRegistry)
-	cliHandler := handlers.NewLocalChannelHandler(local.CLIType, channelManager, channelService, chatService, sessionHub, botService, accountService)
-	webHandler := handlers.NewLocalChannelHandler(local.WebType, channelManager, channelService, chatService, sessionHub, botService, accountService)
-	scheduleGateway := chat.NewScheduleGateway(chatResolver)
+	usersHandler := handlers.NewUsersHandler(logger.L, accountService, channelIdentitySvc, botService, routeService, channelService, channelManager, channelRegistry)
+	cliHandler := handlers.NewLocalChannelHandler(local.CLIType, channelManager, channelService, chatService, routeHub, botService, accountService)
+	webHandler := handlers.NewLocalChannelHandler(local.WebType, channelManager, channelService, chatService, routeHub, botService, accountService)
+	scheduleGateway := flow.NewScheduleGateway(chatResolver)
 	scheduleService := schedule.NewService(logger.L, queries, scheduleGateway, cfg.Auth.JWTSecret)
 	if err := scheduleService.Bootstrap(ctx); err != nil {
 		logger.Error("schedule bootstrap", slog.Any("error", err))
@@ -192,23 +201,32 @@ func main() {
 	subagentService := subagent.NewService(logger.L, queries)
 	subagentHandler := handlers.NewSubagentHandler(logger.L, subagentService, botService, accountService)
 	messageToolExecutor := mcpmessage.NewExecutor(logger.L, channelManager, channelRegistry)
+	directoryToolExecutor := mcpdirectory.NewExecutor(logger.L, channelRegistry, channelService, channelRegistry)
 	scheduleToolExecutor := mcpschedule.NewExecutor(logger.L, scheduleService)
 	memoryToolExecutor := mcpmemory.NewExecutor(logger.L, memoryService, chatService, accountService)
+	execWorkDir := cfg.MCP.DataMount
+	if strings.TrimSpace(execWorkDir) == "" {
+		execWorkDir = config.DefaultDataMount
+	}
+	fsToolExecutor := mcpcontainer.NewExecutor(logger.L, manager, execWorkDir)
 	federationGateway := handlers.NewMCPFederationGateway(logger.L, containerdHandler)
 	federatedToolSource := mcpfederation.NewSource(logger.L, federationGateway, mcpConnectionsService)
 	toolGatewayService := mcp.NewToolGatewayService(
 		logger.L,
 		[]mcp.ToolExecutor{
 			messageToolExecutor,
+			directoryToolExecutor,
 			scheduleToolExecutor,
 			memoryToolExecutor,
+			fsToolExecutor,
 		},
 		[]mcp.ToolSource{
 			federatedToolSource,
 		},
 	)
 	containerdHandler.SetToolGatewayService(toolGatewayService)
-	srv := server.NewServer(logger.L, addr, cfg.Auth.JWTSecret, pingHandler, authHandler, memoryHandler, embeddingsHandler, chatHandler, swaggerHandler, providersHandler, modelsHandler, settingsHandler, preauthHandler, bindHandler, scheduleHandler, subagentHandler, containerdHandler, channelHandler, usersHandler, mcpHandler, cliHandler, webHandler)
+	go containerdHandler.ReconcileContainers(ctx)
+	srv := server.NewServer(logger.L, addr, cfg.Auth.JWTSecret, pingHandler, authHandler, memoryHandler, embeddingsHandler, conversationHandler, swaggerHandler, providersHandler, modelsHandler, settingsHandler, preauthHandler, bindHandler, scheduleHandler, subagentHandler, containerdHandler, channelHandler, usersHandler, mcpHandler, cliHandler, webHandler)
 
 	if err := srv.Start(); err != nil {
 		logger.Error("server failed", slog.Any("error", err))
@@ -371,19 +389,19 @@ func (c *lazyLLMClient) resolve(ctx context.Context) (memory.LLM, error) {
 	return memory.NewLLMClient(c.logger, memoryProvider.BaseUrl, memoryProvider.ApiKey, memoryModel.ModelID, c.timeout)
 }
 
-// skillLoaderAdapter bridges handlers.ContainerdHandler to chat.SkillLoader.
+// skillLoaderAdapter bridges handlers.ContainerdHandler to flow.SkillLoader.
 type skillLoaderAdapter struct {
 	handler *handlers.ContainerdHandler
 }
 
-func (a *skillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]chat.SkillEntry, error) {
+func (a *skillLoaderAdapter) LoadSkills(ctx context.Context, botID string) ([]flow.SkillEntry, error) {
 	items, err := a.handler.LoadSkills(ctx, botID)
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]chat.SkillEntry, len(items))
+	entries := make([]flow.SkillEntry, len(items))
 	for i, item := range items {
-		entries[i] = chat.SkillEntry{
+		entries[i] = flow.SkillEntry{
 			Name:        item.Name,
 			Description: item.Description,
 			Content:     item.Content,

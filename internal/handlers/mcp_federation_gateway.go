@@ -33,60 +33,6 @@ func NewMCPFederationGateway(log *slog.Logger, handler *ContainerdHandler) *MCPF
 	}
 }
 
-func (g *MCPFederationGateway) ListFSMCPTools(ctx context.Context, botID string) ([]mcpgw.ToolDescriptor, error) {
-	if g.handler == nil {
-		return nil, fmt.Errorf("containerd handler not configured")
-	}
-	containerID, err := g.handler.botContainerID(ctx, botID)
-	if err != nil {
-		return nil, err
-	}
-	if err := g.handler.validateMCPContainer(ctx, containerID, botID); err != nil {
-		return nil, err
-	}
-	if err := g.handler.ensureTaskRunning(ctx, containerID); err != nil {
-		return nil, err
-	}
-	payload, err := g.handler.callMCPServer(ctx, containerID, mcpgw.JSONRPCRequest{
-		JSONRPC: "2.0",
-		ID:      mcpgw.RawStringID("federated-fs-tools-list"),
-		Method:  "tools/list",
-	})
-	if err != nil {
-		return nil, err
-	}
-	return parseGatewayToolsListPayload(payload)
-}
-
-func (g *MCPFederationGateway) CallFSMCPTool(ctx context.Context, botID, toolName string, args map[string]any) (map[string]any, error) {
-	if g.handler == nil {
-		return nil, fmt.Errorf("containerd handler not configured")
-	}
-	containerID, err := g.handler.botContainerID(ctx, botID)
-	if err != nil {
-		return nil, err
-	}
-	if err := g.handler.validateMCPContainer(ctx, containerID, botID); err != nil {
-		return nil, err
-	}
-	if err := g.handler.ensureTaskRunning(ctx, containerID); err != nil {
-		return nil, err
-	}
-	params, err := json.Marshal(map[string]any{
-		"name":      toolName,
-		"arguments": args,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return g.handler.callMCPServer(ctx, containerID, mcpgw.JSONRPCRequest{
-		JSONRPC: "2.0",
-		ID:      mcpgw.RawStringID("federated-fs-tools-call"),
-		Method:  "tools/call",
-		Params:  params,
-	})
-}
-
 func (g *MCPFederationGateway) ListHTTPConnectionTools(ctx context.Context, connection mcpgw.Connection) ([]mcpgw.ToolDescriptor, error) {
 	session, err := g.connectStreamableSession(ctx, connection)
 	if err != nil {
@@ -315,7 +261,7 @@ func (g *MCPFederationGateway) startStdioConnectionSession(ctx context.Context, 
 	if err := g.handler.validateMCPContainer(ctx, containerID, botID); err != nil {
 		return nil, err
 	}
-	if err := g.handler.ensureTaskRunning(ctx, containerID); err != nil {
+	if err := g.handler.ensureContainerAndTask(ctx, containerID, botID); err != nil {
 		return nil, err
 	}
 

@@ -51,18 +51,11 @@ const collapsedHiddenClass = computed(() => (
 
 const items = computed(() => [
   {
-    key: 'user',
-    label: t('settings.user'),
-    routeName: 'settings-user',
-    icon: ['fas', 'user'] as const,
-    active: route.name === 'settings-user',
-  },
-  {
     key: 'general',
     label: t('settings.display'),
     routeName: 'settings',
     icon: ['fas', 'gear'] as const,
-    active: route.name === 'settings',
+    active: route.name === 'settings' || route.name === 'settings-user',
   },
   {
     key: 'bots',

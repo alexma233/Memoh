@@ -1,109 +1,46 @@
 <template>
   <section>
-    <div :class="['px-3 pb-2', collapsedHiddenClass]">
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button
-            class="w-full justify-between"
-            :disabled="newChatDisabled"
-          >
-            <span>{{ $t('chat.newChat') }}</span>
-            <FontAwesomeIcon
-              :icon="['fas', 'chevron-down']"
-              class="size-3 opacity-70"
-            />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          class="w-64"
-        >
-          <DropdownMenuItem
-            v-for="bot in bots"
-            :key="bot.id"
-            @click="onCreateChat(bot.id)"
-          >
-            <span class="truncate">{{ bot.display_name || bot.id }}</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-
     <SidebarGroup>
       <SidebarGroupLabel :class="collapsedHiddenClass">
-        <span>{{ $t('chat.history') }}</span>
+        <span>{{ $t('sidebar.bots') }}</span>
       </SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu v-if="botId">
-          <div
-            v-if="participantChats.length > 0"
-            :class="['px-2 pb-1 text-[11px] text-muted-foreground uppercase tracking-wide', collapsedHiddenClass]"
-          >
-            {{ $t('chat.historyParticipant') }}
-          </div>
+        <SidebarMenu v-if="bots.length > 0">
           <SidebarMenuItem
-            v-for="(chat, index) in participantChats"
-            :key="chat.id"
-            class="group/chat relative"
+            v-for="bot in bots"
+            :key="bot.id"
           >
             <SidebarMenuButton
-              :is-active="chatId === chat.id"
-              :tooltip="chatLabel(chat, index)"
-              class="pr-8"
-              @click="onSelectChat(chat.id)"
+              :is-active="botId === bot.id"
+              :tooltip="botLabel(bot)"
+              :disabled="loadingChats || initializing || isBotPending(bot)"
+              @click="onSelectBot(bot.id)"
             >
-              <FontAwesomeIcon :icon="['far', 'comment']" />
-              <span class="truncate">{{ chatLabel(chat, index) }}</span>
-            </SidebarMenuButton>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger as-child>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  :class="[
-                    'size-6 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/chat:opacity-100 transition-opacity',
-                    collapsedHiddenClass,
-                  ]"
-                  @click.stop
-                >
-                  <FontAwesomeIcon :icon="['fas', 'ellipsis-vertical']" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  class="text-destructive focus:text-destructive"
-                  @click="onDeleteChat(chat.id)"
-                >
-                  {{ $t('common.delete') }}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-
-          <div
-            v-if="observedChats.length > 0"
-            :class="['px-2 pt-3 pb-1 text-[11px] text-muted-foreground uppercase tracking-wide', collapsedHiddenClass]"
-          >
-            {{ $t('chat.historyObserved') }}
-          </div>
-          <SidebarMenuItem
-            v-for="(chat, index) in observedChats"
-            :key="chat.id"
-            class="group/chat relative"
-          >
-            <SidebarMenuButton
-              :is-active="chatId === chat.id"
-              :tooltip="chatLabel(chat, index)"
-              class="pr-2"
-              @click="onSelectChat(chat.id)"
-            >
-              <FontAwesomeIcon :icon="['far', 'comment']" />
-              <span class="truncate">{{ chatLabel(chat, index) }}</span>
-              <span class="ml-auto text-[10px] text-muted-foreground">{{ $t('chat.readonly') }}</span>
+              <Avatar class="size-5 shrink-0">
+                <AvatarImage
+                  v-if="bot.avatar_url"
+                  :src="bot.avatar_url"
+                  :alt="botLabel(bot)"
+                />
+                <AvatarFallback class="text-[10px]">
+                  {{ botLabel(bot).slice(0, 2).toUpperCase() }}
+                </AvatarFallback>
+              </Avatar>
+              <span :class="['truncate', collapsedHiddenClass]">{{ botLabel(bot) }}</span>
+              <FontAwesomeIcon
+                v-if="isBotPending(bot)"
+                :icon="['fas', 'spinner']"
+                class="ml-auto size-3 animate-spin text-muted-foreground"
+              />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <div
+          v-else
+          :class="['px-2 py-2 text-xs text-muted-foreground', collapsedHiddenClass]"
+        >
+          {{ $t('bots.emptyTitle') }}
+        </div>
       </SidebarGroupContent>
     </SidebarGroup>
   </section>
@@ -111,24 +48,21 @@
 
 <script setup lang="ts">
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Button,
 } from '@memoh/ui'
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useI18n } from 'vue-i18n'
 import { useChatList } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
-import type { ChatSummary } from '@/composables/api/useChat'
+import type { Bot } from '@/composables/api/useChat'
 import type { SidebarListProps } from './types'
 
 const props = withDefaults(defineProps<SidebarListProps>(), {
@@ -137,14 +71,10 @@ const props = withDefaults(defineProps<SidebarListProps>(), {
 
 const router = useRouter()
 const route = useRoute()
-const { t } = useI18n()
 const chatStore = useChatList()
 const {
   botId,
   bots,
-  participantChats,
-  observedChats,
-  chatId,
   loadingChats,
   initializing,
 } = storeToRefs(chatStore)
@@ -152,61 +82,30 @@ const {
 const collapsedHiddenClass = computed(() => (
   props.collapsible ? 'group-data-[state=collapsed]:hidden' : ''
 ))
-const newChatDisabled = computed(() => (
-  loadingChats.value || initializing.value || bots.value.length === 0
-))
 
 onMounted(() => {
   void chatStore.initialize().catch(() => undefined)
 })
 
-function chatLabel(chat: ChatSummary, index: number) {
-  const title = chat.title?.trim()
-  if (title) {
-    return title
-  }
-  return `${t('sidebar.chat')} ${index + 1}`
+function botLabel(bot: Bot): string {
+  return bot.display_name?.trim() || bot.id
 }
 
-async function onCreateChat(targetBotID: string) {
+function isBotPending(bot: Bot): boolean {
+  return bot.status === 'creating' || bot.status === 'deleting'
+}
+
+async function onSelectBot(targetBotID: string) {
   if (!targetBotID) {
     return
   }
   try {
-    await chatStore.selectBot(targetBotID)
-    await chatStore.createNewChat()
+    if (botId.value !== targetBotID) {
+      await chatStore.selectBot(targetBotID)
+    }
     if (route.name !== 'chat') {
       await router.push({ name: 'chat' })
     }
-  } catch {
-    return
-  }
-}
-
-async function onSelectChat(targetChatID: string) {
-  if (!targetChatID) {
-    return
-  }
-  try {
-    await chatStore.selectChat(targetChatID)
-    if (route.name !== 'chat') {
-      await router.push({ name: 'chat' })
-    }
-  } catch {
-    return
-  }
-}
-
-async function onDeleteChat(targetChatID: string) {
-  if (!targetChatID) {
-    return
-  }
-  const removeAction = chatStore.removeChat
-  if (typeof removeAction !== 'function') {
-    return
-  }
-  try {
-    await removeAction(targetChatID)
   } catch {
     return
   }

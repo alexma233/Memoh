@@ -12,46 +12,46 @@ import (
 
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/channel/route"
+	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow"
+	messagepkg "github.com/memohai/memoh/internal/message"
 )
 
-// ChatGateway abstracts the chat capability to avoid direct coupling in the router.
-type ChatGateway interface {
-	Chat(ctx context.Context, req chat.ChatRequest) (chat.ChatResponse, error)
-}
-
 const (
-	silentReplyToken       = "NO_REPLY"
-	minDuplicateTextLength = 10
+	silentReplyToken        = "NO_REPLY"
+	minDuplicateTextLength  = 10
+	processingStatusTimeout = 60 * time.Second
 )
 
 var (
 	whitespacePattern = regexp.MustCompile(`\s+`)
 )
 
-// ChatService resolves and manages chats.
-type ChatService interface {
-	ResolveChat(ctx context.Context, botID, platform, conversationID, threadID, conversationType, userID, channelConfigID, replyTarget string) (chat.ResolveChatResult, error)
-	PersistMessage(ctx context.Context, chatID, botID, routeID, senderChannelIdentityID, senderUserID, platform, externalMessageID, role string, content json.RawMessage, metadata map[string]any) (chat.Message, error)
+// RouteResolver resolves and manages channel routes.
+type RouteResolver interface {
+	ResolveConversation(ctx context.Context, input route.ResolveInput) (route.ResolveConversationResult, error)
 }
 
 // ChannelInboundProcessor routes channel inbound messages to the chat gateway.
 type ChannelInboundProcessor struct {
-	chat        ChatGateway
-	chatService ChatService
-	registry    *channel.Registry
-	logger      *slog.Logger
-	jwtSecret   string
-	tokenTTL    time.Duration
-	identity    *IdentityResolver
+	runner        flow.Runner
+	routeResolver RouteResolver
+	message       messagepkg.Writer
+	registry      *channel.Registry
+	logger        *slog.Logger
+	jwtSecret     string
+	tokenTTL      time.Duration
+	identity      *IdentityResolver
 }
 
 // NewChannelInboundProcessor creates a processor with channel identity-based resolution.
 func NewChannelInboundProcessor(
 	log *slog.Logger,
 	registry *channel.Registry,
-	chatService ChatService,
-	chatGateway ChatGateway,
+	routeResolver RouteResolver,
+	messageWriter messagepkg.Writer,
+	runner flow.Runner,
 	channelIdentityService ChannelIdentityService,
 	memberService BotMemberService,
 	policyService PolicyService,
@@ -68,13 +68,14 @@ func NewChannelInboundProcessor(
 	}
 	identityResolver := NewIdentityResolver(log, registry, channelIdentityService, memberService, policyService, preauthService, bindService, "", "")
 	return &ChannelInboundProcessor{
-		chat:        chatGateway,
-		chatService: chatService,
-		registry:    registry,
-		logger:      log.With(slog.String("component", "channel_router")),
-		jwtSecret:   strings.TrimSpace(jwtSecret),
-		tokenTTL:    tokenTTL,
-		identity:    identityResolver,
+		runner:        runner,
+		routeResolver: routeResolver,
+		message:       messageWriter,
+		registry:      registry,
+		logger:        log.With(slog.String("component", "channel_router")),
+		jwtSecret:     strings.TrimSpace(jwtSecret),
+		tokenTTL:      tokenTTL,
+		identity:      identityResolver,
 	}
 }
 
@@ -87,8 +88,8 @@ func (p *ChannelInboundProcessor) IdentityMiddleware() channel.Middleware {
 }
 
 // HandleInbound processes an inbound channel message through identity resolution and chat gateway.
-func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage, sender channel.ReplySender) error {
-	if p.chat == nil {
+func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage, sender channel.StreamReplySender) error {
+	if p.runner == nil {
 		return fmt.Errorf("channel inbound processor not configured")
 	}
 	if sender == nil {
@@ -109,33 +110,66 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 				Message: state.Decision.Reply,
 			})
 		}
+		if p.logger != nil {
+			p.logger.Info(
+				"inbound dropped by identity policy (no reply sent)",
+				slog.String("channel", msg.Channel.String()),
+				slog.String("bot_id", strings.TrimSpace(state.Identity.BotID)),
+				slog.String("conversation_type", strings.TrimSpace(msg.Conversation.Type)),
+				slog.String("conversation_id", strings.TrimSpace(msg.Conversation.ID)),
+			)
+		}
 		return nil
 	}
 
 	identity := state.Identity
 
-	// Resolve or create the chat via chat_routes.
-	if p.chatService == nil {
-		return fmt.Errorf("chat service not configured")
+	// Resolve or create the route via channel_routes.
+	if p.routeResolver == nil {
+		return fmt.Errorf("route resolver not configured")
 	}
-	resolved, err := p.chatService.ResolveChat(ctx, identity.BotID,
-		msg.Channel.String(), msg.Conversation.ID, extractThreadID(msg),
-		msg.Conversation.Type, identity.UserID, identity.ChannelConfigID,
-		strings.TrimSpace(msg.ReplyTarget))
+	resolved, err := p.routeResolver.ResolveConversation(ctx, route.ResolveInput{
+		BotID:             identity.BotID,
+		Platform:          msg.Channel.String(),
+		ConversationID:    msg.Conversation.ID,
+		ThreadID:          extractThreadID(msg),
+		ConversationType:  msg.Conversation.Type,
+		ChannelIdentityID: identity.UserID,
+		ChannelConfigID:   identity.ChannelConfigID,
+		ReplyTarget:       strings.TrimSpace(msg.ReplyTarget),
+	})
 	if err != nil {
-		return fmt.Errorf("resolve chat: %w", err)
+		return fmt.Errorf("resolve route conversation: %w", err)
+	}
+	// Bot-centric history container:
+	// always persist channel traffic under bot_id so WebUI can view unified cross-platform history.
+	activeChatID := strings.TrimSpace(identity.BotID)
+	if activeChatID == "" {
+		activeChatID = strings.TrimSpace(resolved.ChatID)
 	}
 	if !shouldTriggerAssistantResponse(msg) && !identity.ForceReply {
-		p.persistInboundOnly(ctx, resolved, identity, msg, text)
+		if p.logger != nil {
+			p.logger.Info(
+				"inbound not triggering assistant (group trigger condition not met)",
+				slog.String("channel", msg.Channel.String()),
+				slog.String("bot_id", strings.TrimSpace(identity.BotID)),
+				slog.String("route_id", strings.TrimSpace(resolved.RouteID)),
+				slog.Bool("is_mentioned", metadataBool(msg.Metadata, "is_mentioned")),
+				slog.Bool("is_reply_to_bot", metadataBool(msg.Metadata, "is_reply_to_bot")),
+				slog.String("conversation_type", strings.TrimSpace(msg.Conversation.Type)),
+			)
+		}
+		p.persistInboundUser(ctx, resolved.RouteID, identity, msg, text, "passive_sync")
 		return nil
 	}
+	userMessagePersisted := p.persistInboundUser(ctx, resolved.RouteID, identity, msg, text, "active_chat")
 
 	// Issue chat token for reply routing.
 	chatToken := ""
 	if p.jwtSecret != "" && strings.TrimSpace(msg.ReplyTarget) != "" {
 		signed, _, err := auth.GenerateChatToken(auth.ChatToken{
 			BotID:             identity.BotID,
-			ChatID:            resolved.ChatID,
+			ChatID:            activeChatID,
 			RouteID:           resolved.RouteID,
 			UserID:            identity.UserID,
 			ChannelIdentityID: identity.ChannelIdentityID,
@@ -149,7 +183,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		}
 	}
 
-	// Issue user JWT for downstream calls.
+	// Issue user JWT for downstream calls (MCP, schedule, etc.). For guests use chat token as Bearer.
 	token := ""
 	if identity.UserID != "" && p.jwtSecret != "" {
 		signed, _, err := auth.GenerateToken(identity.UserID, p.jwtSecret, p.tokenTTL)
@@ -161,49 +195,182 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 			token = "Bearer " + signed
 		}
 	}
+	if token == "" && chatToken != "" {
+		token = "Bearer " + chatToken
+	}
 
 	var desc channel.Descriptor
 	if p.registry != nil {
 		desc, _ = p.registry.GetDescriptor(msg.Channel)
 	}
-	resp, err := p.chat.Chat(ctx, chat.ChatRequest{
+	statusInfo := channel.ProcessingStatusInfo{
+		BotID:             identity.BotID,
+		ChatID:            activeChatID,
+		RouteID:           resolved.RouteID,
+		ChannelIdentityID: identity.ChannelIdentityID,
+		UserID:            identity.UserID,
+		Query:             text,
+		ReplyTarget:       strings.TrimSpace(msg.ReplyTarget),
+		SourceMessageID:   strings.TrimSpace(msg.Message.ID),
+	}
+	statusNotifier := p.resolveProcessingStatusNotifier(msg.Channel)
+	statusHandle := channel.ProcessingStatusHandle{}
+	if statusNotifier != nil {
+		handle, notifyErr := p.notifyProcessingStarted(ctx, statusNotifier, cfg, msg, statusInfo)
+		if notifyErr != nil {
+			p.logProcessingStatusError("processing_started", msg, identity, notifyErr)
+		} else {
+			statusHandle = handle
+		}
+	}
+	target := strings.TrimSpace(msg.ReplyTarget)
+	if target == "" {
+		err := fmt.Errorf("reply target missing")
+		if statusNotifier != nil {
+			if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, err); notifyErr != nil {
+				p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+			}
+		}
+		return err
+	}
+	sourceMessageID := strings.TrimSpace(msg.Message.ID)
+	replyRef := &channel.ReplyRef{Target: target}
+	if sourceMessageID != "" {
+		replyRef.MessageID = sourceMessageID
+	}
+	stream, err := sender.OpenStream(ctx, target, channel.StreamOptions{
+		Reply:           replyRef,
+		SourceMessageID: sourceMessageID,
+		Metadata: map[string]any{
+			"route_id": resolved.RouteID,
+		},
+	})
+	if err != nil {
+		if statusNotifier != nil {
+			if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, err); notifyErr != nil {
+				p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+			}
+		}
+		return err
+	}
+	defer func() {
+		_ = stream.Close(context.WithoutCancel(ctx))
+	}()
+
+	if err := stream.Push(ctx, channel.StreamEvent{
+		Type:   channel.StreamEventStatus,
+		Status: channel.StreamStatusStarted,
+	}); err != nil {
+		if statusNotifier != nil {
+			if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, err); notifyErr != nil {
+				p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+			}
+		}
+		return err
+	}
+
+	chunkCh, streamErrCh := p.runner.StreamChat(ctx, flow.ChatRequest{
 		BotID:                   identity.BotID,
-		ChatID:                  resolved.ChatID,
+		ChatID:                  activeChatID,
 		Token:                   token,
 		UserID:                  identity.UserID,
 		SourceChannelIdentityID: identity.ChannelIdentityID,
 		DisplayName:             identity.DisplayName,
 		RouteID:                 resolved.RouteID,
 		ChatToken:               chatToken,
-		ExternalMessageID:       strings.TrimSpace(msg.Message.ID),
+		ExternalMessageID:       sourceMessageID,
 		Query:                   text,
 		CurrentChannel:          msg.Channel.String(),
 		Channels:                []string{msg.Channel.String()},
+		UserMessagePersisted:    userMessagePersisted,
 	})
-	if err != nil {
+
+	var (
+		finalMessages []conversation.ModelMessage
+		streamErr     error
+	)
+	for chunkCh != nil || streamErrCh != nil {
+		select {
+		case chunk, ok := <-chunkCh:
+			if !ok {
+				chunkCh = nil
+				continue
+			}
+			events, messages, parseErr := mapStreamChunkToChannelEvents(chunk)
+			if parseErr != nil {
+				if p.logger != nil {
+					p.logger.Warn(
+						"stream chunk parse failed",
+						slog.String("channel", msg.Channel.String()),
+						slog.String("channel_identity_id", identity.ChannelIdentityID),
+						slog.String("user_id", identity.UserID),
+						slog.Any("error", parseErr),
+					)
+				}
+				continue
+			}
+			for _, event := range events {
+				if pushErr := stream.Push(ctx, event); pushErr != nil {
+					streamErr = pushErr
+					break
+				}
+			}
+			if len(messages) > 0 {
+				finalMessages = messages
+			}
+		case err, ok := <-streamErrCh:
+			if !ok {
+				streamErrCh = nil
+				continue
+			}
+			if err != nil {
+				streamErr = err
+			}
+		}
+		if streamErr != nil {
+			break
+		}
+	}
+
+	if streamErr != nil {
 		if p.logger != nil {
 			p.logger.Error(
-				"chat gateway failed",
+				"chat gateway stream failed",
 				slog.String("channel", msg.Channel.String()),
 				slog.String("channel_identity_id", identity.ChannelIdentityID),
 				slog.String("user_id", identity.UserID),
-				slog.Any("error", err),
+				slog.Any("error", streamErr),
 			)
 		}
-		return err
+		_ = stream.Push(ctx, channel.StreamEvent{
+			Type:  channel.StreamEventError,
+			Error: streamErr.Error(),
+		})
+		if statusNotifier != nil {
+			if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, streamErr); notifyErr != nil {
+				p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+			}
+		}
+		return streamErr
 	}
-	outputs := chat.ExtractAssistantOutputs(resp.Messages)
-	if len(outputs) == 0 {
-		return nil
-	}
-	target := strings.TrimSpace(msg.ReplyTarget)
-	if target == "" {
-		return fmt.Errorf("reply target missing")
-	}
-	sentTexts, suppressReplies := collectMessageToolContext(p.registry, resp.Messages, msg.Channel, target)
+
+	sentTexts, suppressReplies := collectMessageToolContext(p.registry, finalMessages, msg.Channel, target)
 	if suppressReplies {
+		if err := stream.Push(ctx, channel.StreamEvent{
+			Type:   channel.StreamEventStatus,
+			Status: channel.StreamStatusCompleted,
+		}); err != nil {
+			return err
+		}
+		if statusNotifier != nil {
+			if notifyErr := p.notifyProcessingCompleted(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle); notifyErr != nil {
+				p.logProcessingStatusError("processing_completed", msg, identity, notifyErr)
+			}
+		}
 		return nil
 	}
+
+	outputs := flow.ExtractAssistantOutputs(finalMessages)
 	for _, output := range outputs {
 		outMessage := buildChannelMessage(output, desc.Capabilities)
 		if outMessage.IsEmpty() {
@@ -216,11 +383,30 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		if isMessagingToolDuplicate(plainText, sentTexts) {
 			continue
 		}
-		if err := sender.Send(ctx, channel.OutboundMessage{
-			Target:  target,
-			Message: outMessage,
+		if outMessage.Reply == nil && sourceMessageID != "" {
+			outMessage.Reply = &channel.ReplyRef{
+				Target:    target,
+				MessageID: sourceMessageID,
+			}
+		}
+		if err := stream.Push(ctx, channel.StreamEvent{
+			Type: channel.StreamEventFinal,
+			Final: &channel.StreamFinalizePayload{
+				Message: outMessage,
+			},
 		}); err != nil {
 			return err
+		}
+	}
+	if err := stream.Push(ctx, channel.StreamEvent{
+		Type:   channel.StreamEventStatus,
+		Status: channel.StreamStatusCompleted,
+	}); err != nil {
+		return err
+	}
+	if statusNotifier != nil {
+		if notifyErr := p.notifyProcessingCompleted(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle); notifyErr != nil {
+			p.logProcessingStatusError("processing_completed", msg, identity, notifyErr)
 		}
 	}
 	return nil
@@ -320,48 +506,47 @@ func metadataBool(metadata map[string]any, key string) bool {
 	}
 }
 
-func (p *ChannelInboundProcessor) persistInboundOnly(ctx context.Context, resolved chat.ResolveChatResult, identity InboundIdentity, msg channel.InboundMessage, query string) {
-	if p.chatService == nil {
-		return
+func (p *ChannelInboundProcessor) persistInboundUser(ctx context.Context, routeID string, identity InboundIdentity, msg channel.InboundMessage, query string, triggerMode string) bool {
+	if p.message == nil {
+		return false
 	}
-	chatID := strings.TrimSpace(resolved.ChatID)
 	botID := strings.TrimSpace(identity.BotID)
-	if chatID == "" || botID == "" {
-		return
+	if botID == "" {
+		return false
 	}
-	payload, err := json.Marshal(chat.ModelMessage{
+	payload, err := json.Marshal(conversation.ModelMessage{
 		Role:    "user",
-		Content: chat.NewTextContent(query),
+		Content: conversation.NewTextContent(query),
 	})
 	if err != nil {
 		if p.logger != nil {
-			p.logger.Warn("marshal passive inbound failed", slog.Any("error", err))
+			p.logger.Warn("marshal inbound user message failed", slog.Any("error", err))
 		}
-		return
+		return false
 	}
 	meta := map[string]any{
-		"route_id":     resolved.RouteID,
+		"route_id":     strings.TrimSpace(routeID),
 		"platform":     msg.Channel.String(),
-		"trigger_mode": "passive_sync",
+		"trigger_mode": strings.TrimSpace(triggerMode),
 	}
-	if _, err := p.chatService.PersistMessage(
-		ctx,
-		chatID,
-		botID,
-		strings.TrimSpace(resolved.RouteID),
-		strings.TrimSpace(identity.ChannelIdentityID),
-		strings.TrimSpace(identity.UserID),
-		msg.Channel.String(),
-		strings.TrimSpace(msg.Message.ID),
-		"user",
-		payload,
-		meta,
-	); err != nil && p.logger != nil {
-		p.logger.Warn("persist passive inbound failed", slog.Any("error", err))
+	if _, err := p.message.Persist(ctx, messagepkg.PersistInput{
+		BotID:                   botID,
+		RouteID:                 strings.TrimSpace(routeID),
+		SenderChannelIdentityID: strings.TrimSpace(identity.ChannelIdentityID),
+		SenderUserID:            strings.TrimSpace(identity.UserID),
+		Platform:                msg.Channel.String(),
+		ExternalMessageID:       strings.TrimSpace(msg.Message.ID),
+		Role:                    "user",
+		Content:                 payload,
+		Metadata:                meta,
+	}); err != nil && p.logger != nil {
+		p.logger.Warn("persist inbound user message failed", slog.Any("error", err))
+		return false
 	}
+	return true
 }
 
-func buildChannelMessage(output chat.AssistantOutput, capabilities channel.ChannelCapabilities) channel.Message {
+func buildChannelMessage(output conversation.AssistantOutput, capabilities channel.ChannelCapabilities) channel.Message {
 	msg := channel.Message{}
 	if strings.TrimSpace(output.Content) != "" {
 		msg.Text = strings.TrimSpace(output.Content)
@@ -434,7 +619,7 @@ func containsMarkdown(text string) bool {
 	return false
 }
 
-func contentPartHasValue(part chat.ContentPart) bool {
+func contentPartHasValue(part conversation.ContentPart) bool {
 	if strings.TrimSpace(part.Text) != "" {
 		return true
 	}
@@ -447,7 +632,7 @@ func contentPartHasValue(part chat.ContentPart) bool {
 	return false
 }
 
-func contentPartText(part chat.ContentPart) string {
+func contentPartText(part conversation.ContentPart) string {
 	if strings.TrimSpace(part.Text) != "" {
 		return part.Text
 	}
@@ -458,6 +643,79 @@ func contentPartText(part chat.ContentPart) string {
 		return part.Emoji
 	}
 	return ""
+}
+
+type gatewayStreamEnvelope struct {
+	Type     string                      `json:"type"`
+	Delta    string                      `json:"delta"`
+	Error    string                      `json:"error"`
+	Message  string                      `json:"message"`
+	Data     json.RawMessage             `json:"data"`
+	Messages []conversation.ModelMessage `json:"messages"`
+}
+
+type gatewayStreamDoneData struct {
+	Messages []conversation.ModelMessage `json:"messages"`
+}
+
+func mapStreamChunkToChannelEvents(chunk conversation.StreamChunk) ([]channel.StreamEvent, []conversation.ModelMessage, error) {
+	if len(chunk) == 0 {
+		return nil, nil, nil
+	}
+	var envelope gatewayStreamEnvelope
+	if err := json.Unmarshal(chunk, &envelope); err != nil {
+		return nil, nil, err
+	}
+	finalMessages := make([]conversation.ModelMessage, 0, len(envelope.Messages))
+	finalMessages = append(finalMessages, envelope.Messages...)
+	if len(finalMessages) == 0 && len(envelope.Data) > 0 {
+		var done gatewayStreamDoneData
+		if err := json.Unmarshal(envelope.Data, &done); err == nil && len(done.Messages) > 0 {
+			finalMessages = append(finalMessages, done.Messages...)
+		}
+	}
+	eventType := strings.ToLower(strings.TrimSpace(envelope.Type))
+	switch eventType {
+	case "text_delta":
+		if envelope.Delta == "" {
+			return nil, finalMessages, nil
+		}
+		return []channel.StreamEvent{
+			{
+				Type:  channel.StreamEventDelta,
+				Delta: envelope.Delta,
+			},
+		}, finalMessages, nil
+	case "reasoning_delta":
+		if envelope.Delta == "" {
+			return nil, finalMessages, nil
+		}
+		return []channel.StreamEvent{
+			{
+				Type:  channel.StreamEventDelta,
+				Delta: envelope.Delta,
+				Metadata: map[string]any{
+					"phase": "reasoning",
+				},
+			},
+		}, finalMessages, nil
+	case "error":
+		streamError := strings.TrimSpace(envelope.Error)
+		if streamError == "" {
+			streamError = strings.TrimSpace(envelope.Message)
+		}
+		if streamError == "" {
+			streamError = "stream error"
+		}
+		return []channel.StreamEvent{
+			{
+				Type:  channel.StreamEventError,
+				Error: streamError,
+			},
+		}, finalMessages, nil
+	default:
+		return nil, finalMessages, nil
+	}
 }
 
 func buildInboundQuery(message channel.Message) string {
@@ -472,7 +730,7 @@ func buildInboundQuery(message channel.Message) string {
 	for _, att := range message.Attachments {
 		label := strings.TrimSpace(att.Name)
 		if label == "" {
-			label = strings.TrimSpace(att.URL)
+			label = strings.TrimSpace(att.Reference())
 		}
 		if label == "" {
 			label = "unknown"
@@ -530,7 +788,7 @@ type sendMessageToolArgs struct {
 	Message           *channel.Message `json:"message"`
 }
 
-func collectMessageToolContext(registry *channel.Registry, messages []chat.ModelMessage, channelType channel.ChannelType, replyTarget string) ([]string, bool) {
+func collectMessageToolContext(registry *channel.Registry, messages []conversation.ModelMessage, channelType channel.ChannelType, replyTarget string) ([]string, bool) {
 	if len(messages) == 0 {
 		return nil, false
 	}
@@ -699,12 +957,88 @@ func isMessagingToolDuplicate(text string, sentTexts []string) bool {
 	return false
 }
 
+// requireIdentity resolves identity for the current message. Always resolves from msg so each sender is identified correctly (no reuse of context state across messages).
 func (p *ChannelInboundProcessor) requireIdentity(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage) (IdentityState, error) {
-	if state, ok := IdentityStateFromContext(ctx); ok {
-		return state, nil
-	}
 	if p.identity == nil {
 		return IdentityState{}, fmt.Errorf("identity resolver not configured")
 	}
 	return p.identity.Resolve(ctx, cfg, msg)
+}
+
+func (p *ChannelInboundProcessor) resolveProcessingStatusNotifier(channelType channel.ChannelType) channel.ProcessingStatusNotifier {
+	if p == nil || p.registry == nil {
+		return nil
+	}
+	notifier, ok := p.registry.GetProcessingStatusNotifier(channelType)
+	if !ok {
+		return nil
+	}
+	return notifier
+}
+
+func (p *ChannelInboundProcessor) notifyProcessingStarted(
+	ctx context.Context,
+	notifier channel.ProcessingStatusNotifier,
+	cfg channel.ChannelConfig,
+	msg channel.InboundMessage,
+	info channel.ProcessingStatusInfo,
+) (channel.ProcessingStatusHandle, error) {
+	if notifier == nil {
+		return channel.ProcessingStatusHandle{}, nil
+	}
+	statusCtx, cancel := context.WithTimeout(ctx, processingStatusTimeout)
+	defer cancel()
+	return notifier.ProcessingStarted(statusCtx, cfg, msg, info)
+}
+
+func (p *ChannelInboundProcessor) notifyProcessingCompleted(
+	ctx context.Context,
+	notifier channel.ProcessingStatusNotifier,
+	cfg channel.ChannelConfig,
+	msg channel.InboundMessage,
+	info channel.ProcessingStatusInfo,
+	handle channel.ProcessingStatusHandle,
+) error {
+	if notifier == nil {
+		return nil
+	}
+	statusCtx, cancel := context.WithTimeout(ctx, processingStatusTimeout)
+	defer cancel()
+	return notifier.ProcessingCompleted(statusCtx, cfg, msg, info, handle)
+}
+
+func (p *ChannelInboundProcessor) notifyProcessingFailed(
+	ctx context.Context,
+	notifier channel.ProcessingStatusNotifier,
+	cfg channel.ChannelConfig,
+	msg channel.InboundMessage,
+	info channel.ProcessingStatusInfo,
+	handle channel.ProcessingStatusHandle,
+	cause error,
+) error {
+	if notifier == nil {
+		return nil
+	}
+	statusCtx, cancel := context.WithTimeout(ctx, processingStatusTimeout)
+	defer cancel()
+	return notifier.ProcessingFailed(statusCtx, cfg, msg, info, handle, cause)
+}
+
+func (p *ChannelInboundProcessor) logProcessingStatusError(
+	stage string,
+	msg channel.InboundMessage,
+	identity InboundIdentity,
+	err error,
+) {
+	if p == nil || p.logger == nil || err == nil {
+		return
+	}
+	p.logger.Warn(
+		"processing status notify failed",
+		slog.String("stage", stage),
+		slog.String("channel", msg.Channel.String()),
+		slog.String("channel_identity_id", identity.ChannelIdentityID),
+		slog.String("user_id", identity.UserID),
+		slog.Any("error", err),
+	)
 }

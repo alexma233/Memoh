@@ -1,6 +1,6 @@
 <template>
   <section class="h-full max-w-7xl mx-auto p-6">
-    <div class="max-w-3xl space-y-8">
+    <div class="max-w-3xl mx-auto space-y-8">
       <div class="flex items-center gap-4">
         <Avatar class="size-14 shrink-0">
           <AvatarImage
@@ -145,7 +145,7 @@
                   {{ identity.display_name || identity.channel_subject_id }}
                 </p>
                 <Badge variant="secondary">
-                  {{ identity.channel }}
+                  {{ platformLabel(identity.channel) }}
                 </Badge>
               </div>
               <p class="text-xs text-muted-foreground truncate">
@@ -189,7 +189,7 @@
                       :key="platform"
                       :value="platform"
                     >
-                      {{ platform }}
+                      {{ platformLabel(platform) }}
                     </SelectItem>
                   </SelectGroup>
                 </SelectContent>
@@ -331,6 +331,14 @@ const avatarFallback = computed(() => {
   const source = displayTitle.value.trim()
   return source.slice(0, 2).toUpperCase() || 'U'
 })
+
+function platformLabel(platformKey: string): string {
+  if (!platformKey?.trim()) return platformKey ?? ''
+  const key = platformKey.trim().toLowerCase()
+  const i18nKey = `bots.channels.types.${key}`
+  const out = t(i18nKey)
+  return out !== i18nKey ? out : platformKey
+}
 
 const platformOptions = computed(() => {
   const options = new Set<string>(['telegram', 'feishu'])

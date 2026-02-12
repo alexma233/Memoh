@@ -21,21 +21,11 @@ func (l *testConnectionLister) ListActiveByBot(ctx context.Context, botID string
 }
 
 type testGateway struct {
-	listFS    []mcpgw.ToolDescriptor
 	listHTTP  []mcpgw.ToolDescriptor
 	listSSE   []mcpgw.ToolDescriptor
 	listStdio []mcpgw.ToolDescriptor
 
 	lastCallType string
-}
-
-func (g *testGateway) ListFSMCPTools(ctx context.Context, botID string) ([]mcpgw.ToolDescriptor, error) {
-	return g.listFS, nil
-}
-
-func (g *testGateway) CallFSMCPTool(ctx context.Context, botID, toolName string, args map[string]any) (map[string]any, error) {
-	g.lastCallType = "fs"
-	return map[string]any{"result": map[string]any{"ok": true, "route": "fs"}}, nil
 }
 
 func (g *testGateway) ListHTTPConnectionTools(ctx context.Context, connection mcpgw.Connection) ([]mcpgw.ToolDescriptor, error) {

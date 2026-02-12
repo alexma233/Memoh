@@ -1,23 +1,13 @@
-import { fetchApi } from '@/utils/request'
+import { postAuthLogin } from '@memoh/sdk'
+import type { HandlersLoginRequest, HandlersLoginResponse } from '@memoh/sdk'
 
-export interface LoginRequest {
-  username: string
-  password: string
-}
-
-export interface LoginResponse {
-  access_token: string
-  user_id: string
-  username: string
-  role?: string
-  display_name?: string
-  avatar_url?: string
-}
+export type LoginRequest = HandlersLoginRequest
+export type LoginResponse = HandlersLoginResponse
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  return fetchApi<LoginResponse>('/auth/login', {
-    method: 'POST',
+  const { data: res } = await postAuthLogin({
     body: data,
-    noAuth: true,
+    throwOnError: true,
   })
+  return res
 }

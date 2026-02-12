@@ -1,11 +1,13 @@
-import { nextTick, ref, watch, type Ref } from 'vue'
+import { nextTick, watch, type Ref } from 'vue'
 import { useElementBounding } from '@vueuse/core'
 import { onBeforeRouteLeave } from 'vue-router'
 
+/** Pixels from bottom to still count as "at bottom" for auto-scroll. */
+const AT_BOTTOM_THRESHOLD = 240
+
 /**
- * 自动滚动逻辑：当内容增长时自动滚动到底部，
- * 用户手动上滑时停止自动滚动，滑到底部时恢复。
- * 路由切换时记住滚动位置。
+ * Auto-scroll: scroll to bottom when content grows; pause when user scrolls up, resume when near bottom.
+ * Caches scroll position on route leave.
  */
 export function useAutoScroll(
   containerRef: Ref<HTMLElement | undefined>,
@@ -19,10 +21,17 @@ export function useAutoScroll(
   let cachedScroll = 0
 
   function getScrollParent() {
-    return containerRef.value?.parentElement?.parentElement
+    let el = containerRef.value?.parentElement
+    while (el) {
+      const style = getComputedStyle(el)
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        return el
+      }
+      el = el.parentElement ?? undefined
+    }
+    return undefined
   }
 
-  // 检测是否滚动到底部 → 恢复自动滚动
   watch(top, () => {
     const container = getScrollParent()
     if (!container) return
@@ -33,42 +42,46 @@ export function useAutoScroll(
     }
 
     const distanceToBottom = container.scrollHeight - container.clientHeight - container.scrollTop
-    if (distanceToBottom < 1) {
+    if (distanceToBottom <= AT_BOTTOM_THRESHOLD) {
       autoScroll = true
       prevScroll = curScroll = container.scrollTop
     }
   })
 
-  // 内容高度变化时决定是否自动滚动
   watch(height, (newVal, oldVal) => {
     const container = getScrollParent()
     if (!container) return
 
     curScroll = container.scrollTop
-    if (curScroll < prevScroll) {
+    if (!loading.value && curScroll < prevScroll) {
       autoScroll = false
     }
     prevScroll = curScroll
 
-    // 首次加载恢复缓存位置
-    if (oldVal === 0 && newVal > container.clientHeight) {
+    const isRestoringCached = cachedScroll > 0
+    const isInitialContent = !isRestoringCached && newVal > container.clientHeight && (oldVal === 0 || (oldVal != null && newVal > oldVal * 1.5))
+    if (isInitialContent) {
       nextTick(() => {
-        container.scrollTo({ top: cachedScroll })
+        const targetTop = isRestoringCached ? cachedScroll : container.scrollHeight - container.clientHeight
+        container.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' })
       })
       return
     }
 
-    // 自动滚动到底部
     const distanceToBottom = container.scrollHeight - container.clientHeight - container.scrollTop
-    if (distanceToBottom >= 1 && autoScroll && loading.value) {
-      container.scrollTo({
-        top: container.scrollHeight - container.clientHeight,
-        behavior: 'smooth',
+    const contentGrew = newVal > (oldVal ?? 0)
+    const shouldScrollToBottom = (loading.value && contentGrew) || (distanceToBottom <= AT_BOTTOM_THRESHOLD && autoScroll && contentGrew)
+    if (shouldScrollToBottom) {
+      nextTick(() => {
+        const targetTop = container.scrollHeight - container.clientHeight
+        container.scrollTo({
+          top: targetTop,
+          behavior: loading.value ? 'auto' : 'smooth',
+        })
       })
     }
   })
 
-  // 离开路由前缓存滚动位置
   onBeforeRouteLeave(() => {
     const container = getScrollParent()
     if (container) {
@@ -76,5 +89,14 @@ export function useAutoScroll(
     }
   })
 
-  return { containerRef }
+  function scrollToBottom(behavior: ScrollBehavior = 'smooth') {
+    const container = getScrollParent()
+    if (!container) return
+    container.scrollTo({
+      top: container.scrollHeight - container.clientHeight,
+      behavior,
+    })
+  }
+
+  return { containerRef, getScrollParent, scrollToBottom }
 }

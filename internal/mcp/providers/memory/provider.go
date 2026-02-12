@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/memohai/memoh/internal/chat"
+	"github.com/memohai/memoh/internal/conversation"
 	mcpgw "github.com/memohai/memoh/internal/mcp"
 	mem "github.com/memohai/memoh/internal/memory"
 )
@@ -15,16 +15,11 @@ const (
 	toolSearchMemory       = "search_memory"
 	defaultMemoryToolLimit = 8
 	maxMemoryToolLimit     = 50
+	sharedMemoryNamespace  = "bot"
 )
 
 type MemorySearcher interface {
 	Search(ctx context.Context, req mem.SearchRequest) (mem.SearchResponse, error)
-}
-
-type ChatAccessor interface {
-	Get(ctx context.Context, chatID string) (chat.Chat, error)
-	GetSettings(ctx context.Context, chatID string) (chat.Settings, error)
-	IsParticipant(ctx context.Context, chatID, channelIdentityID string) (bool, error)
 }
 
 type AdminChecker interface {
@@ -33,12 +28,12 @@ type AdminChecker interface {
 
 type Executor struct {
 	searcher     MemorySearcher
-	chatAccessor ChatAccessor
+	chatAccessor conversation.Accessor
 	adminChecker AdminChecker
 	logger       *slog.Logger
 }
 
-func NewExecutor(log *slog.Logger, searcher MemorySearcher, chatAccessor ChatAccessor, adminChecker AdminChecker) *Executor {
+func NewExecutor(log *slog.Logger, searcher MemorySearcher, chatAccessor conversation.Accessor, adminChecker AdminChecker) *Executor {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -91,8 +86,11 @@ func (p *Executor) CallTool(ctx context.Context, session mcpgw.ToolSessionContex
 	botID := strings.TrimSpace(session.BotID)
 	chatID := strings.TrimSpace(session.ChatID)
 	channelIdentityID := strings.TrimSpace(session.ChannelIdentityID)
-	if botID == "" || chatID == "" {
-		return mcpgw.BuildToolErrorResult("bot_id and chat_id are required"), nil
+	if botID == "" {
+		return mcpgw.BuildToolErrorResult("bot_id is required"), nil
+	}
+	if chatID == "" {
+		chatID = botID
 	}
 
 	limit := defaultMemoryToolLimit
@@ -108,64 +106,43 @@ func (p *Executor) CallTool(ctx context.Context, session mcpgw.ToolSessionContex
 		limit = maxMemoryToolLimit
 	}
 
-	chatObj, err := p.chatAccessor.Get(ctx, chatID)
-	if err != nil {
-		return mcpgw.BuildToolErrorResult("chat not found"), nil
-	}
-	if strings.TrimSpace(chatObj.BotID) != botID {
-		return mcpgw.BuildToolErrorResult("bot mismatch"), nil
-	}
-	if channelIdentityID != "" {
-		allowed, err := p.canAccessChat(ctx, chatID, channelIdentityID)
+	// When ChatID equals BotID (e.g. tools called without conversation context), search by bot scope only.
+	// Otherwise require the conversation to exist and the caller to be a participant.
+	if chatID != botID {
+		chatObj, err := p.chatAccessor.Get(ctx, chatID)
 		if err != nil {
-			return mcpgw.BuildToolErrorResult(err.Error()), nil
+			return mcpgw.BuildToolErrorResult("chat not found"), nil
 		}
-		if !allowed {
-			return mcpgw.BuildToolErrorResult("not a chat participant"), nil
+		if strings.TrimSpace(chatObj.BotID) != botID {
+			return mcpgw.BuildToolErrorResult("bot mismatch"), nil
+		}
+		if channelIdentityID != "" {
+			allowed, err := p.canAccessChat(ctx, chatID, channelIdentityID)
+			if err != nil {
+				return mcpgw.BuildToolErrorResult(err.Error()), nil
+			}
+			if !allowed {
+				return mcpgw.BuildToolErrorResult("not a chat participant"), nil
+			}
 		}
 	}
 
-	settings, err := p.chatAccessor.GetSettings(ctx, chatID)
+	resp, err := p.searcher.Search(ctx, mem.SearchRequest{
+		Query: query,
+		BotID: botID,
+		Limit: limit,
+		Filters: map[string]any{
+			"namespace": sharedMemoryNamespace,
+			"scopeId":   botID,
+			"botId":     botID,
+		},
+	})
 	if err != nil {
-		return mcpgw.BuildToolErrorResult(err.Error()), nil
+		p.logger.Warn("memory search namespace failed", slog.String("namespace", sharedMemoryNamespace), slog.Any("error", err))
+		return mcpgw.BuildToolErrorResult("memory search failed"), nil
 	}
-
-	type memoryScope struct {
-		namespace string
-		scopeID   string
-	}
-	scopes := make([]memoryScope, 0, 3)
-	if settings.EnableChatMemory {
-		scopes = append(scopes, memoryScope{namespace: "chat", scopeID: chatID})
-	}
-	if settings.EnablePrivateMemory && channelIdentityID != "" {
-		scopes = append(scopes, memoryScope{namespace: "private", scopeID: channelIdentityID})
-	}
-	if settings.EnablePublicMemory {
-		scopes = append(scopes, memoryScope{namespace: "public", scopeID: botID})
-	}
-	if len(scopes) == 0 {
-		scopes = append(scopes, memoryScope{namespace: "chat", scopeID: chatID})
-	}
-
-	allResults := make([]mem.MemoryItem, 0, len(scopes)*limit)
-	for _, scope := range scopes {
-		resp, err := p.searcher.Search(ctx, mem.SearchRequest{
-			Query: query,
-			BotID: botID,
-			Limit: limit,
-			Filters: map[string]any{
-				"namespace": scope.namespace,
-				"scopeId":   scope.scopeID,
-				"botId":     botID,
-			},
-		})
-		if err != nil {
-			p.logger.Warn("memory search namespace failed", slog.String("namespace", scope.namespace), slog.Any("error", err))
-			continue
-		}
-		allResults = append(allResults, resp.Results...)
-	}
+	allResults := make([]mem.MemoryItem, 0, len(resp.Results))
+	allResults = append(allResults, resp.Results...)
 
 	allResults = deduplicateMemoryItems(allResults)
 	sort.Slice(allResults, func(i, j int) bool {
