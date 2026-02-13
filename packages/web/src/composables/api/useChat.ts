@@ -277,6 +277,86 @@ export async function streamMessageEvents(
 
 // ---- Content extraction utilities ----
 
+/**
+ * Extract tool-call content parts from a stored assistant message.
+ * The DB stores the full ModelMessage JSON in the content field.
+ * Tool calls are stored as content parts with type "tool-call"
+ * (Vercel AI SDK format).
+ */
+export function extractToolCalls(
+  message: Message,
+): Array<{ id: string; name: string; input: unknown }> {
+  const parts = getContentParts(message)
+  if (!parts) return []
+  return parts
+    .filter((p) => String((p as Record<string, unknown>).type ?? '').toLowerCase() === 'tool-call')
+    .map((p) => {
+      const part = p as Record<string, unknown>
+      return {
+        id: String(part.toolCallId ?? ''),
+        name: String(part.toolName ?? ''),
+        input: part.input ?? null,
+      }
+    })
+}
+
+/**
+ * Extract tool_call_id from a stored tool-role message (first match).
+ */
+export function extractToolCallId(message: Message): string {
+  const raw = message.content
+  if (!raw || typeof raw !== 'object') return ''
+  const obj = raw as Record<string, unknown>
+  if (typeof obj.tool_call_id === 'string') return obj.tool_call_id.trim()
+  const parts = getContentParts(message)
+  if (!parts) return ''
+  for (const p of parts) {
+    const part = p as Record<string, unknown>
+    if (String(part.type ?? '').toLowerCase() === 'tool-result' && typeof part.toolCallId === 'string') {
+      return part.toolCallId.trim()
+    }
+  }
+  return ''
+}
+
+/**
+ * Extract ALL tool results from a tool-role message.
+ * A single tool message can contain multiple tool-result parts.
+ */
+export function extractAllToolResults(
+  message: Message,
+): Array<{ toolCallId: string; output: unknown }> {
+  const parts = getContentParts(message)
+  if (!parts) return []
+  return parts
+    .filter((p) => String((p as Record<string, unknown>).type ?? '').toLowerCase() === 'tool-result')
+    .map((p) => {
+      const part = p as Record<string, unknown>
+      return {
+        toolCallId: String(part.toolCallId ?? ''),
+        output: part.output ?? null,
+      }
+    })
+}
+
+/**
+ * Get the inner content parts array from a message.
+ * The DB content is the full ModelMessage JSON: { role, content: [...parts] }
+ */
+function getContentParts(message: Message): unknown[] | null {
+  const raw = message.content
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  if (Array.isArray(obj.content)) return obj.content
+  if (typeof obj.content === 'string') {
+    try {
+      const parsed = JSON.parse(obj.content)
+      if (Array.isArray(parsed)) return parsed
+    } catch { /* ignore */ }
+  }
+  return null
+}
+
 export function extractMessageText(message: Message): string {
   const raw = message.content
   if (!raw) return ''

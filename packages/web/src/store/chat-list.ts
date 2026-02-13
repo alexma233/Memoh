@@ -13,6 +13,8 @@ import {
   fetchMessages,
   fetchChats,
   extractMessageText,
+  extractToolCalls,
+  extractAllToolResults,
   streamMessage,
   streamMessageEvents,
 } from '@/composables/api/useChat'
@@ -143,6 +145,103 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /**
+   * Convert an ordered array of raw messages into ChatMessages,
+   * merging consecutive assistant(tool_calls) + tool + assistant(text)
+   * sequences into a single ChatMessage with ToolCallBlocks.
+   */
+  function convertMessagesToChats(rows: Message[]): ChatMessage[] {
+    const result: ChatMessage[] = []
+    let pendingAssistant: ChatMessage | null = null
+    const pendingToolCallMap = new Map<string, ToolCallBlock>()
+
+    function flushPending() {
+      if (!pendingAssistant) return
+      for (const block of pendingAssistant.blocks) {
+        if (block.type === 'tool_call' && !block.done) block.done = true
+      }
+      result.push(pendingAssistant)
+      pendingAssistant = null
+      pendingToolCallMap.clear()
+    }
+
+    function makeTimestamp(raw: Message): Date {
+      const d = raw.created_at ? new Date(raw.created_at) : new Date()
+      return Number.isNaN(d.getTime()) ? new Date() : d
+    }
+
+    for (const raw of rows) {
+      if (raw.role === 'user') {
+        flushPending()
+        const chat = messageToChat(raw)
+        if (chat) result.push(chat)
+        continue
+      }
+
+      if (raw.role === 'assistant') {
+        const toolCalls = extractToolCalls(raw)
+        const text = extractMessageText(raw)
+
+        if (toolCalls.length > 0) {
+          if (!pendingAssistant) {
+            const platform = (raw.platform ?? '').trim().toLowerCase()
+            const channelTag = platform && platform !== 'web' ? platform : undefined
+            pendingAssistant = {
+              id: raw.id || nextId(),
+              role: 'assistant',
+              blocks: [],
+              timestamp: makeTimestamp(raw),
+              streaming: false,
+              ...(channelTag && { platform: channelTag }),
+            }
+          }
+          if (text) {
+            pendingAssistant.blocks.push({ type: 'text', content: text })
+          }
+          for (const tc of toolCalls) {
+            const block: ToolCallBlock = {
+              type: 'tool_call',
+              toolName: tc.name,
+              input: tc.input,
+              result: null,
+              done: false,
+            }
+            pendingAssistant.blocks.push(block)
+            if (tc.id) pendingToolCallMap.set(tc.id, block)
+          }
+          continue
+        }
+
+        // Assistant message without tool_calls
+        if (pendingAssistant && text) {
+          pendingAssistant.blocks.push({ type: 'text', content: text })
+          flushPending()
+          continue
+        }
+
+        flushPending()
+        const chat = messageToChat(raw)
+        if (chat) result.push(chat)
+        continue
+      }
+
+      if (raw.role === 'tool') {
+        const results = extractAllToolResults(raw)
+        for (const r of results) {
+          if (r.toolCallId && pendingToolCallMap.has(r.toolCallId)) {
+            const block = pendingToolCallMap.get(r.toolCallId)!
+            block.result = r.output
+            block.done = true
+          }
+        }
+        continue
+      }
+    }
+
+    flushPending()
+    return result
+  }
+
   function resolveIsSelf(raw: Message): boolean {
     const platform = (raw.platform ?? '').trim().toLowerCase()
     if (!platform || platform === 'web') return true
@@ -242,7 +341,7 @@ export const useChatStore = defineStore('chat', () => {
         try {
           await streamMessageEvents(
             bid, controller.signal,
-            (e) => handleStreamEvent(bid, e as Record<string, unknown>),
+            (e) => handleStreamEvent(bid, e as unknown as Record<string, unknown>),
             messageEventsSince || undefined,
           )
           delay = 1000
@@ -285,7 +384,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadMessages(botId: string, cid: string) {
     const rows = await fetchMessages(botId, cid, { limit: PAGE_SIZE })
-    const items = rows.map(messageToChat).filter((m): m is ChatMessage => m !== null)
+    const items = convertMessagesToChats(rows)
     replaceMessages(items)
     hasMoreOlder.value = true
     updateSinceFromRows(rows)
@@ -302,8 +401,8 @@ export const useChatStore = defineStore('chat', () => {
     loadingOlder.value = true
     try {
       const rows = await fetchMessages(bid, cid, { limit: PAGE_SIZE, before })
-      const items = rows.map(messageToChat).filter((m): m is ChatMessage => m !== null)
-      if (items.length < PAGE_SIZE) hasMoreOlder.value = false
+      const items = convertMessagesToChats(rows)
+      if (rows.length < PAGE_SIZE) hasMoreOlder.value = false
       messages.unshift(...items)
       return items.length
     } finally {
