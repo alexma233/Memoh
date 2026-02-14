@@ -15,9 +15,23 @@ ARG VERSION=dev
 ARG COMMIT_HASH=unknown
 ARG BUILD_TIME=unknown
 
+ARG TARGETOS
+ARG TARGETARCH
+
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    set -eux; \
+    build_os="${TARGETOS:-linux}"; \
+    build_arch="${TARGETARCH:-$(uname -m)}"; \
+    case "$build_arch" in \
+      x86_64) build_arch="amd64" ;; \
+      aarch64) build_arch="arm64" ;; \
+    esac; \
+    case "$build_arch" in \
+      amd64|arm64) ;; \
+      *) echo "unsupported TARGETARCH: $build_arch (only amd64/arm64)"; exit 1 ;; \
+    esac; \
+    CGO_ENABLED=0 GOOS="$build_os" GOARCH="$build_arch" \
     go build -trimpath \
     -ldflags "-s -w \
       -X github.com/memohai/memoh/internal/version.Version=${VERSION} \
