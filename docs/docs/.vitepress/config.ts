@@ -57,6 +57,55 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Concepts',
+          items: [
+            {
+              text: 'Overview',
+              link: '/concepts/index.md'
+            },
+            {
+              text: 'Bot',
+              link: '/concepts/bot.md'
+            },
+            {
+              text: 'Provider and Model',
+              link: '/concepts/provider-and-model.md'
+            },
+            {
+              text: 'Schedule',
+              link: '/concepts/schedule.md'
+            },
+            {
+              text: 'Memory',
+              link: '/concepts/memory.md'
+            },
+            {
+              text: 'Channel',
+              link: '/concepts/channel.md'
+            },
+            {
+              text: 'Container',
+              link: '/concepts/container.md'
+            },
+            {
+              text: 'MCP',
+              link: '/concepts/mcp.md'
+            },
+            {
+              text: 'Subagents',
+              link: '/concepts/subagents.md'
+            },
+            {
+              text: 'Skills',
+              link: '/concepts/skills.md'
+            },
+            {
+              text: 'Conversation and History',
+              link: '/concepts/conversation-and-history.md'
+            }
+          ]
+        },
+        {
           text: 'CLI',
           items: [
             {
