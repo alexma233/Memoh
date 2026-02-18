@@ -813,7 +813,7 @@ export const putModelsById = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * List all LLM providers
  *
- * Get a list of all configured LLM providers, optionally filtered by client type
+ * Get a list of all configured LLM providers
  */
 export const getProviders = <ThrowOnError extends boolean = false>(options?: Options<GetProvidersData, ThrowOnError>) => (options?.client ?? client).get<GetProvidersResponses, GetProvidersErrors, ThrowOnError>({ url: '/providers', ...options });
 
@@ -834,7 +834,7 @@ export const postProviders = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Count providers
  *
- * Get the total count of providers, optionally filtered by client type
+ * Get the total count of providers
  */
 export const getProvidersCount = <ThrowOnError extends boolean = false>(options?: Options<GetProvidersCountData, ThrowOnError>) => (options?.client ?? client).get<GetProvidersCountResponses, GetProvidersCountErrors, ThrowOnError>({ url: '/providers/count', ...options });
 

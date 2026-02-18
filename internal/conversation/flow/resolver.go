@@ -213,10 +213,8 @@ func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (r
 	if err != nil {
 		return resolvedContext{}, err
 	}
-	clientType, err := normalizeClientType(provider.ClientType)
-	if err != nil {
-		return resolvedContext{}, err
-	}
+	clientType := string(chatModel.ClientType)
+
 	maxCtx := coalescePositiveInt(req.MaxContextLoadTime, botSettings.MaxContextLoadTime, defaultMaxContextMinutes)
 	maxTokens := botSettings.MaxContextTokens
 
@@ -306,7 +304,7 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 		Messages: resp.Messages,
 		Skills:   resp.Skills,
 		Model:    rc.model.ModelID,
-		Provider: rc.provider.ClientType,
+		Provider: string(rc.model.ClientType),
 	}, nil
 }
 
@@ -1235,8 +1233,7 @@ func (r *Resolver) loadBotSettings(ctx context.Context, botID string) (settings.
 func normalizeClientType(clientType string) (string, error) {
 	ct := strings.ToLower(strings.TrimSpace(clientType))
 	switch ct {
-	case "openai", "openai-compat", "anthropic", "google",
-		"azure", "bedrock", "mistral", "xai", "ollama", "dashscope":
+	case "openai-responses", "openai-completions", "anthropic-messages", "google-generative-ai":
 		return ct, nil
 	default:
 		return "", fmt.Errorf("unsupported agent gateway client type: %s", clientType)

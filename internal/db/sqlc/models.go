@@ -166,14 +166,13 @@ type LifecycleEvent struct {
 }
 
 type LlmProvider struct {
-	ID         pgtype.UUID        `json:"id"`
-	Name       string             `json:"name"`
-	ClientType string             `json:"client_type"`
-	BaseUrl    string             `json:"base_url"`
-	ApiKey     string             `json:"api_key"`
-	Metadata   []byte             `json:"metadata"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	BaseUrl   string             `json:"base_url"`
+	ApiKey    string             `json:"api_key"`
+	Metadata  []byte             `json:"metadata"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type McpConnection struct {
@@ -209,6 +208,7 @@ type Model struct {
 	ModelID         string             `json:"model_id"`
 	Name            pgtype.Text        `json:"name"`
 	LlmProviderID   pgtype.UUID        `json:"llm_provider_id"`
+	ClientType      pgtype.Text        `json:"client_type"`
 	Dimensions      pgtype.Int4        `json:"dimensions"`
 	InputModalities []string           `json:"input_modalities"`
 	Type            string             `json:"type"`

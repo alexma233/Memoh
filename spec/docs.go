@@ -3322,7 +3322,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Client type (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)",
+                        "description": "Client type (openai-responses, openai-completions, anthropic-messages, google-generative-ai)",
                         "name": "client_type",
                         "in": "query"
                     }
@@ -3697,7 +3697,7 @@ const docTemplate = `{
         },
         "/providers": {
             "get": {
-                "description": "Get a list of all configured LLM providers, optionally filtered by client type",
+                "description": "Get a list of all configured LLM providers",
                 "consumes": [
                     "application/json"
                 ],
@@ -3708,14 +3708,6 @@ const docTemplate = `{
                     "providers"
                 ],
                 "summary": "List all LLM providers",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Client type filter (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)",
-                        "name": "client_type",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3724,12 +3716,6 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/providers.GetResponse"
                             }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
@@ -3787,7 +3773,7 @@ const docTemplate = `{
         },
         "/providers/count": {
             "get": {
-                "description": "Get the total count of providers, optionally filtered by client type",
+                "description": "Get the total count of providers",
                 "consumes": [
                     "application/json"
                 ],
@@ -3798,25 +3784,11 @@ const docTemplate = `{
                     "providers"
                 ],
                 "summary": "Count providers",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Client type filter (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)",
-                        "name": "client_type",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/providers.CountResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
@@ -6501,6 +6473,9 @@ const docTemplate = `{
         "models.AddRequest": {
             "type": "object",
             "properties": {
+                "client_type": {
+                    "$ref": "#/definitions/models.ClientType"
+                },
                 "dimensions": {
                     "type": "integer"
                 },
@@ -6535,6 +6510,21 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ClientType": {
+            "type": "string",
+            "enum": [
+                "openai-responses",
+                "openai-completions",
+                "anthropic-messages",
+                "google-generative-ai"
+            ],
+            "x-enum-varnames": [
+                "ClientTypeOpenAIResponses",
+                "ClientTypeOpenAICompletions",
+                "ClientTypeAnthropicMessages",
+                "ClientTypeGoogleGenerativeAI"
+            ]
+        },
         "models.CountResponse": {
             "type": "object",
             "properties": {
@@ -6546,6 +6536,9 @@ const docTemplate = `{
         "models.GetResponse": {
             "type": "object",
             "properties": {
+                "client_type": {
+                    "$ref": "#/definitions/models.ClientType"
+                },
                 "dimensions": {
                     "type": "integer"
                 },
@@ -6583,6 +6576,9 @@ const docTemplate = `{
         "models.UpdateRequest": {
             "type": "object",
             "properties": {
+                "client_type": {
+                    "$ref": "#/definitions/models.ClientType"
+                },
                 "dimensions": {
                     "type": "integer"
                 },
@@ -6606,33 +6602,6 @@ const docTemplate = `{
                 }
             }
         },
-        "providers.ClientType": {
-            "type": "string",
-            "enum": [
-                "openai",
-                "openai-compat",
-                "anthropic",
-                "google",
-                "azure",
-                "bedrock",
-                "mistral",
-                "xai",
-                "ollama",
-                "dashscope"
-            ],
-            "x-enum-varnames": [
-                "ClientTypeOpenAI",
-                "ClientTypeOpenAICompat",
-                "ClientTypeAnthropic",
-                "ClientTypeGoogle",
-                "ClientTypeAzure",
-                "ClientTypeBedrock",
-                "ClientTypeMistral",
-                "ClientTypeXAI",
-                "ClientTypeOllama",
-                "ClientTypeDashscope"
-            ]
-        },
         "providers.CountResponse": {
             "type": "object",
             "properties": {
@@ -6645,7 +6614,6 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "base_url",
-                "client_type",
                 "name"
             ],
             "properties": {
@@ -6654,9 +6622,6 @@ const docTemplate = `{
                 },
                 "base_url": {
                     "type": "string"
-                },
-                "client_type": {
-                    "$ref": "#/definitions/providers.ClientType"
                 },
                 "metadata": {
                     "type": "object",
@@ -6675,9 +6640,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "base_url": {
-                    "type": "string"
-                },
-                "client_type": {
                     "type": "string"
                 },
                 "created_at": {
@@ -6706,9 +6668,6 @@ const docTemplate = `{
                 },
                 "base_url": {
                     "type": "string"
-                },
-                "client_type": {
-                    "$ref": "#/definitions/providers.ClientType"
                 },
                 "metadata": {
                     "type": "object",

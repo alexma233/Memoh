@@ -3313,7 +3313,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Client type (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)",
+                        "description": "Client type (openai-responses, openai-completions, anthropic-messages, google-generative-ai)",
                         "name": "client_type",
                         "in": "query"
                     }
@@ -3688,7 +3688,7 @@
         },
         "/providers": {
             "get": {
-                "description": "Get a list of all configured LLM providers, optionally filtered by client type",
+                "description": "Get a list of all configured LLM providers",
                 "consumes": [
                     "application/json"
                 ],
@@ -3699,14 +3699,6 @@
                     "providers"
                 ],
                 "summary": "List all LLM providers",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Client type filter (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)",
-                        "name": "client_type",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3715,12 +3707,6 @@
                             "items": {
                                 "$ref": "#/definitions/providers.GetResponse"
                             }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
@@ -3778,7 +3764,7 @@
         },
         "/providers/count": {
             "get": {
-                "description": "Get the total count of providers, optionally filtered by client type",
+                "description": "Get the total count of providers",
                 "consumes": [
                     "application/json"
                 ],
@@ -3789,25 +3775,11 @@
                     "providers"
                 ],
                 "summary": "Count providers",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Client type filter (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)",
-                        "name": "client_type",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/providers.CountResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
@@ -6492,6 +6464,9 @@
         "models.AddRequest": {
             "type": "object",
             "properties": {
+                "client_type": {
+                    "$ref": "#/definitions/models.ClientType"
+                },
                 "dimensions": {
                     "type": "integer"
                 },
@@ -6526,6 +6501,21 @@
                 }
             }
         },
+        "models.ClientType": {
+            "type": "string",
+            "enum": [
+                "openai-responses",
+                "openai-completions",
+                "anthropic-messages",
+                "google-generative-ai"
+            ],
+            "x-enum-varnames": [
+                "ClientTypeOpenAIResponses",
+                "ClientTypeOpenAICompletions",
+                "ClientTypeAnthropicMessages",
+                "ClientTypeGoogleGenerativeAI"
+            ]
+        },
         "models.CountResponse": {
             "type": "object",
             "properties": {
@@ -6537,6 +6527,9 @@
         "models.GetResponse": {
             "type": "object",
             "properties": {
+                "client_type": {
+                    "$ref": "#/definitions/models.ClientType"
+                },
                 "dimensions": {
                     "type": "integer"
                 },
@@ -6574,6 +6567,9 @@
         "models.UpdateRequest": {
             "type": "object",
             "properties": {
+                "client_type": {
+                    "$ref": "#/definitions/models.ClientType"
+                },
                 "dimensions": {
                     "type": "integer"
                 },
@@ -6597,33 +6593,6 @@
                 }
             }
         },
-        "providers.ClientType": {
-            "type": "string",
-            "enum": [
-                "openai",
-                "openai-compat",
-                "anthropic",
-                "google",
-                "azure",
-                "bedrock",
-                "mistral",
-                "xai",
-                "ollama",
-                "dashscope"
-            ],
-            "x-enum-varnames": [
-                "ClientTypeOpenAI",
-                "ClientTypeOpenAICompat",
-                "ClientTypeAnthropic",
-                "ClientTypeGoogle",
-                "ClientTypeAzure",
-                "ClientTypeBedrock",
-                "ClientTypeMistral",
-                "ClientTypeXAI",
-                "ClientTypeOllama",
-                "ClientTypeDashscope"
-            ]
-        },
         "providers.CountResponse": {
             "type": "object",
             "properties": {
@@ -6636,7 +6605,6 @@
             "type": "object",
             "required": [
                 "base_url",
-                "client_type",
                 "name"
             ],
             "properties": {
@@ -6645,9 +6613,6 @@
                 },
                 "base_url": {
                     "type": "string"
-                },
-                "client_type": {
-                    "$ref": "#/definitions/providers.ClientType"
                 },
                 "metadata": {
                     "type": "object",
@@ -6666,9 +6631,6 @@
                     "type": "string"
                 },
                 "base_url": {
-                    "type": "string"
-                },
-                "client_type": {
                     "type": "string"
                 },
                 "created_at": {
@@ -6697,9 +6659,6 @@
                 },
                 "base_url": {
                     "type": "string"
-                },
-                "client_type": {
-                    "$ref": "#/definitions/providers.ClientType"
                 },
                 "metadata": {
                     "type": "object",

@@ -59,14 +59,12 @@ CREATE INDEX IF NOT EXISTS idx_user_channel_bindings_user_id ON user_channel_bin
 CREATE TABLE IF NOT EXISTS llm_providers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  client_type TEXT NOT NULL,
   base_url TEXT NOT NULL,
   api_key TEXT NOT NULL,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT llm_providers_name_unique UNIQUE (name),
-  CONSTRAINT llm_providers_client_type_check CHECK (client_type IN ('openai', 'openai-compat', 'anthropic', 'google', 'azure', 'bedrock', 'mistral', 'xai', 'ollama', 'dashscope'))
+  CONSTRAINT llm_providers_name_unique UNIQUE (name)
 );
 
 CREATE TABLE IF NOT EXISTS search_providers (
@@ -85,6 +83,7 @@ CREATE TABLE IF NOT EXISTS models (
   model_id TEXT NOT NULL,
   name TEXT,
   llm_provider_id UUID NOT NULL REFERENCES llm_providers(id) ON DELETE CASCADE,
+  client_type TEXT,
   dimensions INTEGER,
   input_modalities TEXT[] NOT NULL DEFAULT ARRAY['text']::TEXT[],
   type TEXT NOT NULL DEFAULT 'chat',
@@ -92,7 +91,9 @@ CREATE TABLE IF NOT EXISTS models (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT models_model_id_unique UNIQUE (model_id),
   CONSTRAINT models_type_check CHECK (type IN ('chat', 'embedding')),
-  CONSTRAINT models_dimensions_check CHECK (type != 'embedding' OR dimensions IS NOT NULL)
+  CONSTRAINT models_dimensions_check CHECK (type != 'embedding' OR dimensions IS NOT NULL),
+  CONSTRAINT models_client_type_check CHECK (client_type IS NULL OR client_type IN ('openai-responses', 'openai-completions', 'anthropic-messages', 'google-generative-ai')),
+  CONSTRAINT models_chat_client_type_check CHECK (type != 'chat' OR client_type IS NOT NULL)
 );
 
 CREATE TABLE IF NOT EXISTS model_variants (

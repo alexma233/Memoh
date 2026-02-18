@@ -9,8 +9,7 @@ export const AgentSkillModel = z.object({
 })
 
 export const ClientTypeModel = z.enum([
-  'openai', 'openai-compat', 'anthropic', 'google',
-  'azure', 'bedrock', 'mistral', 'xai', 'ollama', 'dashscope',
+  'openai-responses', 'openai-completions', 'anthropic-messages', 'google-generative-ai',
 ])
 
 export const ModelConfigModel = z.object({

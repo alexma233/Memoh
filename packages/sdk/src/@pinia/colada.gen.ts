@@ -1363,7 +1363,7 @@ export const getProvidersQueryKey = (options?: Options<GetProvidersData>) => cre
 /**
  * List all LLM providers
  *
- * Get a list of all configured LLM providers, optionally filtered by client type
+ * Get a list of all configured LLM providers
  */
 export const getProvidersQuery = defineQueryOptions((options?: Options<GetProvidersData>) => ({
     key: getProvidersQueryKey(options),
@@ -1398,7 +1398,7 @@ export const getProvidersCountQueryKey = (options?: Options<GetProvidersCountDat
 /**
  * Count providers
  *
- * Get the total count of providers, optionally filtered by client type
+ * Get the total count of providers
  */
 export const getProvidersCountQuery = defineQueryOptions((options?: Options<GetProvidersCountData>) => ({
     key: getProvidersCountQueryKey(options),

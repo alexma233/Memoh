@@ -27,11 +27,6 @@ func NewService(log *slog.Logger, queries *sqlc.Queries) *Service {
 
 // Create creates a new LLM provider
 func (s *Service) Create(ctx context.Context, req CreateRequest) (GetResponse, error) {
-	// Validate client type
-	if !isValidClientType(req.ClientType) {
-		return GetResponse{}, fmt.Errorf("invalid client_type: %s", req.ClientType)
-	}
-
 	// Marshal metadata
 	metadataJSON, err := json.Marshal(req.Metadata)
 	if err != nil {
@@ -40,11 +35,10 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (GetResponse, e
 
 	// Create provider
 	provider, err := s.queries.CreateLlmProvider(ctx, sqlc.CreateLlmProviderParams{
-		Name:       req.Name,
-		ClientType: string(req.ClientType),
-		BaseUrl:    req.BaseURL,
-		ApiKey:     req.APIKey,
-		Metadata:   metadataJSON,
+		Name:     req.Name,
+		BaseUrl:  req.BaseURL,
+		ApiKey:   req.APIKey,
+		Metadata: metadataJSON,
 	})
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("create provider: %w", err)
@@ -92,24 +86,6 @@ func (s *Service) List(ctx context.Context) ([]GetResponse, error) {
 	return results, nil
 }
 
-// ListByClientType retrieves providers by client type
-func (s *Service) ListByClientType(ctx context.Context, clientType ClientType) ([]GetResponse, error) {
-	if !isValidClientType(clientType) {
-		return nil, fmt.Errorf("invalid client_type: %s", clientType)
-	}
-
-	providers, err := s.queries.ListLlmProvidersByClientType(ctx, string(clientType))
-	if err != nil {
-		return nil, fmt.Errorf("list providers by client type: %w", err)
-	}
-
-	results := make([]GetResponse, 0, len(providers))
-	for _, p := range providers {
-		results = append(results, s.toGetResponse(p))
-	}
-	return results, nil
-}
-
 // Update updates an existing provider
 func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (GetResponse, error) {
 	providerID, err := db.ParseUUID(id)
@@ -127,14 +103,6 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Get
 	name := existing.Name
 	if req.Name != nil {
 		name = *req.Name
-	}
-
-	clientType := existing.ClientType
-	if req.ClientType != nil {
-		if !isValidClientType(*req.ClientType) {
-			return GetResponse{}, fmt.Errorf("invalid client_type: %s", *req.ClientType)
-		}
-		clientType = string(*req.ClientType)
 	}
 
 	baseURL := existing.BaseUrl
@@ -155,12 +123,11 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Get
 
 	// Update provider
 	updated, err := s.queries.UpdateLlmProvider(ctx, sqlc.UpdateLlmProviderParams{
-		ID:         providerID,
-		Name:       name,
-		ClientType: clientType,
-		BaseUrl:    baseURL,
-		ApiKey:     apiKey,
-		Metadata:   metadata,
+		ID:       providerID,
+		Name:     name,
+		BaseUrl:  baseURL,
+		ApiKey:   apiKey,
+		Metadata: metadata,
 	})
 	if err != nil {
 		return GetResponse{}, fmt.Errorf("update provider: %w", err)
@@ -191,19 +158,6 @@ func (s *Service) Count(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-// CountByClientType returns the count of providers by client type
-func (s *Service) CountByClientType(ctx context.Context, clientType ClientType) (int64, error) {
-	if !isValidClientType(clientType) {
-		return 0, fmt.Errorf("invalid client_type: %s", clientType)
-	}
-
-	count, err := s.queries.CountLlmProvidersByClientType(ctx, string(clientType))
-	if err != nil {
-		return 0, fmt.Errorf("count providers by client type: %w", err)
-	}
-	return count, nil
-}
-
 // toGetResponse converts a database provider to a response
 func (s *Service) toGetResponse(provider sqlc.LlmProvider) GetResponse {
 	var metadata map[string]any
@@ -217,26 +171,13 @@ func (s *Service) toGetResponse(provider sqlc.LlmProvider) GetResponse {
 	maskedAPIKey := maskAPIKey(provider.ApiKey)
 
 	return GetResponse{
-		ID:         provider.ID.String(),
-		Name:       provider.Name,
-		ClientType: provider.ClientType,
-		BaseURL:    provider.BaseUrl,
-		APIKey:     maskedAPIKey,
-		Metadata:   metadata,
-		CreatedAt:  provider.CreatedAt.Time,
-		UpdatedAt:  provider.UpdatedAt.Time,
-	}
-}
-
-// isValidClientType checks if a client type is valid
-func isValidClientType(clientType ClientType) bool {
-	switch clientType {
-	case ClientTypeOpenAI, ClientTypeOpenAICompat, ClientTypeAnthropic, ClientTypeGoogle,
-		ClientTypeAzure, ClientTypeBedrock, ClientTypeMistral, ClientTypeXAI,
-		ClientTypeOllama, ClientTypeDashscope:
-		return true
-	default:
-		return false
+		ID:        provider.ID.String(),
+		Name:      provider.Name,
+		BaseURL:   provider.BaseUrl,
+		APIKey:    maskedAPIKey,
+		Metadata:  metadata,
+		CreatedAt: provider.CreatedAt.Time,
+		UpdatedAt: provider.UpdatedAt.Time,
 	}
 }
 

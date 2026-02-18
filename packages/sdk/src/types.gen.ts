@@ -691,6 +691,7 @@ export type MessageMessageAsset = {
 };
 
 export type ModelsAddRequest = {
+    client_type?: ModelsClientType;
     dimensions?: number;
     input_modalities?: Array<string>;
     llm_provider_id?: string;
@@ -704,11 +705,14 @@ export type ModelsAddResponse = {
     model_id?: string;
 };
 
+export type ModelsClientType = 'openai-responses' | 'openai-completions' | 'anthropic-messages' | 'google-generative-ai';
+
 export type ModelsCountResponse = {
     count?: number;
 };
 
 export type ModelsGetResponse = {
+    client_type?: ModelsClientType;
     dimensions?: number;
     input_modalities?: Array<string>;
     llm_provider_id?: string;
@@ -720,6 +724,7 @@ export type ModelsGetResponse = {
 export type ModelsModelType = 'chat' | 'embedding';
 
 export type ModelsUpdateRequest = {
+    client_type?: ModelsClientType;
     dimensions?: number;
     input_modalities?: Array<string>;
     llm_provider_id?: string;
@@ -728,8 +733,6 @@ export type ModelsUpdateRequest = {
     type?: ModelsModelType;
 };
 
-export type ProvidersClientType = 'openai' | 'openai-compat' | 'anthropic' | 'google' | 'azure' | 'bedrock' | 'mistral' | 'xai' | 'ollama' | 'dashscope';
-
 export type ProvidersCountResponse = {
     count?: number;
 };
@@ -737,7 +740,6 @@ export type ProvidersCountResponse = {
 export type ProvidersCreateRequest = {
     api_key?: string;
     base_url: string;
-    client_type: ProvidersClientType;
     metadata?: {
         [key: string]: unknown;
     };
@@ -750,7 +752,6 @@ export type ProvidersGetResponse = {
      */
     api_key?: string;
     base_url?: string;
-    client_type?: string;
     created_at?: string;
     id?: string;
     metadata?: {
@@ -763,7 +764,6 @@ export type ProvidersGetResponse = {
 export type ProvidersUpdateRequest = {
     api_key?: string;
     base_url?: string;
-    client_type?: ProvidersClientType;
     metadata?: {
         [key: string]: unknown;
     };
@@ -3671,7 +3671,7 @@ export type GetModelsData = {
          */
         type?: string;
         /**
-         * Client type (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)
+         * Client type (openai-responses, openai-completions, anthropic-messages, google-generative-ai)
          */
         client_type?: string;
     };
@@ -3999,20 +3999,11 @@ export type PutModelsByIdResponse = PutModelsByIdResponses[keyof PutModelsByIdRe
 export type GetProvidersData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Client type filter (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)
-         */
-        client_type?: string;
-    };
+    query?: never;
     url: '/providers';
 };
 
 export type GetProvidersErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
     /**
      * Internal Server Error
      */
@@ -4065,20 +4056,11 @@ export type PostProvidersResponse = PostProvidersResponses[keyof PostProvidersRe
 export type GetProvidersCountData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Client type filter (openai, openai-compat, anthropic, google, azure, bedrock, mistral, xai, ollama, dashscope)
-         */
-        client_type?: string;
-    };
+    query?: never;
     url: '/providers/count';
 };
 
 export type GetProvidersCountErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
     /**
      * Internal Server Error
      */

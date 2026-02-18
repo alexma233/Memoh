@@ -681,12 +681,11 @@ func (c *lazyLLMClient) resolve(ctx context.Context) (memory.LLM, error) {
 	if err != nil {
 		return nil, err
 	}
-	clientType := strings.ToLower(strings.TrimSpace(memoryProvider.ClientType))
+	clientType := string(memoryModel.ClientType)
 	switch clientType {
-	case "openai", "openai-compat", "azure", "mistral", "xai", "ollama", "dashscope":
-		// These providers support OpenAI-compatible /chat/completions endpoint
+	case "openai-responses", "openai-completions", "anthropic-messages", "google-generative-ai":
 	default:
-		return nil, fmt.Errorf("memory provider client type not supported: %s", memoryProvider.ClientType)
+		return nil, fmt.Errorf("memory model client type not supported: %s", clientType)
 	}
 	return memory.NewLLMClient(c.logger, memoryProvider.BaseUrl, memoryProvider.ApiKey, memoryModel.ModelID, c.timeout)
 }

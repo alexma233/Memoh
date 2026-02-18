@@ -116,7 +116,6 @@ const emit = defineEmits<{
 const providerSchema = toTypedSchema(z.object({
   name: z.string().min(1),
   base_url: z.string().min(1),
-  client_type: z.string().min(1),
   api_key: z.string().optional(),
   metadata: z.object({
     additionalProp1: z.object({}),
@@ -132,8 +131,6 @@ watch(() => props.provider, (newVal) => {
     form.setValues({
       name: newVal.name,
       base_url: newVal.base_url,
-      client_type: newVal.client_type,
-      // Keep key input empty by default so masked placeholders are never submitted back.
       api_key: '',
     })
   }
@@ -144,12 +141,10 @@ const hasChanges = computed(() => {
   const baseChanged = JSON.stringify({
     name: form.values.name,
     base_url: form.values.base_url,
-    client_type: form.values.client_type,
     metadata: form.values.metadata,
   }) !== JSON.stringify({
     name: raw?.name,
     base_url: raw?.base_url,
-    client_type: raw?.client_type,
     metadata: { additionalProp1: {} },
   })
 
@@ -161,7 +156,6 @@ const editProvider = form.handleSubmit(async (value) => {
   const payload: Record<string, unknown> = {
     name: value.name,
     base_url: value.base_url,
-    client_type: value.client_type,
     metadata: value.metadata,
   }
   if (value.api_key && value.api_key.trim() !== '') {

@@ -143,6 +143,8 @@
     "deleteModelConfirm": "Are you sure you want to delete this model?",
     "emptyTitle": "No Models",
     "emptyDescription": "Click the button above to add a model for this provider",
+    "clientType": "Client Type",
+    "clientTypePlaceholder": "Select client type",
     "model": "Model ID",
     "modelPlaceholder": "e.g. gpt-4o",
     "displayName": "Display Name",

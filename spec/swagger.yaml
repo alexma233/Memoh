@@ -1133,6 +1133,8 @@ definitions:
     type: object
   models.AddRequest:
     properties:
+      client_type:
+        $ref: '#/definitions/models.ClientType'
       dimensions:
         type: integer
       input_modalities:
@@ -1155,6 +1157,18 @@ definitions:
       model_id:
         type: string
     type: object
+  models.ClientType:
+    enum:
+    - openai-responses
+    - openai-completions
+    - anthropic-messages
+    - google-generative-ai
+    type: string
+    x-enum-varnames:
+    - ClientTypeOpenAIResponses
+    - ClientTypeOpenAICompletions
+    - ClientTypeAnthropicMessages
+    - ClientTypeGoogleGenerativeAI
   models.CountResponse:
     properties:
       count:
@@ -1162,6 +1176,8 @@ definitions:
     type: object
   models.GetResponse:
     properties:
+      client_type:
+        $ref: '#/definitions/models.ClientType'
       dimensions:
         type: integer
       input_modalities:
@@ -1187,6 +1203,8 @@ definitions:
     - ModelTypeEmbedding
   models.UpdateRequest:
     properties:
+      client_type:
+        $ref: '#/definitions/models.ClientType'
       dimensions:
         type: integer
       input_modalities:
@@ -1202,30 +1220,6 @@ definitions:
       type:
         $ref: '#/definitions/models.ModelType'
     type: object
-  providers.ClientType:
-    enum:
-    - openai
-    - openai-compat
-    - anthropic
-    - google
-    - azure
-    - bedrock
-    - mistral
-    - xai
-    - ollama
-    - dashscope
-    type: string
-    x-enum-varnames:
-    - ClientTypeOpenAI
-    - ClientTypeOpenAICompat
-    - ClientTypeAnthropic
-    - ClientTypeGoogle
-    - ClientTypeAzure
-    - ClientTypeBedrock
-    - ClientTypeMistral
-    - ClientTypeXAI
-    - ClientTypeOllama
-    - ClientTypeDashscope
   providers.CountResponse:
     properties:
       count:
@@ -1237,8 +1231,6 @@ definitions:
         type: string
       base_url:
         type: string
-      client_type:
-        $ref: '#/definitions/providers.ClientType'
       metadata:
         additionalProperties: {}
         type: object
@@ -1246,7 +1238,6 @@ definitions:
         type: string
     required:
     - base_url
-    - client_type
     - name
     type: object
   providers.GetResponse:
@@ -1255,8 +1246,6 @@ definitions:
         description: masked in response
         type: string
       base_url:
-        type: string
-      client_type:
         type: string
       created_at:
         type: string
@@ -1276,8 +1265,6 @@ definitions:
         type: string
       base_url:
         type: string
-      client_type:
-        $ref: '#/definitions/providers.ClientType'
       metadata:
         additionalProperties: {}
         type: object
@@ -3774,8 +3761,8 @@ paths:
         in: query
         name: type
         type: string
-      - description: Client type (openai, openai-compat, anthropic, google, azure,
-          bedrock, mistral, xai, ollama, dashscope)
+      - description: Client type (openai-responses, openai-completions, anthropic-messages,
+          google-generative-ai)
         in: query
         name: client_type
         type: string
@@ -4028,14 +4015,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get a list of all configured LLM providers, optionally filtered
-        by client type
-      parameters:
-      - description: Client type filter (openai, openai-compat, anthropic, google,
-          azure, bedrock, mistral, xai, ollama, dashscope)
-        in: query
-        name: client_type
-        type: string
+      description: Get a list of all configured LLM providers
       produces:
       - application/json
       responses:
@@ -4045,10 +4025,6 @@ paths:
             items:
               $ref: '#/definitions/providers.GetResponse'
             type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -4225,14 +4201,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get the total count of providers, optionally filtered by client
-        type
-      parameters:
-      - description: Client type filter (openai, openai-compat, anthropic, google,
-          azure, bedrock, mistral, xai, ollama, dashscope)
-        in: query
-        name: client_type
-        type: string
+      description: Get the total count of providers
       produces:
       - application/json
       responses:
@@ -4240,10 +4209,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/providers.CountResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
