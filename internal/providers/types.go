@@ -40,16 +40,28 @@ type CountResponse struct {
 	Count int64 `json:"count"`
 }
 
-// TestRequest represents a request to test provider connection
-type TestRequest struct {
-	BaseURL string `json:"base_url" validate:"required,url"`
-	APIKey  string `json:"api_key"`
-	Model   string `json:"model"` // optional test model
+// CheckStatus represents the result status of a single probe check.
+type CheckStatus string
+
+const (
+	CheckStatusSupported   CheckStatus = "supported"
+	CheckStatusAuthError   CheckStatus = "auth_error"
+	CheckStatusUnsupported CheckStatus = "unsupported"
+	CheckStatusError       CheckStatus = "error"
+)
+
+// CheckResult holds the outcome of probing a single endpoint.
+type CheckResult struct {
+	Status     CheckStatus `json:"status"`
+	StatusCode int         `json:"status_code,omitempty"`
+	LatencyMs  int64       `json:"latency_ms,omitempty"`
+	Message    string      `json:"message,omitempty"`
 }
 
-// TestResponse represents the result of testing a provider
+// TestResponse is returned by POST /providers/:id/test.
 type TestResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-	Latency int64  `json:"latency_ms,omitempty"` // latency in milliseconds
+	Reachable bool                   `json:"reachable"`
+	LatencyMs int64                  `json:"latency_ms,omitempty"`
+	Message   string                 `json:"message,omitempty"`
+	Checks    map[string]CheckResult `json:"checks"`
 }

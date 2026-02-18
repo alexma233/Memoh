@@ -4055,6 +4055,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/providers/{id}/test": {
+            "post": {
+                "description": "Probe a provider's base URL to check reachability, supported client types, and embedding support",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "providers"
+                ],
+                "summary": "Test provider connectivity",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/providers.TestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/search-providers": {
             "get": {
                 "description": "List configured search providers",
@@ -6602,6 +6652,38 @@ const docTemplate = `{
                 }
             }
         },
+        "providers.CheckResult": {
+            "type": "object",
+            "properties": {
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/providers.CheckStatus"
+                },
+                "status_code": {
+                    "type": "integer"
+                }
+            }
+        },
+        "providers.CheckStatus": {
+            "type": "string",
+            "enum": [
+                "supported",
+                "auth_error",
+                "unsupported",
+                "error"
+            ],
+            "x-enum-varnames": [
+                "CheckStatusSupported",
+                "CheckStatusAuthError",
+                "CheckStatusUnsupported",
+                "CheckStatusError"
+            ]
+        },
         "providers.CountResponse": {
             "type": "object",
             "properties": {
@@ -6657,6 +6739,26 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "providers.TestResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/providers.CheckResult"
+                    }
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "reachable": {
+                    "type": "boolean"
                 }
             }
         },

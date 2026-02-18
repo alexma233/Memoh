@@ -733,6 +733,15 @@ export type ModelsUpdateRequest = {
     type?: ModelsModelType;
 };
 
+export type ProvidersCheckResult = {
+    latency_ms?: number;
+    message?: string;
+    status?: ProvidersCheckStatus;
+    status_code?: number;
+};
+
+export type ProvidersCheckStatus = 'supported' | 'auth_error' | 'unsupported' | 'error';
+
 export type ProvidersCountResponse = {
     count?: number;
 };
@@ -759,6 +768,15 @@ export type ProvidersGetResponse = {
     };
     name?: string;
     updated_at?: string;
+};
+
+export type ProvidersTestResponse = {
+    checks?: {
+        [key: string]: ProvidersCheckResult;
+    };
+    latency_ms?: number;
+    message?: string;
+    reachable?: boolean;
 };
 
 export type ProvidersUpdateRequest = {
@@ -4273,6 +4291,44 @@ export type GetProvidersByIdModelsResponses = {
 };
 
 export type GetProvidersByIdModelsResponse = GetProvidersByIdModelsResponses[keyof GetProvidersByIdModelsResponses];
+
+export type PostProvidersByIdTestData = {
+    body?: never;
+    path: {
+        /**
+         * Provider ID (UUID)
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/providers/{id}/test';
+};
+
+export type PostProvidersByIdTestErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostProvidersByIdTestError = PostProvidersByIdTestErrors[keyof PostProvidersByIdTestErrors];
+
+export type PostProvidersByIdTestResponses = {
+    /**
+     * OK
+     */
+    200: ProvidersTestResponse;
+};
+
+export type PostProvidersByIdTestResponse = PostProvidersByIdTestResponses[keyof PostProvidersByIdTestResponses];
 
 export type GetSearchProvidersData = {
     body?: never;

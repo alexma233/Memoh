@@ -1220,6 +1220,29 @@ definitions:
       type:
         $ref: '#/definitions/models.ModelType'
     type: object
+  providers.CheckResult:
+    properties:
+      latency_ms:
+        type: integer
+      message:
+        type: string
+      status:
+        $ref: '#/definitions/providers.CheckStatus'
+      status_code:
+        type: integer
+    type: object
+  providers.CheckStatus:
+    enum:
+    - supported
+    - auth_error
+    - unsupported
+    - error
+    type: string
+    x-enum-varnames:
+    - CheckStatusSupported
+    - CheckStatusAuthError
+    - CheckStatusUnsupported
+    - CheckStatusError
   providers.CountResponse:
     properties:
       count:
@@ -1258,6 +1281,19 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  providers.TestResponse:
+    properties:
+      checks:
+        additionalProperties:
+          $ref: '#/definitions/providers.CheckResult'
+        type: object
+      latency_ms:
+        type: integer
+      message:
+        type: string
+      reachable:
+        type: boolean
     type: object
   providers.UpdateRequest:
     properties:
@@ -4195,6 +4231,40 @@ paths:
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: List provider models
+      tags:
+      - providers
+  /providers/{id}/test:
+    post:
+      consumes:
+      - application/json
+      description: Probe a provider's base URL to check reachability, supported client
+        types, and embedding support
+      parameters:
+      - description: Provider ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/providers.TestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Test provider connectivity
       tags:
       - providers
   /providers/count:

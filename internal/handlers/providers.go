@@ -35,6 +35,7 @@ func (h *ProvidersHandler) Register(e *echo.Echo) {
 	group.PUT("/:id", h.Update)
 	group.DELETE("/:id", h.Delete)
 	group.GET("/count", h.Count)
+	group.POST("/:id/test", h.Test)
 }
 
 // Create godoc
@@ -251,4 +252,33 @@ func (h *ProvidersHandler) Count(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, providers.CountResponse{Count: count})
+}
+
+// Test godoc
+// @Summary Test provider connectivity
+// @Description Probe a provider's base URL to check reachability, supported client types, and embedding support
+// @Tags providers
+// @Accept json
+// @Produce json
+// @Param id path string true "Provider ID (UUID)"
+// @Success 200 {object} providers.TestResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /providers/{id}/test [post]
+func (h *ProvidersHandler) Test(c echo.Context) error {
+	id := c.Param("id")
+	if id == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "id is required")
+	}
+
+	resp, err := h.service.Test(c.Request().Context(), id)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid") {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
