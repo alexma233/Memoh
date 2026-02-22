@@ -16,8 +16,10 @@
     </ItemContent>
     <ItemActions>
       <Button
+        type="button"
         variant="outline"
         class="cursor-pointer"
+        aria-label="Edit model"
         @click="$emit('edit', model)"
       >
         <FontAwesomeIcon :icon="['fas', 'gear']" />
@@ -29,7 +31,11 @@
         @confirm="$emit('delete', model.name)"
       >
         <template #trigger>
-          <Button variant="outline">
+          <Button
+            type="button"
+            variant="outline"
+            aria-label="Delete model"
+          >
             <FontAwesomeIcon :icon="['far', 'trash-can']" />
           </Button>
         </template>

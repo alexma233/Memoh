@@ -9,11 +9,16 @@ import {
 } from 'reka-ui'
 import { cn } from '#/lib/utils'
 
-const props = defineProps<SwitchRootProps & { class?: HTMLAttributes['class'] }>()
+const props = withDefaults(
+  defineProps<SwitchRootProps & { class?: HTMLAttributes['class']; ariaLabel?: string }>(),
+  {
+    ariaLabel: 'Toggle',
+  },
+)
 
 const emits = defineEmits<SwitchRootEmits>()
 
-const delegatedProps = reactiveOmit(props, 'class')
+const delegatedProps = reactiveOmit(props, 'class', 'ariaLabel')
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
@@ -23,6 +28,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     v-slot="slotProps"
     data-slot="switch"
     v-bind="forwarded"
+    :aria-label="props.ariaLabel"
     :class="cn(
       'peer inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-sm transition-all outline-none',
       'data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-200 dark:data-[state=unchecked]:bg-gray-700',

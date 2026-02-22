@@ -55,7 +55,6 @@
                 <PopoverTrigger as-child>
                   <Button
                     variant="outline"
-                    role="combobox"
                     :aria-expanded="clientTypeOpen"
                     class="w-full justify-between font-normal mt-2"
                   >
@@ -75,6 +74,7 @@
                   <button
                     v-for="ct in CLIENT_TYPE_LIST"
                     :key="ct.value"
+                    type="button"
                     class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
                     :class="{ 'bg-accent': form.values.client_type === ct.value }"
                     @click="selectClientType(ct.value)"

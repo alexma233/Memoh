@@ -3,7 +3,6 @@
     <PopoverTrigger as-child>
       <Button
         variant="outline"
-        role="combobox"
         :aria-expanded="open"
         class="w-full justify-between font-normal"
       >
@@ -22,11 +21,18 @@
     >
       <!-- Search input -->
       <div class="flex items-center border-b px-3">
+        <label
+          :for="searchInputId"
+          class="sr-only"
+        >
+          {{ $t('bots.settings.searchModel') }}
+        </label>
         <FontAwesomeIcon
           :icon="['fas', 'magnifying-glass']"
           class="mr-2 size-3.5 shrink-0 text-muted-foreground"
         />
         <input
+          :id="searchInputId"
           v-model="searchTerm"
           :placeholder="$t('bots.settings.searchModel')"
           class="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
@@ -53,6 +59,7 @@
           <button
             v-for="model in group.models"
             :key="model.model_id"
+            type="button"
             class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
             :class="{ 'bg-accent': selected === model.model_id }"
             @click="selectModel(model.model_id)"
@@ -101,6 +108,7 @@ const props = defineProps<{
 const selected = defineModel<string>({ default: '' })
 const searchTerm = ref('')
 const open = ref(false)
+const searchInputId = 'bot-model-search-input'
 
 // 打开时清空搜索
 watch(open, (val) => {

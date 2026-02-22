@@ -726,6 +726,7 @@ const columns = computed<ColumnDef<McpItem>[]>(() => [
         h('input', {
           type: 'checkbox',
           class: 'size-4 cursor-pointer rounded border border-input',
+          'aria-label': 'Select all MCP servers',
           checked: isAllSelected.value,
           onChange: (e: Event) => {
             toggleSelectAll((e.target as HTMLInputElement).checked)
@@ -738,6 +739,7 @@ const columns = computed<ColumnDef<McpItem>[]>(() => [
         h('input', {
           type: 'checkbox',
           class: 'size-4 cursor-pointer rounded border border-input',
+          'aria-label': `Select ${row.original.name}`,
           checked: selectedIds.value.includes(id),
           onChange: (e: Event) => {
             toggleSelection(id, (e.target as HTMLInputElement).checked)

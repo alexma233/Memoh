@@ -35,12 +35,15 @@
         <Separator />
         <div class="mt-4 space-y-4">
           <div class="flex items-center justify-between">
-            <Label>{{ $t('settings.language') }}</Label>
+            <Label for="settings-language">{{ $t('settings.language') }}</Label>
             <Select
               :model-value="language"
               @update:model-value="(v) => v && setLanguage(v as Locale)"
             >
-              <SelectTrigger class="w-40">
+              <SelectTrigger
+                id="settings-language"
+                class="w-40"
+              >
                 <SelectValue :placeholder="$t('settings.languagePlaceholder')" />
               </SelectTrigger>
               <SelectContent>
@@ -57,12 +60,15 @@
           </div>
           <Separator />
           <div class="flex items-center justify-between">
-            <Label>{{ $t('settings.theme') }}</Label>
+            <Label for="settings-theme">{{ $t('settings.theme') }}</Label>
             <Select
               :model-value="theme"
               @update:model-value="(v) => v && setTheme(v as 'light' | 'dark')"
             >
-              <SelectTrigger class="w-40">
+              <SelectTrigger
+                id="settings-theme"
+                class="w-40"
+              >
                 <SelectValue :placeholder="$t('settings.themePlaceholder')" />
               </SelectTrigger>
               <SelectContent>
@@ -107,26 +113,32 @@
         <Separator />
         <div class="mt-4 space-y-4">
           <div class="space-y-2">
-            <Label>{{ $t('settings.userID') }}</Label>
+            <Label for="settings-user-id">{{ $t('settings.userID') }}</Label>
             <Input
+              id="settings-user-id"
               :model-value="displayUserID"
               readonly
             />
           </div>
           <div class="space-y-2">
-            <Label>{{ $t('auth.username') }}</Label>
+            <Label for="settings-username">{{ $t('auth.username') }}</Label>
             <Input
+              id="settings-username"
               :model-value="displayUsername"
               readonly
             />
           </div>
           <div class="space-y-2">
-            <Label>{{ $t('settings.displayName') }}</Label>
-            <Input v-model="profileForm.display_name" />
+            <Label for="settings-display-name">{{ $t('settings.displayName') }}</Label>
+            <Input
+              id="settings-display-name"
+              v-model="profileForm.display_name"
+            />
           </div>
           <div class="space-y-2">
-            <Label>{{ $t('settings.avatarUrl') }}</Label>
+            <Label for="settings-avatar-url">{{ $t('settings.avatarUrl') }}</Label>
             <Input
+              id="settings-avatar-url"
               v-model="profileForm.avatar_url"
               type="url"
             />
@@ -155,22 +167,25 @@
         <Separator />
         <div class="mt-4 space-y-4">
           <div class="space-y-2">
-            <Label>{{ $t('settings.currentPassword') }}</Label>
+            <Label for="settings-current-password">{{ $t('settings.currentPassword') }}</Label>
             <Input
+              id="settings-current-password"
               v-model="passwordForm.currentPassword"
               type="password"
             />
           </div>
           <div class="space-y-2">
-            <Label>{{ $t('settings.newPassword') }}</Label>
+            <Label for="settings-new-password">{{ $t('settings.newPassword') }}</Label>
             <Input
+              id="settings-new-password"
               v-model="passwordForm.newPassword"
               type="password"
             />
           </div>
           <div class="space-y-2">
-            <Label>{{ $t('settings.confirmPassword') }}</Label>
+            <Label for="settings-confirm-password">{{ $t('settings.confirmPassword') }}</Label>
             <Input
+              id="settings-confirm-password"
               v-model="passwordForm.confirmPassword"
               type="password"
             />
@@ -248,12 +263,15 @@
         <div class="mt-4 space-y-4">
           <div class="flex flex-wrap gap-3 items-end">
             <div class="space-y-2">
-              <Label>{{ $t('settings.platform') }}</Label>
+              <Label for="settings-bind-platform">{{ $t('settings.platform') }}</Label>
               <Select
                 :model-value="bindForm.platform || anyPlatformValue"
                 @update:model-value="onPlatformChange"
               >
-                <SelectTrigger class="w-56">
+                <SelectTrigger
+                  id="settings-bind-platform"
+                  class="w-56"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,8 +291,9 @@
               </Select>
             </div>
             <div class="space-y-2">
-              <Label>{{ $t('settings.bindCodeTTL') }}</Label>
+              <Label for="settings-bind-ttl">{{ $t('settings.bindCodeTTL') }}</Label>
               <Input
+                id="settings-bind-ttl"
                 v-model.number="bindForm.ttlSeconds"
                 type="number"
                 min="60"
@@ -293,9 +312,10 @@
             v-if="bindCode"
             class="space-y-2"
           >
-            <Label>{{ $t('settings.bindCodeValue') }}</Label>
+            <Label for="settings-bind-code">{{ $t('settings.bindCodeValue') }}</Label>
             <div class="flex gap-2">
               <Input
+                id="settings-bind-code"
                 :model-value="bindCode.token"
                 readonly
               />

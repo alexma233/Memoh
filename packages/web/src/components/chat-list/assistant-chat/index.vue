@@ -1,5 +1,8 @@
 <template>
-  <div class="flex gap-3 items-start">
+  <div
+    ref="messageRoot"
+    class="flex gap-3 items-start"
+  >
     <!-- Bot avatar -->
     <div class="relative shrink-0">
       <Avatar class="size-8">
@@ -62,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { Avatar, AvatarImage, AvatarFallback } from '@memoh/ui'
 import MarkdownRender from 'markstream-vue'
 import ChannelBadge from '@/components/chat-list/channel-badge/index.vue'
@@ -83,4 +86,34 @@ const currentBot = computed(() =>
 
 const botAvatarUrl = computed(() => currentBot.value?.avatar_url ?? '')
 const botName = computed(() => currentBot.value?.display_name ?? '')
+
+const messageRoot = ref<HTMLElement | null>(null)
+let codeActionObserver: MutationObserver | null = null
+
+function ensureCodeActionLabels() {
+  const root = messageRoot.value
+  if (!root) return
+
+  root.querySelectorAll<HTMLButtonElement>('.code-block-header .code-action-btn').forEach((button) => {
+    if (!button.getAttribute('aria-label')?.trim()) {
+      const fallback = button.getAttribute('title')?.trim() || button.textContent?.trim() || 'Code action'
+      button.setAttribute('aria-label', fallback)
+    }
+  })
+}
+
+onMounted(() => {
+  nextTick(ensureCodeActionLabels)
+
+  if (typeof MutationObserver === 'undefined' || !messageRoot.value) return
+  codeActionObserver = new MutationObserver(() => {
+    ensureCodeActionLabels()
+  })
+  codeActionObserver.observe(messageRoot.value, { childList: true, subtree: true })
+})
+
+onUnmounted(() => {
+  codeActionObserver?.disconnect()
+  codeActionObserver = null
+})
 </script>

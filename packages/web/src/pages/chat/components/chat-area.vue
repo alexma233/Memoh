@@ -109,7 +109,9 @@
               />
               <span class="truncate max-w-[120px]">{{ file.name }}</span>
               <button
+                type="button"
                 class="ml-1 text-muted-foreground hover:text-foreground"
+                aria-label="Remove attachment"
                 @click="pendingFiles.splice(i, 1)"
               >
                 <FontAwesomeIcon
@@ -142,6 +144,7 @@
                 size="sm"
                 variant="ghost"
                 :disabled="!currentBotId || activeChatReadOnly"
+                aria-label="Add attachment"
                 @click="fileInput?.click()"
               >
                 <FontAwesomeIcon
@@ -153,6 +156,7 @@
                 v-if="!streaming"
                 size="sm"
                 :disabled="(!inputText.trim() && !pendingFiles.length) || !currentBotId || activeChatReadOnly"
+                aria-label="Send message"
                 @click="handleSend"
               >
                 <FontAwesomeIcon
@@ -164,6 +168,7 @@
                 v-else
                 size="sm"
                 variant="destructive"
+                aria-label="Stop response"
                 @click="chatStore.abort()"
               >
                 <FontAwesomeIcon

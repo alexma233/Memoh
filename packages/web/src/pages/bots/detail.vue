@@ -19,6 +19,7 @@
           type="button"
           class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover/avatar:opacity-100"
           :title="$t('common.edit')"
+          :aria-label="$t('common.edit')"
           :disabled="!bot || botLifecyclePending"
           @click="handleEditAvatar"
         >
@@ -70,6 +71,7 @@
               class="size-7 p-0"
               :disabled="botLifecyclePending"
               :title="$t('common.edit')"
+              :aria-label="$t('common.edit')"
               @click="handleStartEditBotName"
             >
               <FontAwesomeIcon

@@ -43,7 +43,7 @@
             </div>
             <div
               v-if="bot.type"
-              class="text-xs text-muted-foreground truncate"
+              class="text-xs text-foreground/80 truncate"
             >
               {{ botTypeLabel(bot.type) }}
             </div>

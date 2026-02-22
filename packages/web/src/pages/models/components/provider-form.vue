@@ -2,9 +2,12 @@
   <form @submit="editProvider">
     <div class="**:[input]:mt-3 **:[input]:mb-4">
       <section>
-        <h4 class="scroll-m-20 font-semibold tracking-tight">
+        <Label
+          for="provider-name"
+          class="scroll-m-20 font-semibold tracking-tight"
+        >
           {{ $t('common.name') }}
-        </h4>
+        </Label>
         <FormField
           v-slot="{ componentField }"
           name="name"
@@ -12,6 +15,7 @@
           <FormItem>
             <FormControl>
               <Input
+                id="provider-name"
                 type="text"
                 :placeholder="$t('common.namePlaceholder')"
                 v-bind="componentField"
@@ -22,9 +26,12 @@
       </section>
 
       <section>
-        <h4 class="scroll-m-20 font-semibold tracking-tight">
+        <Label
+          for="provider-api-key"
+          class="scroll-m-20 font-semibold tracking-tight"
+        >
           {{ $t('provider.apiKey') }}
-        </h4>
+        </Label>
         <FormField
           v-slot="{ componentField }"
           name="api_key"
@@ -32,6 +39,7 @@
           <FormItem>
             <FormControl>
               <Input
+                id="provider-api-key"
                 type="password"
                 :placeholder="props.provider?.api_key || $t('provider.apiKeyPlaceholder')"
                 v-bind="componentField"
@@ -42,9 +50,12 @@
       </section>
 
       <section>
-        <h4 class="scroll-m-20 font-semibold tracking-tight">
+        <Label
+          for="provider-base-url"
+          class="scroll-m-20 font-semibold tracking-tight"
+        >
           {{ $t('provider.url') }}
-        </h4>
+        </Label>
         <FormField
           v-slot="{ componentField }"
           name="base_url"
@@ -52,6 +63,7 @@
           <FormItem>
             <FormControl>
               <Input
+                id="provider-base-url"
                 type="text"
                 :placeholder="$t('provider.urlPlaceholder')"
                 v-bind="componentField"
@@ -80,7 +92,11 @@
           @confirm="$emit('delete')"
         >
           <template #trigger>
-            <Button variant="outline">
+          <Button
+            type="button"
+            variant="outline"
+            aria-label="Delete provider"
+          >
               <FontAwesomeIcon :icon="['far', 'trash-can']" />
             </Button>
           </template>
@@ -154,6 +170,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  Label,
   Spinner,
 } from '@memoh/ui'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'

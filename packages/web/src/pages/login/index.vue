@@ -22,6 +22,8 @@
       <Button
         variant="ghost"
         size="icon"
+        type="button"
+        :aria-label="themeToggleLabel"
         @click="toggleTheme"
       >
         <Sun
@@ -92,12 +94,9 @@
               </FormItem>
             </FormField>
             <div class="flex">
-              <a
-                href="#"
-                class="ml-auto inline-block text-sm underline mt-2"
-              >
+              <span class="ml-auto inline-block text-sm text-muted-foreground mt-2">
                 {{ $t('auth.forgotPassword') }}
-              </a>
+              </span>
             </div>
           </CardContent>
 
@@ -105,7 +104,6 @@
             <Button
               class="w-full"
               type="submit"
-              @click="login"
             >
               <Spinner v-if="loading" />
               {{ $t('auth.login') }}
@@ -143,7 +141,7 @@ import { useForm } from 'vee-validate'
 import * as z from 'zod'
 import { useUserStore } from '@/store/user'
 import { useSettingsStore } from '@/store/settings'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
@@ -159,6 +157,10 @@ const { setLanguage, setTheme } = settingsStore
 const toggleTheme = () => {
   setTheme(theme.value === 'light' ? 'dark' : 'light')
 }
+
+const themeToggleLabel = computed(() =>
+  theme.value === 'dark' ? t('settings.themeLight') : t('settings.themeDark'),
+)
 
 const formSchema = toTypedSchema(z.object({
   username: z.string().min(1),

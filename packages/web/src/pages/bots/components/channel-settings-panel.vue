@@ -60,7 +60,7 @@
         :key="key"
         class="space-y-2"
       >
-        <Label>
+        <Label :for="fieldInputId(key)">
           {{ field.title || key }}
           <span
             v-if="!field.required"
@@ -80,6 +80,7 @@
           class="relative"
         >
           <Input
+            :id="fieldInputId(key)"
             v-model="form.credentials[key]"
             :type="visibleSecrets[key] ? 'text' : 'password'"
             :placeholder="field.example ? String(field.example) : ''"
@@ -87,6 +88,7 @@
           <button
             type="button"
             class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            :aria-label="visibleSecrets[key] ? `Hide ${field.title || key}` : `Show ${field.title || key}`"
             @click="visibleSecrets[key] = !visibleSecrets[key]"
           >
             <FontAwesomeIcon
@@ -100,12 +102,14 @@
         <Switch
           v-else-if="field.type === 'bool'"
           :model-value="!!form.credentials[key]"
+          :aria-label="String(field.title || key)"
           @update:model-value="(val) => form.credentials[key] = !!val"
         />
 
         <!-- Number field -->
         <Input
           v-else-if="field.type === 'number'"
+          :id="fieldInputId(key)"
           v-model.number="form.credentials[key]"
           type="number"
           :placeholder="field.example ? String(field.example) : ''"
@@ -117,7 +121,7 @@
           :model-value="String(form.credentials[key] || '')"
           @update:model-value="(val) => form.credentials[key] = val"
         >
-          <SelectTrigger>
+          <SelectTrigger :id="fieldInputId(key)">
             <SelectValue :placeholder="field.title" />
           </SelectTrigger>
           <SelectContent>
@@ -134,6 +138,7 @@
         <!-- String field (default) -->
         <Input
           v-else
+          :id="fieldInputId(key)"
           v-model="form.credentials[key]"
           type="text"
           :placeholder="field.example ? String(field.example) : ''"
@@ -261,6 +266,10 @@ const form = reactive<{
 })
 
 const visibleSecrets = reactive<Record<string, boolean>>({})
+
+function fieldInputId(key: string): string {
+  return `channel-field-${props.channelItem.meta.type}-${key}`
+}
 
 // Schema fields sorted: required first. Exclude "status"/"disabled" from credential form.
 const orderedFields = computed(() => {

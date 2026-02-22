@@ -3,7 +3,6 @@
     <PopoverTrigger as-child>
       <Button
         variant="outline"
-        role="combobox"
         :aria-expanded="open"
         class="w-full justify-between font-normal"
       >
@@ -27,11 +26,18 @@
     >
       <!-- Search input -->
       <div class="flex items-center border-b px-3">
+        <label
+          :for="searchInputId"
+          class="sr-only"
+        >
+          {{ $t('searchProvider.searchPlaceholder') }}
+        </label>
         <FontAwesomeIcon
           :icon="['fas', 'magnifying-glass']"
           class="mr-2 size-3.5 shrink-0 text-muted-foreground"
         />
         <input
+          :id="searchInputId"
           v-model="searchTerm"
           :placeholder="$t('searchProvider.searchPlaceholder')"
           class="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
@@ -56,6 +62,7 @@
         <div class="p-1">
           <!-- None option -->
           <button
+            type="button"
             class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
             :class="{ 'bg-accent': !selected }"
             @click="selectProvider('')"
@@ -76,6 +83,7 @@
           <button
             v-for="item in filteredProviders"
             :key="item.id"
+            type="button"
             class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
             :class="{ 'bg-accent': selected === item.id }"
             @click="selectProvider(item.id || '')"
@@ -127,6 +135,7 @@ const props = defineProps<{
 const selected = defineModel<string>({ default: '' })
 const searchTerm = ref('')
 const open = ref(false)
+const searchInputId = 'bot-search-provider-input'
 
 // 打开时清空搜索
 watch(open, (val) => {

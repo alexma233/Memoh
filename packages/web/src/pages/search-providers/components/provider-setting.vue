@@ -16,9 +16,12 @@
     <form @submit="editProvider">
       <div class="**:[input]:mt-3 **:[input]:mb-4">
         <section>
-          <h4 class="scroll-m-20 font-semibold tracking-tight">
+          <Label
+            for="search-provider-name"
+            class="scroll-m-20 font-semibold tracking-tight"
+          >
             {{ $t('common.name') }}
-          </h4>
+          </Label>
           <FormField
             v-slot="{ componentField }"
             name="name"
@@ -26,6 +29,7 @@
             <FormItem>
               <FormControl>
                 <Input
+                  id="search-provider-name"
                   type="text"
                   :placeholder="$t('common.namePlaceholder')"
                   v-bind="componentField"
@@ -36,15 +40,21 @@
         </section>
 
         <section>
-          <h4 class="scroll-m-20 font-semibold tracking-tight">
+          <Label
+            for="search-provider-type"
+            class="scroll-m-20 font-semibold tracking-tight"
+          >
             {{ $t('searchProvider.provider') }}
-          </h4>
+          </Label>
           <div class="mt-3 mb-4">
             <Select
               :model-value="form.values.provider"
               @update:model-value="(val) => form.setFieldValue('provider', val)"
             >
-              <SelectTrigger class="w-full">
+              <SelectTrigger
+                id="search-provider-type"
+                class="w-full"
+              >
                 <SelectValue :placeholder="$t('common.typePlaceholder')" />
               </SelectTrigger>
               <SelectContent>
@@ -82,7 +92,11 @@
           @confirm="deleteProvider"
         >
           <template #trigger>
-            <Button variant="outline">
+            <Button
+              type="button"
+              variant="outline"
+              aria-label="Delete provider"
+            >
               <FontAwesomeIcon :icon="['far', 'trash-can']" />
             </Button>
           </template>
@@ -109,6 +123,7 @@ import {
   FormItem,
   Spinner,
   Separator,
+  Label,
   Select,
   SelectTrigger,
   SelectValue,

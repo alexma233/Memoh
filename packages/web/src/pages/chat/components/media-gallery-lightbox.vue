@@ -3,11 +3,18 @@
     <Transition name="fade">
       <div
         v-if="isOpen"
+        ref="dialogRef"
         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Media viewer"
+        tabindex="-1"
         @click.self="close"
       >
         <!-- Close -->
         <button
+          ref="closeButtonRef"
+          type="button"
           class="absolute right-4 top-4 z-10 rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
           aria-label="Close"
           @click="close"
@@ -21,6 +28,7 @@
         <!-- Prev -->
         <button
           v-if="items.length > 1"
+          type="button"
           class="absolute left-4 top-1/2 -translate-y-1/2 z-10 rounded-full p-3 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
           aria-label="Previous"
           @click.stop="prev"
@@ -34,6 +42,7 @@
         <!-- Next -->
         <button
           v-if="items.length > 1"
+          type="button"
           class="absolute right-4 top-1/2 -translate-y-1/2 z-10 rounded-full p-3 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
           aria-label="Next"
           @click.stop="next"
@@ -76,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watchEffect, onUnmounted } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watchEffect } from 'vue'
 
 export interface MediaGalleryItem {
   src: string
@@ -94,6 +103,9 @@ const emit = defineEmits<{
 }>()
 
 const isOpen = computed(() => props.openIndex !== null && props.items.length > 0)
+const dialogRef = ref<HTMLElement | null>(null)
+const closeButtonRef = ref<HTMLButtonElement | null>(null)
+let previousActiveElement: HTMLElement | null = null
 
 const currentItem = computed(() => {
   const idx = props.openIndex
@@ -119,20 +131,57 @@ function next() {
 
 function handleKeydown(e: KeyboardEvent) {
   if (props.openIndex === null) return
+  if (e.key === 'Tab') {
+    trapFocus(e)
+    return
+  }
   if (e.key === 'Escape') close()
   else if (e.key === 'ArrowLeft') prev()
   else if (e.key === 'ArrowRight') next()
+}
+
+function trapFocus(e: KeyboardEvent) {
+  const root = dialogRef.value
+  if (!root) return
+  const focusables = root.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )
+  if (!focusables.length) {
+    e.preventDefault()
+    root.focus()
+    return
+  }
+
+  const first = focusables[0]
+  const last = focusables[focusables.length - 1]
+  const active = document.activeElement as HTMLElement | null
+
+  if (e.shiftKey && active === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault()
+    first.focus()
+  }
 }
 
 let removeListener: (() => void) | null = null
 
 watchEffect(() => {
   if (isOpen.value) {
+    if (!previousActiveElement) {
+      previousActiveElement = document.activeElement as HTMLElement | null
+    }
     window.addEventListener('keydown', handleKeydown)
     removeListener = () => window.removeEventListener('keydown', handleKeydown)
+    nextTick(() => {
+      closeButtonRef.value?.focus()
+    })
   } else if (removeListener) {
     removeListener()
     removeListener = null
+    previousActiveElement?.focus?.()
+    previousActiveElement = null
   }
 })
 

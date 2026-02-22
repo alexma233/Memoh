@@ -4,9 +4,9 @@
     <div class="w-64 shrink-0 flex flex-col border rounded-lg overflow-hidden bg-card max-h-full">
       <div class="p-3 border-b space-y-3 shrink-0">
         <div class="flex items-center justify-between">
-          <h4 class="text-sm font-medium">
+          <h1 class="text-sm font-medium">
             {{ $t('bots.memory.files') }}
-          </h4>
+          </h1>
           <div class="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -14,6 +14,7 @@
               class="size-8 p-0"
               :disabled="loading || compactLoading || memories.length === 0"
               :title="$t('bots.memory.compact')"
+              :aria-label="$t('bots.memory.compact')"
               @click="openCompactDialog"
             >
               <FontAwesomeIcon
@@ -26,6 +27,7 @@
               size="sm"
               class="size-8 p-0"
               :disabled="loading"
+              :aria-label="$t('common.refresh')"
               @click="loadMemories"
             >
               <FontAwesomeIcon
@@ -66,6 +68,7 @@
           <button
             v-for="item in filteredMemories"
             :key="item.id"
+            type="button"
             class="w-full text-left px-3 py-2 rounded-md text-xs transition-colors hover:bg-accent group relative"
             :class="{ 'bg-accent font-medium text-primary': selectedId === item.id }"
             @click="selectMemory(item)"
@@ -117,8 +120,10 @@
                 <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
                   <span class="font-mono">ID: {{ selectedMemory.id }}</span>
                   <button
+                    type="button"
                     class="hover:text-foreground transition-colors"
                     :title="$t('common.copy')"
+                    :aria-label="$t('common.copy')"
                     @click="copyToClipboard(selectedMemory.id)"
                   >
                     <FontAwesomeIcon
@@ -382,10 +387,11 @@
             class="h-48 border rounded-md p-2 bg-muted/10 shrink-0"
           >
             <div class="space-y-2">
-              <div
+              <button
                 v-for="(msg, idx) in historyMessages"
                 :key="idx"
-                class="flex items-start gap-2 p-2 rounded hover:bg-muted/50 transition-colors group cursor-pointer"
+                type="button"
+                class="flex w-full items-start gap-2 border-0 bg-transparent p-2 rounded hover:bg-muted/50 transition-colors group cursor-pointer text-left"
                 @click="toggleMessageSelection(msg)"
               >
                 <div
@@ -409,7 +415,7 @@
                     {{ msg.content?.text || (typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)) }}
                   </p>
                 </div>
-              </div>
+              </button>
             </div>
           </ScrollArea>
 

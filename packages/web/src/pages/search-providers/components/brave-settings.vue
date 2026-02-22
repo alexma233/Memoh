@@ -1,19 +1,24 @@
 <template>
   <div class="space-y-4">
     <div class="space-y-2">
-      <Label>API Key</Label>
+      <Label for="brave-api-key">API Key</Label>
       <Input
+        id="brave-api-key"
         v-model="localConfig.api_key"
         type="password"
       />
     </div>
     <div class="space-y-2">
-      <Label>Base URL</Label>
-      <Input v-model="localConfig.base_url" />
+      <Label for="brave-base-url">Base URL</Label>
+      <Input
+        id="brave-base-url"
+        v-model="localConfig.base_url"
+      />
     </div>
     <div class="space-y-2">
-      <Label>Timeout (seconds)</Label>
+      <Label for="brave-timeout-seconds">Timeout (seconds)</Label>
       <Input
+        id="brave-timeout-seconds"
         v-model.number="localConfig.timeout_seconds"
         type="number"
         :min="1"

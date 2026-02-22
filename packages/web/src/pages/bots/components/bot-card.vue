@@ -1,10 +1,16 @@
 <template>
-  <Card
-    class="group relative transition-shadow"
-    :class="isPending ? 'opacity-80 cursor-not-allowed' : 'hover:shadow-md cursor-pointer'"
+  <button
+    type="button"
+    class="w-full rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
+    :disabled="isPending"
+    :aria-label="cardAriaLabel"
     @click="onOpenDetail"
   >
-    <CardHeader class="flex flex-row items-start gap-3 space-y-0 pb-2">
+    <Card
+      class="group relative transition-shadow"
+      :class="isPending ? 'opacity-80' : 'hover:shadow-md cursor-pointer'"
+    >
+      <CardHeader class="flex flex-row items-start gap-3 space-y-0 pb-2">
       <Avatar class="size-11 shrink-0">
         <AvatarImage
           v-if="bot.avatar_url"
@@ -49,8 +55,9 @@
           </span>
         </div>
       </div>
-    </CardHeader>
-  </Card>
+      </CardHeader>
+    </Card>
+  </button>
 </template>
 
 <script setup lang="ts">
@@ -107,6 +114,8 @@ const statusLabel = computed(() => {
   if (hasIssue.value) return issueTitle.value
   return props.bot.is_active ? t('bots.active') : t('bots.inactive')
 })
+
+const cardAriaLabel = computed(() => `Open bot ${props.bot.display_name || props.bot.id}`)
 
 const botTypeLabel = computed(() => {
   const type = props.bot.type

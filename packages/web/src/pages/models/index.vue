@@ -93,6 +93,7 @@ const openStatus = reactive({
               <InputGroupAddon
                 align="inline-end"
                 class="cursor-pointer"
+                :aria-label="$t('models.searchPlaceholder')"
                 @click="searchText = searchInput"
               >
                 <FontAwesomeIcon :icon="['fas', 'magnifying-glass']" />

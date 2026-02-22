@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="messageRoot"
     class="flex gap-3 items-start"
     :class="message.role === 'user' && isSelf ? 'justify-end' : ''"
   >
@@ -175,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { Avatar, AvatarImage, AvatarFallback } from '@memoh/ui'
 import MarkdownRender, { enableKatex, enableMermaid } from 'markstream-vue'
 import ThinkingBlock from './thinking-block.vue'
@@ -238,6 +239,36 @@ const senderFallbackName = computed(() => {
 const senderFallback = computed(() => {
   const name = props.message.senderDisplayName ?? ''
   return name.slice(0, 2).toUpperCase() || '?'
+})
+
+const messageRoot = ref<HTMLElement | null>(null)
+let codeActionObserver: MutationObserver | null = null
+
+function ensureCodeActionLabels() {
+  const root = messageRoot.value
+  if (!root) return
+
+  root.querySelectorAll<HTMLButtonElement>('.code-block-header .code-action-btn').forEach((button) => {
+    if (!button.getAttribute('aria-label')?.trim()) {
+      const fallback = button.getAttribute('title')?.trim() || button.textContent?.trim() || 'Code action'
+      button.setAttribute('aria-label', fallback)
+    }
+  })
+}
+
+onMounted(() => {
+  nextTick(ensureCodeActionLabels)
+
+  if (typeof MutationObserver === 'undefined' || !messageRoot.value) return
+  codeActionObserver = new MutationObserver(() => {
+    ensureCodeActionLabels()
+  })
+  codeActionObserver.observe(messageRoot.value, { childList: true, subtree: true })
+})
+
+onUnmounted(() => {
+  codeActionObserver?.disconnect()
+  codeActionObserver = null
 })
 
 function cleanUserText(content?: string): string {

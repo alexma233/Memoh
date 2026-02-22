@@ -27,9 +27,15 @@
             name="display_name"
           >
             <FormItem>
-              <Label class="mb-2">{{ $t('bots.displayName') }}</Label>
+              <Label
+                for="create-bot-display-name"
+                class="mb-2"
+              >
+                {{ $t('bots.displayName') }}
+              </Label>
               <FormControl>
                 <Input
+                  id="create-bot-display-name"
                   type="text"
                   :placeholder="$t('bots.displayNamePlaceholder')"
                   v-bind="componentField"
@@ -44,12 +50,16 @@
             name="avatar_url"
           >
             <FormItem>
-              <Label class="mb-2">
+              <Label
+                for="create-bot-avatar-url"
+                class="mb-2"
+              >
                 {{ $t('bots.avatarUrl') }}
                 <span class="text-muted-foreground text-xs ml-1">({{ $t('common.optional') }})</span>
               </Label>
               <FormControl>
                 <Input
+                  id="create-bot-avatar-url"
                   type="text"
                   :placeholder="$t('bots.avatarUrlPlaceholder')"
                   v-bind="componentField"
@@ -64,12 +74,18 @@
             name="type"
           >
             <FormItem>
-              <Label class="mb-2">
+              <Label
+                for="create-bot-type"
+                class="mb-2"
+              >
                 {{ $t('common.type') }}
               </Label>
               <FormControl>
                 <Select v-bind="componentField">
-                  <SelectTrigger class="w-full">
+                  <SelectTrigger
+                    id="create-bot-type"
+                    class="w-full"
+                  >
                     <SelectValue :placeholder="$t('bots.typePlaceholder')" />
                   </SelectTrigger>
                   <SelectContent>

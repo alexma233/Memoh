@@ -8,11 +8,13 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div
+  <header
     data-slot="sidebar-header"
     data-sidebar="header"
+    role="region"
+    aria-label="Sidebar header"
     :class="cn('flex flex-col gap-2 p-2', props.class)"
   >
     <slot />
-  </div>
+  </header>
 </template>
