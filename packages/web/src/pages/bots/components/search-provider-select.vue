@@ -2,6 +2,11 @@
   <Popover v-model:open="open">
     <PopoverTrigger as-child>
       <Button
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        :aria-controls="listboxId"
+        :aria-label="placeholder || $t('searchProvider.provider')"
         variant="outline"
         :aria-expanded="open"
         class="w-full justify-between font-normal"
@@ -47,68 +52,78 @@
       <!-- Provider list -->
       <ScrollArea class="max-h-64">
         <div
-          v-if="filteredProviders.length === 0 && !searchTerm"
-          class="py-6 text-center text-sm text-muted-foreground"
+          :id="listboxId"
+          role="listbox"
+          :aria-label="$t('searchProvider.provider')"
         >
-          {{ $t('searchProvider.empty') }}
-        </div>
-        <div
-          v-else-if="filteredProviders.length === 0"
-          class="py-6 text-center text-sm text-muted-foreground"
-        >
-          {{ $t('searchProvider.empty') }}
-        </div>
-
-        <div class="p-1">
-          <!-- None option -->
-          <button
-            type="button"
-            class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-            :class="{ 'bg-accent': !selected }"
-            @click="selectProvider('')"
+          <div
+            v-if="filteredProviders.length === 0 && !searchTerm"
+            class="py-6 text-center text-sm text-muted-foreground"
           >
-            <FontAwesomeIcon
-              v-if="!selected"
-              :icon="['fas', 'check']"
-              class="size-3.5"
-            />
-            <span
-              v-else
-              class="size-3.5"
-            />
-            <span class="text-muted-foreground">{{ $t('common.none') }}</span>
-          </button>
-
-          <!-- Provider items -->
-          <button
-            v-for="item in filteredProviders"
-            :key="item.id"
-            type="button"
-            class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-            :class="{ 'bg-accent': selected === item.id }"
-            @click="selectProvider(item.id || '')"
+            {{ $t('searchProvider.empty') }}
+          </div>
+          <div
+            v-else-if="filteredProviders.length === 0"
+            class="py-6 text-center text-sm text-muted-foreground"
           >
-            <FontAwesomeIcon
-              v-if="selected === item.id"
-              :icon="['fas', 'check']"
-              class="size-3.5"
-            />
-            <span
-              v-else
-              class="size-3.5"
-            />
-            <SearchProviderLogo
-              :provider="item.provider || ''"
-              size="xs"
-            />
-            <span class="truncate">{{ item.name || item.id }}</span>
-            <span
-              v-if="item.provider"
-              class="ml-auto text-xs text-muted-foreground"
+            {{ $t('searchProvider.empty') }}
+          </div>
+
+          <div class="p-1">
+            <!-- None option -->
+            <button
+              type="button"
+              role="option"
+              :aria-selected="!selected"
+              class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+              :class="{ 'bg-accent': !selected }"
+              @click="selectProvider('')"
             >
-              {{ item.provider }}
-            </span>
-          </button>
+              <FontAwesomeIcon
+                v-if="!selected"
+                :icon="['fas', 'check']"
+                class="size-3.5"
+              />
+              <span
+                v-else
+                class="size-3.5"
+              />
+              <span class="text-muted-foreground">{{ $t('common.none') }}</span>
+            </button>
+
+            <!-- Provider items -->
+            <button
+              v-for="item in filteredProviders"
+              :key="item.id"
+              type="button"
+              role="option"
+              :aria-selected="selected === item.id"
+              class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+              :class="{ 'bg-accent': selected === item.id }"
+              @click="selectProvider(item.id || '')"
+            >
+              <FontAwesomeIcon
+                v-if="selected === item.id"
+                :icon="['fas', 'check']"
+                class="size-3.5"
+              />
+              <span
+                v-else
+                class="size-3.5"
+              />
+              <SearchProviderLogo
+                :provider="item.provider || ''"
+                size="xs"
+              />
+              <span class="truncate">{{ item.name || item.id }}</span>
+              <span
+                v-if="item.provider"
+                class="ml-auto text-xs text-muted-foreground"
+              >
+                {{ item.provider }}
+              </span>
+            </button>
+          </div>
         </div>
       </ScrollArea>
     </PopoverContent>
@@ -136,6 +151,7 @@ const selected = defineModel<string>({ default: '' })
 const searchTerm = ref('')
 const open = ref(false)
 const searchInputId = 'bot-search-provider-input'
+const listboxId = 'bot-search-provider-listbox'
 
 // 打开时清空搜索
 watch(open, (val) => {

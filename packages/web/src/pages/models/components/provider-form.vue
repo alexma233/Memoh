@@ -92,11 +92,11 @@
           @confirm="$emit('delete')"
         >
           <template #trigger>
-          <Button
-            type="button"
-            variant="outline"
-            aria-label="Delete provider"
-          >
+            <Button
+              type="button"
+              variant="outline"
+              aria-label="Delete provider"
+            >
               <FontAwesomeIcon :icon="['far', 'trash-can']" />
             </Button>
           </template>

@@ -5,7 +5,10 @@
         :model-value="language"
         @update:model-value="(v) => v && setLanguage(v as Locale)"
       >
-        <SelectTrigger class="w-28 h-9">
+        <SelectTrigger
+          class="w-28 h-9"
+          :aria-label="$t('settings.language')"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

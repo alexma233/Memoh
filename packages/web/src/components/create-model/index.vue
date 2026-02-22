@@ -23,12 +23,18 @@
               name="type"
             >
               <FormItem>
-                <Label class="mb-2">
+                <Label
+                  for="create-model-type"
+                  class="mb-2"
+                >
                   {{ $t('common.type') }}
                 </Label>
                 <FormControl>
                   <Select v-bind="componentField">
-                    <SelectTrigger class="w-full">
+                    <SelectTrigger
+                      id="create-model-type"
+                      class="w-full"
+                    >
                       <SelectValue :placeholder="$t('common.typePlaceholder')" />
                     </SelectTrigger>
                     <SelectContent>
@@ -48,14 +54,22 @@
 
             <!-- Client Type (chat only) -->
             <div v-if="selectedType === 'chat'">
-              <Label class="mb-2">
+              <Label
+                for="create-model-client-type"
+                class="mb-2"
+              >
                 {{ $t('models.clientType') }}
               </Label>
               <Popover v-model:open="clientTypeOpen">
                 <PopoverTrigger as-child>
                   <Button
+                    id="create-model-client-type"
+                    type="button"
+                    role="combobox"
                     variant="outline"
                     :aria-expanded="clientTypeOpen"
+                    aria-haspopup="listbox"
+                    aria-controls="create-model-client-type-listbox"
                     class="w-full justify-between font-normal mt-2"
                   >
                     <span class="truncate">
@@ -71,26 +85,34 @@
                   class="w-[--reka-popover-trigger-width] p-1"
                   align="start"
                 >
-                  <button
-                    v-for="ct in CLIENT_TYPE_LIST"
-                    :key="ct.value"
-                    type="button"
-                    class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-                    :class="{ 'bg-accent': form.values.client_type === ct.value }"
-                    @click="selectClientType(ct.value)"
+                  <div
+                    id="create-model-client-type-listbox"
+                    role="listbox"
+                    :aria-label="$t('models.clientType')"
                   >
-                    <FontAwesomeIcon
-                      v-if="form.values.client_type === ct.value"
-                      :icon="['fas', 'check']"
-                      class="size-3.5"
-                    />
-                    <span
-                      v-else
-                      class="size-3.5"
-                    />
-                    <span class="truncate">{{ ct.label }}</span>
-                    <span class="ml-auto text-xs text-muted-foreground">{{ ct.hint }}</span>
-                  </button>
+                    <button
+                      v-for="ct in CLIENT_TYPE_LIST"
+                      :key="ct.value"
+                      type="button"
+                      role="option"
+                      :aria-selected="form.values.client_type === ct.value"
+                      class="relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                      :class="{ 'bg-accent': form.values.client_type === ct.value }"
+                      @click="selectClientType(ct.value)"
+                    >
+                      <FontAwesomeIcon
+                        v-if="form.values.client_type === ct.value"
+                        :icon="['fas', 'check']"
+                        class="size-3.5"
+                      />
+                      <span
+                        v-else
+                        class="size-3.5"
+                      />
+                      <span class="truncate">{{ ct.label }}</span>
+                      <span class="ml-auto text-xs text-muted-foreground">{{ ct.hint }}</span>
+                    </button>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>

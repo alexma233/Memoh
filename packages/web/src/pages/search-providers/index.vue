@@ -145,7 +145,10 @@ const openStatus = reactive({
           </SidebarContent>
           <SidebarFooter>
             <Select v-model:model-value="filterProvider">
-              <SelectTrigger class="w-full">
+              <SelectTrigger
+                class="w-full"
+                :aria-label="$t('searchProvider.provider')"
+              >
                 <SelectValue :placeholder="$t('common.typePlaceholder')" />
               </SelectTrigger>
               <SelectContent>

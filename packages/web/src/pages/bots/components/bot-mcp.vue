@@ -225,12 +225,15 @@
                     </TagsInput>
                   </div>
                   <div class="space-y-1.5">
-                    <Label>Transport</Label>
+                    <Label for="mcp-create-transport">Transport</Label>
                     <Select
                       v-model="formData.transport"
                       @update:model-value="syncFormToEditJson"
                     >
-                      <SelectTrigger class="w-full">
+                      <SelectTrigger
+                        id="mcp-create-transport"
+                        class="w-full"
+                      >
                         <SelectValue placeholder="http" />
                       </SelectTrigger>
                       <SelectContent>
@@ -423,9 +426,12 @@
                       </TagsInput>
                     </div>
                     <div class="space-y-1.5">
-                      <Label>Transport</Label>
+                      <Label for="mcp-edit-transport">Transport</Label>
                       <Select v-model="formData.transport">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger
+                          id="mcp-edit-transport"
+                          class="w-full"
+                        >
                           <SelectValue placeholder="http" />
                         </SelectTrigger>
                         <SelectContent>

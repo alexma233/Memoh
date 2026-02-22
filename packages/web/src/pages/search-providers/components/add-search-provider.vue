@@ -44,12 +44,18 @@
               name="provider"
             >
               <FormItem>
-                <Label class="mb-2">
+                <Label
+                  for="add-search-provider-type"
+                  class="mb-2"
+                >
                   {{ $t('searchProvider.provider') }}
                 </Label>
                 <FormControl>
                   <Select v-bind="componentField">
-                    <SelectTrigger class="w-full">
+                    <SelectTrigger
+                      id="add-search-provider-type"
+                      class="w-full"
+                    >
                       <SelectValue :placeholder="$t('common.typePlaceholder')" />
                     </SelectTrigger>
                     <SelectContent>
